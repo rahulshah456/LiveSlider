@@ -2,4 +2,7 @@
 <resources>
     <color name="color_accent">#30d9de</color>
     <color name="color_divider">#56FFFFFF</color>
+
+    <color name="white_mod">#FFFFFF</color>
+    <color name="material_light">#B2B2B3</color>
 </resources>

@@ -15,10 +15,10 @@
     </style>
 
     <style name="TitleTextAppearance" parent="TextAppearance.Widget.AppCompat.Toolbar.Title">
-        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:fontFamily">@font/montserrat</item>
     </style>
 
     <style name="TabTextAppearance" parent="TextAppearance.Design.Tab">
-        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:fontFamily">@font/montserrat</item>
     </style>
 </resources>

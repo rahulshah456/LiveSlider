@@ -2,7 +2,7 @@
 <resources>
 
     <string name="app_name">Beleco Live Wallpaper</string>
-    <string name="app_setting_title" translatable="false">Beleco</string>
+    <string name="app_setting_title" translatable="false">Parallax Live Wallpaper</string>
 
     <string name="toast_sensor_error">Sorry! This device does not support Rotation Vector Sensor.</string>
     <string name="toast_invalid_pic_path">Invalid picture path!</string>
@@ -36,16 +36,18 @@
     <string name="introduction1">Welcome!</string>
     <string name="introduction2">
         <![CDATA[
-            Beleco Live Wallpaper can produce a parallax effect by slightly offsetting the position of the wallpaper.<br>
+            This Live Wallpaper can produce a parallax effect by slightly offsetting the position of the wallpaper.<br>
             *It is required to obtain the device\'s rotation angle data from <b>Rotation Vector Sensor</b> in real time. You can check whether your device supports the sensor by rotating the device and seeing whether the cube below changes its perspective.
         ]]>
     </string>
-    <string name="picture">PICTURE</string>
+    <string name="picture">Picture</string>
     <string name="picture_default">Default</string>
     <string name="picture_custom">Custom</string>
-    <string name="range">RANGE</string>
-    <string name="delay">SPEED</string>
+    <string name="range">Range</string>
+    <string name="delay">Speed</string>
     <string name="scroll">Wallpaper scrolling</string>
     <string name="power_save">Pause in battery saver mode</string>
-    <string name="activate">ACTIVATE</string>
+    <string name="activate">Activate</string>
+    <string name="wallpapers_slideshow">Wallpapers Slideshow</string>
+    <string name="settings_preview">Settings Preview</string>
 </resources>

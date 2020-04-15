@@ -1,55 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
-              xmlns:tools="http://schemas.android.com/tools"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              tools:context=".MainActivity">
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_preview"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:fontFamily="@font/montserrat"
+            android:layout_centerInParent="true"
+            app:titleTextAppearance="@style/TitleTextAppearance"/>
+
+    </RelativeLayout>
+
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:title="@string/app_setting_title"
-        app:titleTextAppearance="@style/TitleTextAppearance"/>
+        android:layout_gravity="center_vertical">
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <ScrollView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical">
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/introduction"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/divider_vertical_margin"
+                android:layout_marginLeft="@dimen/introduction_horizontal_margin"
+                android:layout_marginRight="@dimen/introduction_horizontal_margin"
+                android:text="@string/introduction2"
+                android:fontFamily="@font/montserrat" />
+
+            <com.mylaputa.beleco.live_wallpaper.Cube
+                android:id="@+id/cube"
+                android:layout_width="@dimen/cube_size"
+                android:layout_height="@dimen/cube_size"
+                android:layout_gravity="center_horizontal"
+                android:layout_margin="@dimen/cube_margin" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="@dimen/divider_vertical_margin"
+                android:layout_marginBottom="@dimen/divider_vertical_margin"
+                android:background="@color/color_divider" />
+
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/introduction"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginLeft="@dimen/introduction_horizontal_margin"
-                    android:layout_marginRight="@dimen/introduction_horizontal_margin"
-                    android:fontFamily="sans-serif-condensed"/>
-
-                <com.mylaputa.beleco.Cube
-                    android:id="@+id/cube"
-                    android:layout_width="@dimen/cube_size"
-                    android:layout_height="@dimen/cube_size"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_margin="@dimen/cube_margin"/>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginBottom="@dimen/divider_vertical_margin"
-                    android:layout_marginTop="@dimen/divider_vertical_margin"
-                    android:background="@color/color_divider"/>
-
+                <!--Sensor SeekBar Settings-->
                 <TableLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -65,40 +81,9 @@
                             android:layout_height="@dimen/settings_item_height"
                             android:layout_gravity="end"
                             android:gravity="center_vertical"
-                            android:text="@string/picture"
-                            android:textStyle="bold"/>
-
-                        <com.google.android.material.tabs.TabLayout
-                            android:id="@+id/tabLayoutPictureChoose"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            app:tabBackground="?selectableItemBackgroundBorderless"
-                            app:tabIndicatorColor="@android:color/transparent"
-                            app:tabSelectedTextColor="@color/color_accent"
-                            app:tabTextAppearance="@style/TabTextAppearance">
-
-                            <com.google.android.material.tabs.TabItem
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/picture_default"/>
-
-                            <com.google.android.material.tabs.TabItem
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/picture_custom"/>
-                        </com.google.android.material.tabs.TabLayout>
-
-                    </TableRow>
-
-                    <TableRow>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="@dimen/settings_item_height"
-                            android:layout_gravity="end"
-                            android:gravity="center_vertical"
                             android:text="@string/range"
-                            android:textStyle="bold"/>
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
 
                         <SeekBar
                             android:id="@+id/seekBarRange"
@@ -107,7 +92,8 @@
                             android:max="20"
                             android:maxHeight="@dimen/settings_item_height"
                             android:minHeight="@dimen/settings_item_height"
-                            android:progress="10"/>
+                            android:progress="10" />
+
                     </TableRow>
 
                     <TableRow>
@@ -118,7 +104,8 @@
                             android:layout_gravity="end"
                             android:gravity="center_vertical"
                             android:text="@string/delay"
-                            android:textStyle="bold"/>
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
 
                         <SeekBar
                             android:id="@+id/seekBarDelay"
@@ -127,29 +114,411 @@
                             android:max="20"
                             android:maxHeight="@dimen/settings_item_height"
                             android:minHeight="@dimen/settings_item_height"
-                            android:progress="10"/>
+                            android:progress="10" />
                     </TableRow>
 
-                    <CheckBox
-                        android:id="@+id/checkBoxScroll"
-                        android:layout_width="wrap_content"
-                        android:layout_height="@dimen/settings_item_height"
-                        android:checked="true"
-                        android:fontFamily="sans-serif-light"
-                        android:gravity="center_vertical"
-                        android:text="@string/scroll"/>
-
-                    <CheckBox
-                        android:id="@+id/checkBoxPower"
-                        android:layout_width="wrap_content"
-                        android:layout_height="@dimen/settings_item_height"
-                        android:checked="true"
-                        android:fontFamily="sans-serif-light"
-                        android:gravity="center_vertical"
-                        android:text="@string/power_save"
-                        android:visibility="gone"/>
                 </TableLayout>
+
+                <!--View Separator-->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="@dimen/divider_vertical_margin"
+                    android:layout_marginBottom="@dimen/divider_vertical_margin"
+                    android:background="@color/color_divider" />
+
+
+                <!--Actual Live Wallpaper Settings-->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card1ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:animateLayoutChanges="true"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardElevation="0dp"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="18dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/scroll_24dp"/>
+
+                        <RelativeLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_marginStart="80dp"
+                            android:layout_centerInParent="true">
+
+
+                            <TextView
+                                android:id="@+id/scrollingTextID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Wallpaper Scrolling"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/white_mod" />
+
+                            <TextView
+                                android:id="@+id/scrolling_intro"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@+id/scrollingTextID"
+                                android:textSize="12sp"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/material_light"
+                                android:text="Enable to get scroll effect" />
+
+                            <Switch
+                                android:id="@+id/switch1ID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true"
+                                android:shadowColor="@color/white_mod"
+                                android:clickable="false"
+                                android:layout_marginEnd="25dp" />
+                        </RelativeLayout>
+
+
+                    </RelativeLayout>
+
+                </androidx.cardview.widget.CardView>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card2ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:animateLayoutChanges="true"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardElevation="0dp"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="18dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/slideshow_24dp"/>
+
+                        <RelativeLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_marginStart="80dp"
+                            android:layout_centerInParent="true">
+
+
+                            <TextView
+                                android:id="@+id/slideshowTextID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Wallpaper Slideshow"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/white_mod" />
+
+                            <TextView
+                                android:id="@+id/slideshow_intro"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@+id/slideshowTextID"
+                                android:textSize="12sp"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/material_light"
+                                android:text="Wallpaper changes after some time" />
+
+                            <Switch
+                                android:id="@+id/switch2ID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true"
+                                android:shadowColor="@color/white_mod"
+                                android:clickable="false"
+                                android:layout_marginEnd="25dp" />
+                        </RelativeLayout>
+
+
+                    </RelativeLayout>
+
+                </androidx.cardview.widget.CardView>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card3ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:animateLayoutChanges="true"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardElevation="0dp"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="18dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/clock_icon"/>
+
+                        <RelativeLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_marginStart="80dp"
+                            android:layout_centerInParent="true">
+
+
+                            <TextView
+                                android:id="@+id/intervalTextID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Slideshow Time Interval"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/white_mod" />
+
+                            <TextView
+                                android:id="@+id/interval_intro"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@+id/intervalTextID"
+                                android:textSize="12sp"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/material_light"
+                                android:text="15 Minutes (Default)" />
+
+                        </RelativeLayout>
+
+
+                    </RelativeLayout>
+
+                </androidx.cardview.widget.CardView>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card4ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:animateLayoutChanges="true"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardElevation="0dp"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="18dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/double_tap_24dp"/>
+
+                        <RelativeLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_marginStart="80dp"
+                            android:layout_centerInParent="true">
+
+
+                            <TextView
+                                android:id="@+id/tapTextID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Double Tap Wallpaper"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/white_mod" />
+
+                            <TextView
+                                android:id="@+id/tap_intro"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@+id/tapTextID"
+                                android:textSize="12sp"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/material_light"
+                                android:text="Change current wallpaper" />
+
+                            <Switch
+                                android:id="@+id/switch3ID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true"
+                                android:shadowColor="@color/white_mod"
+                                android:clickable="false"
+                                android:layout_marginEnd="25dp" />
+                        </RelativeLayout>
+
+
+                    </RelativeLayout>
+
+                </androidx.cardview.widget.CardView>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card5ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:animateLayoutChanges="true"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardElevation="0dp"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="18dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/battery_24dp"/>
+
+                        <RelativeLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_marginStart="80dp"
+                            android:layout_centerInParent="true">
+
+
+                            <TextView
+                                android:id="@+id/powerTextID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Power Saver Mode"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/white_mod" />
+
+                            <TextView
+                                android:id="@+id/power_intro"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@+id/powerTextID"
+                                android:textSize="12sp"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/material_light"
+                                android:text="Pause everything in battery saver mode" />
+
+                            <Switch
+                                android:id="@+id/switch4ID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true"
+                                android:shadowColor="@color/white_mod"
+                                android:clickable="false"
+                                android:layout_marginEnd="25dp" />
+                        </RelativeLayout>
+
+
+                    </RelativeLayout>
+
+                </androidx.cardview.widget.CardView>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card6ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:animateLayoutChanges="true"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardElevation="0dp"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="18dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/selections"/>
+
+                        <RelativeLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_marginStart="80dp"
+                            android:layout_centerInParent="true">
+
+
+                            <TextView
+                                android:id="@+id/selectionsTextID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Selected Wallpapers"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/white_mod" />
+
+                            <TextView
+                                android:id="@+id/selections_intro"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@+id/selectionsTextID"
+                                android:textSize="12sp"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/material_light"
+                                android:text="Click to change wallpapers list" />
+
+                            <TextView
+                                android:id="@+id/selections_count"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_centerInParent="true"
+                                android:layout_alignParentEnd="true"
+                                android:text="001"
+                                android:fontFamily="@font/montserrat"
+                                android:textStyle="bold"
+                                android:textSize="18sp"
+                                android:layout_marginEnd="32dp"/>
+
+                        </RelativeLayout>
+
+
+                    </RelativeLayout>
+
+                </androidx.cardview.widget.CardView>
+
             </LinearLayout>
-        </ScrollView>
-    </FrameLayout>
+
+
+        </LinearLayout>
+
+    </ScrollView>
+
 </LinearLayout>

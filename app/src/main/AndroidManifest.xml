@@ -19,7 +19,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <service
-            android:name=".LiveWallpaperService"
+            android:name=".live_wallpaper.LiveWallpaperService"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
@@ -40,6 +40,9 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <meta-data
+            android:name="preloaded_fonts"
+            android:resource="@array/preloaded_fonts" />
 
     </application>
 

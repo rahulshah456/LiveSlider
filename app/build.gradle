@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion 29
     buildToolsVersion "28.0.3"
 
     defaultConfig {
         applicationId "com.mylaputa.beleco"
-        minSdkVersion 16
-        targetSdkVersion 28
+        minSdkVersion 21
+        targetSdkVersion 29
         versionCode 6
         versionName "1.1"
     }
@@ -17,14 +17,21 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     testImplementation 'junit:junit:4.12'
-    implementation 'androidx.appcompat:appcompat:1.1.0-rc01'
+    implementation 'androidx.appcompat:appcompat:1.2.0-beta01'
     implementation 'org.apache.commons:commons-collections4:4.3'
-    implementation 'androidx.recyclerview:recyclerview:1.1.0-beta02'
-    implementation 'org.greenrobot:eventbus:3.1.1'
-    implementation 'com.google.android.material:material:1.1.0-alpha09'
+    implementation 'androidx.recyclerview:recyclerview:1.2.0-alpha02'
+    implementation 'org.greenrobot:eventbus:3.2.0'
+    implementation 'com.google.android.material:material:1.2.0-alpha06'
+
+    implementation 'android.arch.persistence.room:runtime:1.1.1'
+    annotationProcessor 'android.arch.persistence.room:compiler:1.1.1'
 }
