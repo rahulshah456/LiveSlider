@@ -1,12 +1,14 @@
-package com.mylaputa.beleco;
+package com.mylaputa.beleco.views.activities;
 
 import android.app.WallpaperManager;
 import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import com.mylaputa.beleco.fragments.ActivateFragment;
-import com.mylaputa.beleco.fragments.LiveWallpaperSettingsFragment;
+
+import com.mylaputa.beleco.R;
+import com.mylaputa.beleco.views.fragments.ActivateFragment;
+import com.mylaputa.beleco.views.fragments.LiveWallpaperSettingsFragment;
 
 
 public class MainActivity extends AppCompatActivity {

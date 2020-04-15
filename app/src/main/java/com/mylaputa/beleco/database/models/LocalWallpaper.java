@@ -13,9 +13,9 @@ public class LocalWallpaper implements Serializable {
     private int id;
     private int playlistId;
     private String name;
-    private Uri originalPath;
+    private String originalPath;
 
-    public LocalWallpaper(int id, int playlistId, String name, Uri originalPath) {
+    public LocalWallpaper(int id, int playlistId, String name, String originalPath) {
         this.id = id;
         this.playlistId = playlistId;
         this.name = name;
@@ -46,11 +46,11 @@ public class LocalWallpaper implements Serializable {
         this.name = name;
     }
 
-    public Uri getOriginalPath() {
+    public String getOriginalPath() {
         return originalPath;
     }
 
-    public void setOriginalPath(Uri originalPath) {
+    public void setOriginalPath(String originalPath) {
         this.originalPath = originalPath;
     }
 

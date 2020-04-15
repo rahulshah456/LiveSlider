@@ -1,5 +1,6 @@
 package com.mylaputa.beleco.live_wallpaper;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,6 +13,7 @@ import android.os.Handler;
 import android.os.PowerManager;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 
@@ -29,8 +31,9 @@ public class LiveWallpaperService extends GLWallpaperService {
         return new MyEngine();
     }
 
-    private class MyEngine extends GLEngine implements LiveWallpaperRenderer.Callbacks,
+    class MyEngine extends GLEngine implements LiveWallpaperRenderer.Callbacks,
             SharedPreferences.OnSharedPreferenceChangeListener, RotationSensor.Callback {
+
         private SharedPreferences preference;
         private SharedPreferences.Editor editor;
         private LiveWallpaperRenderer renderer;
@@ -38,12 +41,15 @@ public class LiveWallpaperService extends GLWallpaperService {
         private BroadcastReceiver powerSaverChangeReceiver;
         private boolean pauseInSavePowerMode = false;
         private boolean savePowerMode = false;
+        private boolean allowClickToChange = false;
 
         // time related parameters
         private long TIME_SECOND = 1000;
         private long timer = 30 * TIME_SECOND;
         private long timeStarted = 0;
         private int mImagesArrayIndex = 0;
+
+        private GestureDetector doubleTapDetector;
 
         // Runnable Threads
         private final Handler handler = new Handler();
@@ -55,17 +61,18 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
         };
 
+
         @Override
+        @SuppressLint("CommitPrefEdits")
         public void onCreate(SurfaceHolder surfaceHolder) {
             super.onCreate(surfaceHolder);
             setEGLContextClientVersion(2);
             setEGLConfigChooser(8, 8, 8, 0, 0, 0);
-            renderer = new LiveWallpaperRenderer(LiveWallpaperService.this.getApplicationContext
-                    (), this);
+            renderer = new LiveWallpaperRenderer(LiveWallpaperService.this.getApplicationContext(), this);
             setRenderer(renderer);
             setRenderMode(RENDERMODE_WHEN_DIRTY);
-            rotationSensor = new RotationSensor(LiveWallpaperService.this.getApplicationContext()
-                    , this, SENSOR_RATE);
+            rotationSensor = new RotationSensor(LiveWallpaperService.this.getApplicationContext(),
+                    this, SENSOR_RATE);
             preference = PreferenceManager.getDefaultSharedPreferences(LiveWallpaperService.this);
             preference.registerOnSharedPreferenceChangeListener(this);
             editor = preference.edit();
@@ -75,11 +82,13 @@ public class LiveWallpaperService extends GLWallpaperService {
             renderer.setIsDefaultWallpaper(preference.getInt("default_picture", 0) == 0);
             renderer.setCurrentWallpaper(preference.getString("current_wallpaper", Constant.DEFAULT));
             setPowerSaverEnabled(preference.getBoolean("power_saver", true));
+            setAllowClickToChange(preference.getBoolean("double_tap",false));
 
-            /*
-             * This is how it animates. After drawing a frame, ask it to draw another
-             * one.
-             */
+            setTouchEventsEnabled(true);
+            doubleTapDetector = new GestureDetector(getApplicationContext(),
+                    new DoubleTapGestureListener(this));
+
+            // Activate wallpapers Slideshow
             handler.removeCallbacks(slideshow);
             if (isVisible()){
                 handler.postDelayed(slideshow, timer);
@@ -145,6 +154,10 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
         }
 
+        @Override
+        public void onTouchEvent(MotionEvent event) {
+            this.doubleTapDetector.onTouchEvent(event);
+        }
 
         void setPowerSaverEnabled(boolean enabled) {
             if (pauseInSavePowerMode == enabled) return;
@@ -185,6 +198,15 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
         }
 
+        void setAllowClickToChange(boolean enabled){
+            if (allowClickToChange == enabled) return;
+            allowClickToChange = enabled;
+        }
+
+        boolean allowClickToChange() {
+            return allowClickToChange;
+        }
+
         // Functions for wallpapers slideshow
         void incrementWallpaper(){
             // TODO - Change max Index size based on local images too
@@ -194,7 +216,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
             Log.d(TAG, "incrementCounter: " + mImagesArrayIndex);
         }
-        private void changeWallpaper(){
+        void changeWallpaper(){
             String wallpaper = "wallpaper_" + mImagesArrayIndex + ".jpg";
             editor.putString("current_wallpaper", wallpaper);
             editor.apply();
@@ -248,6 +270,8 @@ public class LiveWallpaperService extends GLWallpaperService {
                     break;
                 case "interval":
                     break;
+                case "double_tap":
+                    setAllowClickToChange(preference.getBoolean("double_tap",false));
             }
         }
 

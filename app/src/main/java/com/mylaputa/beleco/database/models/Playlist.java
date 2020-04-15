@@ -14,6 +14,7 @@ import java.util.Date;
 public class Playlist implements Serializable {
 
     @PrimaryKey
+    @NonNull
     private String playlistId;
     private int name;
     private int description;

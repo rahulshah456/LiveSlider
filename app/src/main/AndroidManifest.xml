@@ -32,7 +32,7 @@
         </service>
 
         <activity
-            android:name=".MainActivity"
+            android:name=".views.activities.MainActivity"
             android:launchMode="singleTop"
             android:theme="@style/AppTheme.MainActivity">
             <intent-filter>

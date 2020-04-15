@@ -15,7 +15,7 @@ public class PlaylistRepository {
     private LiveData<List<Playlist>> mAllPlaylists;
 
 
-    PlaylistRepository(Context context) {
+    public PlaylistRepository(Context context) {
         LiveWallpaperDatabase database = LiveWallpaperDatabase.getDatabase(context);
         mPlaylistDao = database.playlistDao();
         mAllPlaylists = mPlaylistDao.getAllPlaylists();
@@ -24,28 +24,28 @@ public class PlaylistRepository {
 
     // Room executes all queries on a separate thread.
     // Observed LiveData will notify the observer when the data has changed.
-    LiveData<List<Playlist>> getAllPlaylists(String playlistId){
+    public LiveData<List<Playlist>> getAllPlaylists(String playlistId){
         return mAllPlaylists;
     }
 
 
     // You must call this on a non-UI thread or your app will throw an exception. Room ensures
     // that you're not doing any long running operations on the main thread, blocking the UI.
-    void insert(Playlist playlist) {
+    public void insert(Playlist playlist) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mPlaylistDao.insertPlaylist(playlist);
         });
     }
 
 
-    void delete(Playlist playlist) {
+    public void delete(Playlist playlist) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mPlaylistDao.deletePlaylist(playlist);
         });
     }
 
 
-    void update(Playlist playlist) {
+    public void update(Playlist playlist) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mPlaylistDao.updatePlaylist(playlist);
         });

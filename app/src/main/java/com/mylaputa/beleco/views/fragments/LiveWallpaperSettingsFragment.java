@@ -1,4 +1,4 @@
-package com.mylaputa.beleco.fragments;
+package com.mylaputa.beleco.views.fragments;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -28,6 +28,8 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.mylaputa.beleco.database.models.Playlist;
+import com.mylaputa.beleco.database.repository.PlaylistRepository;
 import com.mylaputa.beleco.live_wallpaper.Cube;
 import com.mylaputa.beleco.live_wallpaper.LiveWallpaperRenderer;
 import com.mylaputa.beleco.R;
@@ -250,11 +252,6 @@ public class LiveWallpaperSettingsFragment extends Fragment {
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 startActivityForResult(intent, REQUEST_CHOOSE_PHOTOS);
 
-//                Intent intent = new Intent();
-//                intent.setType("image/*");
-//                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-//                intent.setAction(Intent.ACTION_GET_CONTENT);
-//                startActivityForResult(Intent.createChooser(intent,"Select Wallpapers"), REQUEST_CHOOSE_PHOTOS);
             }
         });
 
@@ -309,6 +306,12 @@ public class LiveWallpaperSettingsFragment extends Fragment {
                 if (in != null) {
                     try {
                         if (getActivity() != null) {
+
+                            PlaylistRepository repository = new PlaylistRepository(getContext());
+
+                            String playlistId = String.valueOf(System.currentTimeMillis());
+//                            Playlist playlist = new Playlist()
+//                            repository.insert();
 
                             String wallpaper_name = Constant.HEADER + System.currentTimeMillis();
 

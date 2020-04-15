@@ -1,6 +1,7 @@
 package com.mylaputa.beleco.database.dao;
 
 import androidx.lifecycle.LiveData;
+import androidx.room.Dao;
 import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.Query;
@@ -8,6 +9,7 @@ import androidx.room.Update;
 import com.mylaputa.beleco.database.models.Playlist;
 import java.util.List;
 
+@Dao
 public interface PlaylistDao {
 
     @Insert()

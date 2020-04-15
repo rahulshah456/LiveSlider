@@ -1,6 +1,7 @@
 package com.mylaputa.beleco.database.dao;
 
 import androidx.lifecycle.LiveData;
+import androidx.room.Dao;
 import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
@@ -8,6 +9,7 @@ import androidx.room.Query;
 import com.mylaputa.beleco.database.models.LocalWallpaper;
 import java.util.List;
 
+@Dao
 public interface WallpaperDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -17,7 +19,7 @@ public interface WallpaperDao {
     void deleteWallpaper(LocalWallpaper wallpaper);
 
     @Query("DELETE FROM localwallpaper WHERE playlistId = :key")
-    LiveData<LocalWallpaper> deletePlaylistWallpapers(String key);
+    void deletePlaylistWallpapers(String key);
 
     @Query("SELECT * FROM localwallpaper WHERE id = :key")
     LiveData<LocalWallpaper> getWallpaper(int key);

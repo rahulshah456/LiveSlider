@@ -1,4 +1,4 @@
-package com.mylaputa.beleco.fragments;
+package com.mylaputa.beleco.views.fragments;
 
 import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
