@@ -8,12 +8,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.mylaputa.beleco.R;
 import com.mylaputa.beleco.views.fragments.ActivateFragment;
-import com.mylaputa.beleco.views.fragments.SettingsFragment;
+import com.mylaputa.beleco.views.fragments.HomeFragment;
 
 
 public class MainActivity extends AppCompatActivity {
-    boolean intro;
-    WallpaperManager manager;
+    private boolean intro;
+    private WallpaperManager manager;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 getSupportFragmentManager()
                         .beginTransaction()
-                        .replace(R.id.container, new SettingsFragment())
+                        .replace(R.id.container, new HomeFragment())
                         .commit();
                 intro = false;
             }
@@ -54,12 +54,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        if (intro && manager.getWallpaperInfo() != null && manager.getWallpaperInfo().getPackageName()
-                .equals(this.getPackageName())) {
+        if (intro && manager.getWallpaperInfo() != null &&
+                manager.getWallpaperInfo().getPackageName().equals(this.getPackageName())) {
             getSupportFragmentManager()
                     .beginTransaction()
                     .setCustomAnimations(R.anim.fragment_enter, R.anim.fragment_exit)
-                    .replace(R.id.container, new SettingsFragment())
+                    .replace(R.id.container, new HomeFragment())
                     .commit();
             intro = false;
         } else if (!intro && (manager.getWallpaperInfo() == null ||

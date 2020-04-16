@@ -1,110 +1,86 @@
-package com.mylaputa.beleco.views.fragments;
+package com.mylaputa.beleco.views.activities;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.app.ProgressDialog;
-import android.content.ClipData;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import androidx.annotation.Nullable;
-
-import androidx.cardview.widget.CardView;
-import androidx.fragment.app.Fragment;
 import android.text.Html;
 import android.text.SpannableString;
-import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.mylaputa.beleco.database.models.LocalWallpaper;
-import com.mylaputa.beleco.database.models.Playlist;
-import com.mylaputa.beleco.database.repository.PlaylistRepository;
-import com.mylaputa.beleco.database.repository.WallpaperRepository;
+import com.mylaputa.beleco.R;
 import com.mylaputa.beleco.live_wallpaper.Cube;
 import com.mylaputa.beleco.live_wallpaper.LiveWallpaperRenderer;
-import com.mylaputa.beleco.R;
-import com.mylaputa.beleco.utils.Constant;
-import com.mylaputa.beleco.views.activities.ChangeWallpaperActivity;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Date;
-
 import static com.mylaputa.beleco.utils.Constant.PLAYLIST_DEFAULT;
 import static com.mylaputa.beleco.utils.Constant.PLAYLIST_SLIDESHOW;
 
-/**
- * Created by dklap on 1/22/2017.
- */
+public class SettingsActivity extends AppCompatActivity {
 
-public class SettingsFragment extends Fragment {
-
-    private static final String TAG = SettingsFragment.class.getSimpleName();
-
+    private static final String TAG = SettingsActivity.class.getSimpleName();
 
     private int oldPicture = 0;
-
     private SharedPreferences.Editor editor;
     private SharedPreferences prefs;
     private int wallpaperType = PLAYLIST_DEFAULT;
     private String currentPlaylist;
     private Cube cube;
 
-    private CardView scrollCard,slideshowCard,intervalCard,doubleTapCard,powerSaverCard,selectionsCard;
+    private CardView scrollCard,slideshowCard,intervalCard,doubleTapCard,powerSaverCard,backButton;
     private Switch scrollSwitch,slideshowSwitch,doubleTapSwitch,powerSaverSwitch;
-    private TextView selectionsCount,intervalText;
+    private TextView intervalText;
     private SeekBar seekBarRange,seekBarDelay;
 
 
-    @Nullable
-    @Override
     @SuppressLint("CommitPrefEdits")
-    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_settings, container, false);
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_settings);
+        getWindow().getDecorView().getRootView().setBackgroundColor(Color.argb(153, 35, 35, 35));
+
+        // Cube to see wallpaper parallax effect in realtime
+        cube = findViewById(R.id.cube);
 
         // View initializations
-        prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
+        prefs = PreferenceManager.getDefaultSharedPreferences(this);
         editor = prefs.edit();
-        seekBarRange = view.findViewById(R.id.seekBarRange);
-        seekBarDelay = view.findViewById(R.id.seekBarDelay);
+        seekBarRange = findViewById(R.id.seekBarRange);
+        seekBarDelay = findViewById(R.id.seekBarDelay);
+        backButton = findViewById(R.id.backButtonId);
 
         // Actual Settings Cards
-        scrollCard = view.findViewById(R.id.card1ID);
-        slideshowCard = view.findViewById(R.id.card2ID);
-        intervalCard = view.findViewById(R.id.card3ID);
-        doubleTapCard = view.findViewById(R.id.card4ID);
-        powerSaverCard = view.findViewById(R.id.card5ID);
-        selectionsCard = view.findViewById(R.id.card6ID);
+        scrollCard = findViewById(R.id.card1ID);
+        slideshowCard = findViewById(R.id.card2ID);
+        intervalCard = findViewById(R.id.card3ID);
+        doubleTapCard = findViewById(R.id.card4ID);
+        powerSaverCard = findViewById(R.id.card5ID);
 
         // Actual Settings Switches
-        scrollSwitch = view.findViewById(R.id.switch1ID);
-        slideshowSwitch = view.findViewById(R.id.switch2ID);
-        doubleTapSwitch = view.findViewById(R.id.switch3ID);
-        powerSaverSwitch = view.findViewById(R.id.switch4ID);
+        scrollSwitch = findViewById(R.id.switch1ID);
+        slideshowSwitch = findViewById(R.id.switch2ID);
+        doubleTapSwitch = findViewById(R.id.switch3ID);
+        powerSaverSwitch = findViewById(R.id.switch4ID);
 
         // Actual Settings TextViews
-        selectionsCount = view.findViewById(R.id.selections_count);
-        intervalText = view.findViewById(R.id.interval_intro);
+        intervalText = findViewById(R.id.interval_intro);
 
         // Introduction of the LiveWallpaper
-        TextView introduction = view.findViewById(R.id.introduction);
+        TextView introduction = findViewById(R.id.introduction);
         SpannableString spannableString = new SpannableString(Html.fromHtml(getResources()
                 .getString(R.string.introduction2)));
         introduction.setText(spannableString);
@@ -115,15 +91,6 @@ public class SettingsFragment extends Fragment {
         InitListeners();
         InitOnClicks();
 
-
-        // Cube to see wallpaper parallax effect in realtime
-        cube = view.findViewById(R.id.cube);
-
-        return view;
-    }
-
-    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        view.getRootView().setBackgroundColor(Color.argb(153, 35, 35, 35));
     }
 
 
@@ -212,6 +179,12 @@ public class SettingsFragment extends Fragment {
     }
     private void InitOnClicks(){
 
+        backButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onBackPressed();
+            }
+        });
         scrollCard.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -236,7 +209,7 @@ public class SettingsFragment extends Fragment {
                         doubleTapCard.setVisibility(View.GONE);
                     }
                 } else {
-                    Toast.makeText(getContext(), R.string.select_playlist,
+                    Toast.makeText(SettingsActivity.this, R.string.select_playlist,
                             Toast.LENGTH_SHORT).show();
                 }
 
@@ -246,7 +219,7 @@ public class SettingsFragment extends Fragment {
         intervalCard.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Toast.makeText(getContext(), "Work in progress!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(SettingsActivity.this, "Work in progress!", Toast.LENGTH_SHORT).show();
             }
         });
         doubleTapCard.setOnClickListener(new View.OnClickListener() {
@@ -269,27 +242,7 @@ public class SettingsFragment extends Fragment {
                 }
             }
         });
-        selectionsCard.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
 
-                Intent intent =  new Intent(getContext(), ChangeWallpaperActivity.class);
-                startActivity(intent);
-//                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-//                intent.setType("image/*");
-//                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-//                intent.addCategory(Intent.CATEGORY_OPENABLE);
-//                startActivityForResult(intent, REQUEST_CHOOSE_PHOTOS);
-
-            }
-        });
-
-    }
-
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
     }
 
 

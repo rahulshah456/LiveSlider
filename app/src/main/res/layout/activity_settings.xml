@@ -8,22 +8,70 @@
     android:orientation="vertical"
     tools:context=".views.activities.MainActivity">
 
-    <RelativeLayout
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarId"
         android:layout_width="match_parent"
+        app:elevation="0dp"
         android:layout_height="?attr/actionBarSize">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_preview"
-            android:textSize="18sp"
-            android:gravity="center"
-            android:textStyle="bold"
-            android:fontFamily="@font/montserrat"
-            android:layout_centerInParent="true"
-            app:titleTextAppearance="@style/TitleTextAppearance"/>
+        <androidx.appcompat.widget.Toolbar
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:contentInsetLeft="0dp"
+            android:contentInsetStart="0dp"
+            app:contentInsetLeft="0dp"
+            app:contentInsetStart="0dp"
+            android:contentInsetRight="0dp"
+            android:contentInsetEnd="0dp"
+            app:contentInsetRight="0dp"
+            app:contentInsetEnd="0dp"
+            app:elevation="0dp"
+            app:layout_scrollFlags="scroll|enterAlways">
 
-    </RelativeLayout>
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/backButtonId"
+                    android:layout_width="?attr/actionBarSize"
+                    app:cardCornerRadius="32dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    android:foreground="?android:selectableItemBackground"
+                    android:layout_height="match_parent"
+                    android:layout_alignParentStart="true">
+
+
+                    <ImageView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:background="@drawable/back_white_24dp" />
+
+                </androidx.cardview.widget.CardView>
+
+
+                <TextView
+                    android:id="@+id/collectionTitleId"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/change_wallpaper"
+                    android:fontFamily="@font/montserrat"
+                    android:textStyle="bold"
+                    android:layout_centerInParent="true"
+                    android:textColor="@color/material_light"
+                    android:textSize="18sp"/>
+
+
+            </RelativeLayout>
+
+
+        </androidx.appcompat.widget.Toolbar>
+
+    </com.google.android.material.appbar.AppBarLayout>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -181,6 +229,71 @@
 
                             <Switch
                                 android:id="@+id/switch1ID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true"
+                                android:shadowColor="@color/white_mod"
+                                android:clickable="false"
+                                android:layout_marginEnd="25dp" />
+                        </RelativeLayout>
+
+
+                    </RelativeLayout>
+
+                </androidx.cardview.widget.CardView>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card5ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:animateLayoutChanges="true"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardElevation="0dp"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <ImageView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_marginStart="18dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/battery_24dp"/>
+
+                        <RelativeLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_marginStart="80dp"
+                            android:layout_centerInParent="true">
+
+
+                            <TextView
+                                android:id="@+id/powerTextID"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Power Saver Mode"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/white_mod" />
+
+                            <TextView
+                                android:id="@+id/power_intro"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@+id/powerTextID"
+                                android:textSize="12sp"
+                                android:fontFamily="@font/montserrat"
+                                android:textColor="@color/material_light"
+                                android:text="Pause everything in battery saver mode" />
+
+                            <Switch
+                                android:id="@+id/switch4ID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentEnd="true"
@@ -376,139 +489,6 @@
                                 android:shadowColor="@color/white_mod"
                                 android:clickable="false"
                                 android:layout_marginEnd="25dp" />
-                        </RelativeLayout>
-
-
-                    </RelativeLayout>
-
-                </androidx.cardview.widget.CardView>
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/card5ID"
-                    android:layout_width="match_parent"
-                    android:layout_height="70dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:animateLayoutChanges="true"
-                    app:cardBackgroundColor="@android:color/transparent"
-                    app:cardElevation="0dp"
-                    android:foreground="?attr/selectableItemBackground">
-
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:layout_marginStart="18dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/battery_24dp"/>
-
-                        <RelativeLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginStart="80dp"
-                            android:layout_centerInParent="true">
-
-
-                            <TextView
-                                android:id="@+id/powerTextID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Power Saver Mode"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/white_mod" />
-
-                            <TextView
-                                android:id="@+id/power_intro"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_below="@+id/powerTextID"
-                                android:textSize="12sp"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/material_light"
-                                android:text="Pause everything in battery saver mode" />
-
-                            <Switch
-                                android:id="@+id/switch4ID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true"
-                                android:shadowColor="@color/white_mod"
-                                android:clickable="false"
-                                android:layout_marginEnd="25dp" />
-                        </RelativeLayout>
-
-
-                    </RelativeLayout>
-
-                </androidx.cardview.widget.CardView>
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/card6ID"
-                    android:layout_width="match_parent"
-                    android:layout_height="70dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:animateLayoutChanges="true"
-                    app:cardBackgroundColor="@android:color/transparent"
-                    app:cardElevation="0dp"
-                    android:foreground="?attr/selectableItemBackground">
-
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:layout_marginStart="18dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/selections"/>
-
-                        <RelativeLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginStart="80dp"
-                            android:layout_centerInParent="true">
-
-
-                            <TextView
-                                android:id="@+id/selectionsTextID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Selected Wallpapers"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/white_mod" />
-
-                            <TextView
-                                android:id="@+id/selections_intro"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_below="@+id/selectionsTextID"
-                                android:textSize="12sp"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/material_light"
-                                android:text="Click to change wallpapers list" />
-
-                            <TextView
-                                android:id="@+id/selections_count"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_centerInParent="true"
-                                android:layout_alignParentEnd="true"
-                                android:text="001"
-                                android:fontFamily="@font/montserrat"
-                                android:textStyle="bold"
-                                android:textSize="18sp"
-                                android:layout_marginEnd="32dp"/>
-
                         </RelativeLayout>
 
 

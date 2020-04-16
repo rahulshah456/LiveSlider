@@ -26,6 +26,7 @@ public class ActivateFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_activate, container, false);
+
         Button buttonActivate = view.findViewById(R.id.activate_button);
         buttonActivate.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -48,6 +49,7 @@ public class ActivateFragment extends Fragment {
                 }
             }
         });
+
         return view;
     }
 

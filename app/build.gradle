@@ -31,8 +31,11 @@ dependencies {
     implementation 'org.apache.commons:commons-collections4:4.3'
     implementation 'androidx.recyclerview:recyclerview:1.2.0-alpha02'
     implementation 'org.greenrobot:eventbus:3.2.0'
-    implementation 'com.google.android.material:material:1.2.0-alpha06'
+    implementation 'com.google.android.material:material:1.1.0'
 
     implementation 'android.arch.persistence.room:runtime:1.1.1'
     annotationProcessor 'android.arch.persistence.room:compiler:1.1.1'
+
+    implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
+    implementation "androidx.lifecycle:lifecycle-viewmodel:2.2.0"
 }

@@ -24,7 +24,7 @@ public class PlaylistRepository {
 
     // Room executes all queries on a separate thread.
     // Observed LiveData will notify the observer when the data has changed.
-    public LiveData<List<Playlist>> getAllPlaylists(String playlistId){
+    public LiveData<List<Playlist>> getAllPlaylists(){
         return mAllPlaylists;
     }
 

@@ -2,17 +2,32 @@
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
 
-    <TextView
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/singleRecyclerId"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:nestedScrollingEnabled="false"/>
+
+
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/addWallpaperId"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Single Fragment"
-        android:fontFamily="@font/montserrat"
-        android:textSize="32sp"
-        android:layout_centerInParent="true"
-        android:gravity="center"/>
+        app:fabSize="normal"
+        app:elevation="8dp"
+        app:borderWidth="0dp"
+        android:backgroundTint="@color/material_green"
+        android:layout_marginBottom="80dp"
+        android:layout_marginEnd="24dp"
+        android:layout_gravity="bottom|end"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        app:srcCompat="@drawable/add_white_24dp" />
 
 
 </RelativeLayout>
