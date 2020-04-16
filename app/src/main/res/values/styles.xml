@@ -21,4 +21,9 @@
     <style name="TabTextAppearance" parent="TextAppearance.Design.Tab">
         <item name="android:fontFamily">@font/montserrat</item>
     </style>
+
+    <style name="Montserrat_Text" parent="@android:style/TextAppearance.Widget.TabWidget">
+        <item name="android:fontFamily">@font/montserrat</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 </resources>

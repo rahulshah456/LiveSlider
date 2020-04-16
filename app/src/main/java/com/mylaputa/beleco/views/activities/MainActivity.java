@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.mylaputa.beleco.R;
 import com.mylaputa.beleco.views.fragments.ActivateFragment;
-import com.mylaputa.beleco.views.fragments.LiveWallpaperSettingsFragment;
+import com.mylaputa.beleco.views.fragments.SettingsFragment;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 getSupportFragmentManager()
                         .beginTransaction()
-                        .replace(R.id.container, new LiveWallpaperSettingsFragment())
+                        .replace(R.id.container, new SettingsFragment())
                         .commit();
                 intro = false;
             }
@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
             getSupportFragmentManager()
                     .beginTransaction()
                     .setCustomAnimations(R.anim.fragment_enter, R.anim.fragment_exit)
-                    .replace(R.id.container, new LiveWallpaperSettingsFragment())
+                    .replace(R.id.container, new SettingsFragment())
                     .commit();
             intro = false;
         } else if (!intro && (manager.getWallpaperInfo() == null ||

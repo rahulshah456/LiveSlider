@@ -1,4 +1,4 @@
-package com.mylaputa.beleco.sensor;
+package com.mylaputa.beleco.live_wallpaper;
 
 import android.content.Context;
 import android.hardware.Sensor;
@@ -9,9 +9,6 @@ import android.widget.Toast;
 
 import com.mylaputa.beleco.R;
 
-/**
- * Created by dklap on 1/25/2017.
- */
 
 public class RotationSensor implements SensorEventListener {
     private int sampleRate;
@@ -21,23 +18,25 @@ public class RotationSensor implements SensorEventListener {
     private float[] initialRotation;
     private boolean listenerRegistered = false;
 
-    public RotationSensor(Context context, Callback callback, int sampleRate) {
+    RotationSensor(Context context, Callback callback, int sampleRate) {
         this.sampleRate = sampleRate;
         this.callback = callback;
         sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
-        sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        if (sensorManager != null) {
+            sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        }
         if (sensor == null)
-            Toast.makeText(context, context.getText(R.string.toast_sensor_error), Toast
-                    .LENGTH_LONG).show();
+            Toast.makeText(context, context.getText(R.string.toast_sensor_error),
+                    Toast.LENGTH_LONG).show();
     }
 
-    public void register() {
+    void register() {
         if (listenerRegistered) return;
         sensorManager.registerListener(this, sensor, 1000000 / sampleRate);
         listenerRegistered = true;
     }
 
-    public void unregister() {
+    void unregister() {
         if (!listenerRegistered) return;
         sensorManager.unregisterListener(this);
         listenerRegistered = false;

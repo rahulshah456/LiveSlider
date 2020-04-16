@@ -16,8 +16,8 @@ public class Playlist implements Serializable {
     @PrimaryKey
     @NonNull
     private String playlistId;
-    private int name;
-    private int description;
+    private String name;
+    private String description;
 
     @ColumnInfo(name = "created_at")
     @TypeConverters({TimestampConverter.class})
@@ -28,7 +28,7 @@ public class Playlist implements Serializable {
     private Date modifiedAt;
 
 
-    public Playlist(String playlistId, int name, int description, Date createdAt, Date modifiedAt) {
+    public Playlist(@NonNull String playlistId, String name, String description, Date createdAt, Date modifiedAt) {
         this.playlistId = playlistId;
         this.name = name;
         this.description = description;
@@ -40,23 +40,23 @@ public class Playlist implements Serializable {
         return playlistId;
     }
 
-    public void setPlaylistId(String playlistId) {
+    public void setPlaylistId(@NonNull String playlistId) {
         this.playlistId = playlistId;
     }
 
-    public int getName() {
+    public String getName() {
         return name;
     }
 
-    public void setName(int name) {
+    public void setName(String name) {
         this.name = name;
     }
 
-    public int getDescription() {
+    public String getDescription() {
         return description;
     }
 
-    public void setDescription(int description) {
+    public void setDescription(String description) {
         this.description = description;
     }
 

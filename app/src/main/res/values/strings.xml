@@ -50,4 +50,7 @@
     <string name="activate">Activate</string>
     <string name="wallpapers_slideshow">Wallpapers Slideshow</string>
     <string name="settings_preview">Settings Preview</string>
+    <string name="select_playlist">Please select a wallpapers playlist to enable slideshow!</string>
+    <string name="change_wallpaper">Change Wallpaper</string>
+    <string name="wallpaper_settings">Wallpaper Settings</string>
 </resources>

@@ -16,7 +16,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:fontFamily="sans-serif-light"
+            android:fontFamily="@font/montserrat"
             android:text="@string/introduction1"
             android:textColor="@android:color/white"
             android:textSize="36sp" />
@@ -27,10 +27,12 @@
             android:layout_height="@dimen/activate_button_size"
             android:layout_marginTop="@dimen/activate_button_margin_top"
             android:background="@drawable/circle"
-            android:fontFamily="sans-serif-light"
+            android:fontFamily="@font/montserrat"
+            android:textAllCaps="false"
             android:text="@string/activate"
             android:textColor="#333"
             android:textSize="18sp"
             android:textStyle="bold" />
+
     </LinearLayout>
 </FrameLayout>

@@ -11,12 +11,11 @@ public class LocalWallpaper implements Serializable {
 
     @PrimaryKey(autoGenerate = true)
     private int id;
-    private int playlistId;
+    private String playlistId;
     private String name;
     private String originalPath;
 
-    public LocalWallpaper(int id, int playlistId, String name, String originalPath) {
-        this.id = id;
+    public LocalWallpaper(String playlistId, String name, String originalPath) {
         this.playlistId = playlistId;
         this.name = name;
         this.originalPath = originalPath;
@@ -30,11 +29,11 @@ public class LocalWallpaper implements Serializable {
         this.id = id;
     }
 
-    public int getPlaylistId() {
+    public String getPlaylistId() {
         return playlistId;
     }
 
-    public void setPlaylistId(int playlistId) {
+    public void setPlaylistId(String playlistId) {
         this.playlistId = playlistId;
     }
 

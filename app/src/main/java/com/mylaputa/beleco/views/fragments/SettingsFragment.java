@@ -28,12 +28,15 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.mylaputa.beleco.database.models.LocalWallpaper;
 import com.mylaputa.beleco.database.models.Playlist;
 import com.mylaputa.beleco.database.repository.PlaylistRepository;
+import com.mylaputa.beleco.database.repository.WallpaperRepository;
 import com.mylaputa.beleco.live_wallpaper.Cube;
 import com.mylaputa.beleco.live_wallpaper.LiveWallpaperRenderer;
 import com.mylaputa.beleco.R;
 import com.mylaputa.beleco.utils.Constant;
+import com.mylaputa.beleco.views.activities.ChangeWallpaperActivity;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -42,19 +45,26 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Date;
+
+import static com.mylaputa.beleco.utils.Constant.PLAYLIST_DEFAULT;
+import static com.mylaputa.beleco.utils.Constant.PLAYLIST_SLIDESHOW;
 
 /**
  * Created by dklap on 1/22/2017.
  */
 
-public class LiveWallpaperSettingsFragment extends Fragment {
+public class SettingsFragment extends Fragment {
 
-    private static final String TAG = LiveWallpaperSettingsFragment.class.getSimpleName();
-    private final int REQUEST_CHOOSE_PHOTOS = 0;
+    private static final String TAG = SettingsFragment.class.getSimpleName();
+
 
     private int oldPicture = 0;
+
     private SharedPreferences.Editor editor;
     private SharedPreferences prefs;
+    private int wallpaperType = PLAYLIST_DEFAULT;
+    private String currentPlaylist;
     private Cube cube;
 
     private CardView scrollCard,slideshowCard,intervalCard,doubleTapCard,powerSaverCard,selectionsCard;
@@ -123,8 +133,14 @@ public class LiveWallpaperSettingsFragment extends Fragment {
         seekBarDelay.setProgress(prefs.getInt("delay", 10));
         scrollSwitch.setChecked(prefs.getBoolean("scroll", true));
         slideshowSwitch.setChecked(prefs.getBoolean("slideshow",false));
+        if (slideshowSwitch.isChecked()){
+            intervalCard.setVisibility(View.VISIBLE);
+            doubleTapCard.setVisibility(View.VISIBLE);
+        }
         doubleTapSwitch.setChecked(prefs.getBoolean("double_tap",false));
         powerSaverSwitch.setChecked(prefs.getBoolean("power_saver", true));
+        currentPlaylist = prefs.getString("current_playlist",null);
+        wallpaperType = prefs.getInt("type",PLAYLIST_DEFAULT);
     }
     private void InitListeners(){
         seekBarRange.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -209,11 +225,22 @@ public class LiveWallpaperSettingsFragment extends Fragment {
         slideshowCard.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (slideshowSwitch.isChecked()){
-                    slideshowSwitch.setChecked(false);
+                if (wallpaperType == PLAYLIST_SLIDESHOW){
+                    if (slideshowSwitch.isChecked()){
+                        slideshowSwitch.setChecked(false);
+                        intervalCard.setVisibility(View.GONE);
+                        doubleTapCard.setVisibility(View.GONE);
+                    } else {
+                        slideshowSwitch.setChecked(true);
+                        intervalCard.setVisibility(View.GONE);
+                        doubleTapCard.setVisibility(View.GONE);
+                    }
                 } else {
-                    slideshowSwitch.setChecked(true);
+                    Toast.makeText(getContext(), R.string.select_playlist,
+                            Toast.LENGTH_SHORT).show();
                 }
+
+
             }
         });
         intervalCard.setOnClickListener(new View.OnClickListener() {
@@ -246,11 +273,13 @@ public class LiveWallpaperSettingsFragment extends Fragment {
             @Override
             public void onClick(View v) {
 
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.setType("image/*");
-                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(intent, REQUEST_CHOOSE_PHOTOS);
+                Intent intent =  new Intent(getContext(), ChangeWallpaperActivity.class);
+                startActivity(intent);
+//                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+//                intent.setType("image/*");
+//                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+//                intent.addCategory(Intent.CATEGORY_OPENABLE);
+//                startActivityForResult(intent, REQUEST_CHOOSE_PHOTOS);
 
             }
         });
@@ -261,103 +290,6 @@ public class LiveWallpaperSettingsFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_CHOOSE_PHOTOS) {
-            if (resultCode == Activity.RESULT_OK && data!=null) {
-                if (data.getData()!=null){
-                    Log.d(TAG, "onActivityResult: getData() = " + data.getData());
-                } else if (data.getClipData()!=null){
-                    Log.d(TAG, "onActivityResult: getClipData() = " + data.getClipData().getItemCount());
-                }
-            }
-        }
-    }
-
-    private InputStream openUri(Uri uri) {
-        if (uri == null) return null;
-        try {
-            return ((getActivity()!=null)? getActivity().getContentResolver().openInputStream(uri):null);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-
-    private class SaveSelections extends AsyncTask<ClipData, Integer, Void> {
-
-        private ProgressDialog dialog;
-
-        public SaveSelections(Context mContext) {
-            dialog = new ProgressDialog(mContext);
-        }
-
-        @Override
-        protected Void doInBackground(ClipData... clipData) {
-
-            for(int index=0; index<clipData[0].getItemCount(); index++){
-
-                Uri contentURI  = clipData[0].getItemAt(index).getUri();
-                InputStream in = openUri(contentURI);
-                if (in != null) {
-                    try {
-                        if (getActivity() != null) {
-
-                            PlaylistRepository repository = new PlaylistRepository(getContext());
-
-                            String playlistId = String.valueOf(System.currentTimeMillis());
-//                            Playlist playlist = new Playlist()
-//                            repository.insert();
-
-                            String wallpaper_name = Constant.HEADER + System.currentTimeMillis();
-
-                            FileOutputStream fos = getActivity().openFileOutput(wallpaper_name, Context.MODE_PRIVATE);
-                            byte[] buffer = new byte[1024];
-                            int bytes;
-                            while ((bytes = in.read(buffer)) > 0) {
-                                fos.write(buffer, 0, bytes);
-                            }
-                            in.close();
-                            fos.flush();
-                            fos.close();
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        Toast.makeText(getActivity(), R.string.toast_failed_set_picture,
-                                Toast.LENGTH_LONG).show();
-                    }
-                } else {
-                    Toast.makeText(getActivity(), R.string.toast_invalid_pic_path,
-                            Toast.LENGTH_LONG).show();
-                }
-
-            }
-
-
-
-            // do background work here
-//
-
-            return null;
-        }
-
-        @Override
-        protected void onPreExecute() {
-            dialog.setMessage("Processing selections...");
-            dialog.show();
-        }
-
-        @Override
-        protected void onPostExecute(Void result) {
-            // do UI work here
-            if (dialog.isShowing()) {
-                dialog.dismiss();
-            }
-        }
     }
 
 

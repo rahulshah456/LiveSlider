@@ -19,37 +19,43 @@ public class WallpaperRepository {
     private LiveData<List<LocalWallpaper>> mLocalWallpapers;
 
 
-    WallpaperRepository(Context context, String playlistId) {
+    public WallpaperRepository(Context context) {
         LiveWallpaperDatabase database = LiveWallpaperDatabase.getDatabase(context);
         mWallpaperDao = database.wallpaperDao();
-        mLocalWallpapers = mWallpaperDao.getPlaylistWallpapers(playlistId);
+        mLocalWallpapers = mWallpaperDao.getAllWallpapers();
     }
 
 
     // Room executes all queries on a separate thread.
     // Observed LiveData will notify the observer when the data has changed.
-    LiveData<List<LocalWallpaper>> getPlaylistWallpapers(String playlistId){
+    public LiveData<List<LocalWallpaper>> getAllWallpapers(){
         return mLocalWallpapers;
+    }
+
+
+
+    public LiveData<List<LocalWallpaper>> getPlaylistWallpapers(String playlistId){
+        return mWallpaperDao.getPlaylistWallpapers(playlistId);
     }
 
 
     // You must call this on a non-UI thread or your app will throw an exception. Room ensures
     // that you're not doing any long running operations on the main thread, blocking the UI.
-    void insert(LocalWallpaper wallpaper) {
+    public void insert(LocalWallpaper wallpaper) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mWallpaperDao.insertWallpaper(wallpaper);
         });
     }
 
 
-    void delete(LocalWallpaper wallpaper) {
+    public void delete(LocalWallpaper wallpaper) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mWallpaperDao.deleteWallpaper(wallpaper);
         });
     }
 
 
-    void deletePlaylistWallpapers(String playlistId) {
+    public void deletePlaylistWallpapers(String playlistId) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mWallpaperDao.deletePlaylistWallpapers(playlistId);
         });

@@ -1,6 +1,3 @@
-/**
- *
- */
 package com.mylaputa.beleco.live_wallpaper;
 
 import android.view.GestureDetector.SimpleOnGestureListener;

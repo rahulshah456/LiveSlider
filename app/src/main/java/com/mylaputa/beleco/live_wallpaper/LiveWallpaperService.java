@@ -17,7 +17,6 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 
-import com.mylaputa.beleco.sensor.RotationSensor;
 import com.mylaputa.beleco.utils.Constant;
 
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;

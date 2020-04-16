@@ -11,10 +11,6 @@ import android.util.AttributeSet;
 import android.view.View;
 
 
-/**
- * Created by dklap on 3/14/2017.
- */
-
 public class Cube extends View {
     private final Paint mPaint = new Paint();
     private final Paint mPaintHide = new Paint();
