@@ -26,11 +26,11 @@ public class WallpaperViewModel extends AndroidViewModel {
     }
 
 
-    LiveData<List<LocalWallpaper>> getAllWallpapers() {
+    public LiveData<List<LocalWallpaper>> getAllWallpapers() {
         return allWallpapers;
     }
 
-    LiveData<List<LocalWallpaper>> getPlaylistWallpapers(String playlistId){
+    public LiveData<List<LocalWallpaper>> getPlaylistWallpapers(String playlistId){
         if (this.playlistId.equals(playlistId) && playlistWallpapers!=null){
             return playlistWallpapers;
         } else {

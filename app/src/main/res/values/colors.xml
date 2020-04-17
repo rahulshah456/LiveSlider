@@ -6,5 +6,6 @@
     <color name="white_mod">#FFFFFF</color>
     <color name="material_light">#B2B2B3</color>
 
+    <color name="semi_transparent">#99212121</color>
     <color name="material_green">#00e676</color>
 </resources>

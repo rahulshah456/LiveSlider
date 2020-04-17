@@ -53,4 +53,5 @@
     <string name="select_playlist">Please select a wallpapers playlist to enable slideshow!</string>
     <string name="change_wallpaper">Change Wallpaper</string>
     <string name="wallpaper_settings">Wallpaper Settings</string>
+    <string name="thumbnail">thumbnail</string>
 </resources>

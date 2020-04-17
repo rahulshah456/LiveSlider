@@ -17,7 +17,7 @@ public class DoubleTapGestureListener extends SimpleOnGestureListener {
      */
     @Override
     public boolean onDoubleTap(MotionEvent e) {
-        if (this.myEngine.allowClickToChange()) {
+        if (this.myEngine.isAllowClickToChange() && this.myEngine.isSlideShowEnabled()) {
             myEngine.incrementWallpaper();
             myEngine.changeWallpaper();
         }

@@ -11,7 +11,9 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Handler;
 import android.os.PowerManager;
-import android.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
+
+import android.service.wallpaper.WallpaperService;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -41,6 +43,7 @@ public class LiveWallpaperService extends GLWallpaperService {
         private boolean pauseInSavePowerMode = false;
         private boolean savePowerMode = false;
         private boolean allowClickToChange = false;
+        private boolean isSlideShowEnabled = false;
 
         // time related parameters
         private long TIME_SECOND = 1000;
@@ -78,21 +81,15 @@ public class LiveWallpaperService extends GLWallpaperService {
             renderer.setBiasRange(preference.getInt("range", 10));
             renderer.setDelay(21 - preference.getInt("deny", 10));
             renderer.setScrollMode(preference.getBoolean("scroll", true));
-            renderer.setIsDefaultWallpaper(preference.getInt("default_picture", 0) == 0);
-            renderer.setCurrentWallpaper(preference.getString("current_wallpaper", Constant.DEFAULT));
+            renderer.setIsDefaultWallpaper(preference.getBoolean("default_wallpaper", true));
+            renderer.setCurrentWallpaper(preference.getString("current_wallpaper", Constant.DEFAULT_WALLPAPER));
             setPowerSaverEnabled(preference.getBoolean("power_saver", true));
+            setSlideShowEnabled(preference.getBoolean("slideshow",false));
             setAllowClickToChange(preference.getBoolean("double_tap",false));
 
             setTouchEventsEnabled(true);
             doubleTapDetector = new GestureDetector(getApplicationContext(),
                     new DoubleTapGestureListener(this));
-
-            // Activate wallpapers Slideshow
-            handler.removeCallbacks(slideshow);
-            if (isVisible()){
-                handler.postDelayed(slideshow, timer);
-                timeStarted = systemTime();
-            }
         }
 
         @Override
@@ -118,16 +115,17 @@ public class LiveWallpaperService extends GLWallpaperService {
                 if (visible) {
                     rotationSensor.register();
                     renderer.startTransition();
-                    if (systemTime() - timeStarted + 100 < timer) {
-                        // left over timer
-                        Log.d(TAG, "onVisibilityChanged: drawBitmap Called!");
-                        handler.postDelayed(slideshow, timer - (systemTime() - timeStarted));
-                    } else {
-                        // otherwise draw a new one since it's time for a new one
-                        Log.d(TAG, "onVisibilityChanged: showNewImage Called!");
-                        incrementWallpaper();
-                        changeWallpaper();
+                    if (isSlideShowEnabled){
+                        if (systemTime() - timeStarted + 100 < timer) {
+                            // left over timer
+                            handler.postDelayed(slideshow, timer - (systemTime() - timeStarted));
+                        } else {
+                            // otherwise draw a new one since it's time for a new one
+                            incrementWallpaper();
+                            changeWallpaper();
+                        }
                     }
+
                 } else {
                     rotationSensor.unregister();
                     handler.removeCallbacks(slideshow);
@@ -136,18 +134,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             } else {
                 if (visible) {
                     renderer.startTransition();
-                    if (systemTime() - timeStarted + 100 < timer) {
-                        // left over timer
-                        Log.d(TAG, "onVisibilityChanged: drawBitmap Called!");
-                        handler.postDelayed(slideshow, timer - (systemTime() - timeStarted));
-                    } else {
-                        // otherwise draw a new one since it's time for a new one
-                        Log.d(TAG, "onVisibilityChanged: showNewImage Called!");
-                        incrementWallpaper();
-                        changeWallpaper();
-                    }
                 } else {
-                    handler.removeCallbacks(slideshow);
                     renderer.stopTransition();
                 }
             }
@@ -202,8 +189,27 @@ public class LiveWallpaperService extends GLWallpaperService {
             allowClickToChange = enabled;
         }
 
-        boolean allowClickToChange() {
+        boolean isAllowClickToChange() {
             return allowClickToChange;
+        }
+
+        void setSlideShowEnabled(boolean enabled){
+            if (isSlideShowEnabled == enabled) return;
+            isSlideShowEnabled = enabled;
+            if (isSlideShowEnabled){
+                // Activate wallpapers Slideshow
+                handler.removeCallbacks(slideshow);
+                if (isVisible() && isSlideShowEnabled){
+                    handler.postDelayed(slideshow, timer);
+                    timeStarted = systemTime();
+                }
+            } else {
+                handler.removeCallbacks(slideshow);
+            }
+        }
+
+        boolean isSlideShowEnabled(){
+            return isSlideShowEnabled;
         }
 
         // Functions for wallpapers slideshow
@@ -248,6 +254,7 @@ public class LiveWallpaperService extends GLWallpaperService {
 
         @Override
         public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+            Log.d(TAG, "onSharedPreferenceChanged: " + key);
             switch (key) {
                 case "range":
                     renderer.setBiasRange(sharedPreferences.getInt(key, 10));
@@ -261,11 +268,18 @@ public class LiveWallpaperService extends GLWallpaperService {
                 case "power_saver":
                     setPowerSaverEnabled(sharedPreferences.getBoolean(key, true));
                     break;
-                case "default_picture":
-                    renderer.setIsDefaultWallpaper(sharedPreferences.getInt(key, 0) == 0);
+                case "default_wallpaper":
+                    boolean status = sharedPreferences.getBoolean(key, true);
+                    Log.d(TAG, "onSharedPreferenceChanged: Key = " + key + " & Value = " +  status);
+                    renderer.setIsDefaultWallpaper(status);
+                    break;
                 case "current_wallpaper":
-                    renderer.setCurrentWallpaper(sharedPreferences.getString(key,Constant.DEFAULT));
+                    String value = sharedPreferences.getString(key,Constant.DEFAULT_WALLPAPER);
+                    Log.d(TAG, "onSharedPreferenceChanged: Key = " + key + " & Value = " +  value);
+                    renderer.setCurrentWallpaper(value);
+                    break;
                 case "slideshow":
+                    setSlideShowEnabled(preference.getBoolean("slideshow",false));
                     break;
                 case "interval":
                     break;

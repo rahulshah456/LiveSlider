@@ -11,7 +11,6 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,6 +21,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.preference.PreferenceManager;
 
 import com.mylaputa.beleco.R;
 import com.mylaputa.beleco.database.models.LocalWallpaper;
@@ -32,6 +32,7 @@ import com.mylaputa.beleco.utils.Constant;
 import com.mylaputa.beleco.viewmodel.PlaylistViewModel;
 import com.mylaputa.beleco.viewmodel.WallpaperViewModel;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -125,9 +126,10 @@ public class SlideshowFragment extends Fragment {
                     try {
                         if (getActivity() != null) {
 
-                            String wallpaper_name = Constant.HEADER + System.currentTimeMillis();
+                            String wallpaper_name = Constant.HEADER + System.currentTimeMillis() + Constant.PNG;
+                            String localPath = mContext.getFilesDir() + File.separator + wallpaper_name;
                             LocalWallpaper localWallpaper = new LocalWallpaper(playlistId,
-                                    wallpaper_name,String.valueOf(contentURI));
+                                    wallpaper_name,localPath,String.valueOf(contentURI));
                             FileOutputStream fos = getActivity().openFileOutput(wallpaper_name,
                                     Context.MODE_PRIVATE);
                             byte[] buffer = new byte[1024];

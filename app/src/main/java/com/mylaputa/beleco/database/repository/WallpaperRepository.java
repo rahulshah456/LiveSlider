@@ -3,6 +3,8 @@ package com.mylaputa.beleco.database.repository;
 import android.app.Application;
 import android.content.Context;
 import android.os.AsyncTask;
+import android.util.Log;
+
 import androidx.lifecycle.LiveData;
 import androidx.room.Room;
 
@@ -15,11 +17,13 @@ import java.util.List;
 
 public class WallpaperRepository {
 
+    public static final String TAG = WallpaperRepository.class.getSimpleName();
     private WallpaperDao mWallpaperDao;
     private LiveData<List<LocalWallpaper>> mLocalWallpapers;
 
 
     public WallpaperRepository(Context context) {
+        Log.d(TAG, "WallpaperRepository: init");
         LiveWallpaperDatabase database = LiveWallpaperDatabase.getDatabase(context);
         mWallpaperDao = database.wallpaperDao();
         mLocalWallpapers = mWallpaperDao.getAllWallpapers();

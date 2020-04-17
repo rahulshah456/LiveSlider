@@ -2,13 +2,13 @@ package com.mylaputa.beleco.views.activities;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.preference.PreferenceManager;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.text.Html;
 import android.text.SpannableString;
 import android.view.View;
@@ -33,7 +33,6 @@ public class SettingsActivity extends AppCompatActivity {
 
     private static final String TAG = SettingsActivity.class.getSimpleName();
 
-    private int oldPicture = 0;
     private SharedPreferences.Editor editor;
     private SharedPreferences prefs;
     private int wallpaperType = PLAYLIST_DEFAULT;
@@ -95,7 +94,6 @@ public class SettingsActivity extends AppCompatActivity {
 
 
     private void InitPreferences(){
-        oldPicture = prefs.getInt("default_picture", 0);
         seekBarRange.setProgress(prefs.getInt("range", 10));
         seekBarDelay.setProgress(prefs.getInt("delay", 10));
         scrollSwitch.setChecked(prefs.getBoolean("scroll", true));

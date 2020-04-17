@@ -38,7 +38,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             Executors.newScheduledThreadPool(1);
     private final float transitionStep = REFRESH_RATE / LiveWallpaperService.SENSOR_RATE;
     private Wallpaper wallpaper;
-    private String currentWallpaper = Constant.DEFAULT;
+    private String currentWallpaper = Constant.DEFAULT_WALLPAPER;
     private float scrollStep = 1f;
     private Queue<Float> scrollOffsetXQueue = new CircularFifoQueue<>(10);
     private float scrollOffsetX = 0.5f;// , offsetY = 0.5f;
@@ -257,18 +257,18 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         InputStream is = null;
         if (!isDefaultWallpaper) {
             try {
-                is = mContext.openFileInput(Constant.HEADER);
+                is = mContext.openFileInput(currentWallpaper);
             } catch (FileNotFoundException e) {
                 isDefaultWallpaper = true;
             }
-        }
-        if (isDefaultWallpaper) {
+        } else {
             try {
                 is = mContext.getAssets().open(currentWallpaper);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+
         if (is == null) return;
         if (wallpaper != null)
             wallpaper.destroy();

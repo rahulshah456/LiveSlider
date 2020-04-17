@@ -36,6 +36,7 @@
                     android:id="@+id/backButtonId"
                     android:layout_width="?attr/actionBarSize"
                     app:cardCornerRadius="32dp"
+                    android:layout_marginStart="8dp"
                     android:clickable="true"
                     android:focusable="true"
                     app:cardElevation="0dp"
