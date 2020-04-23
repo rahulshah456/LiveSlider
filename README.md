@@ -16,15 +16,15 @@ Thanks to this beautiful icon pack:
 *by Nick Roach*
 
 # Screenshots
-These are the welcome and home navigation screens
+- These are the welcome and home navigation screens
 
 <img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_1.png" /> <img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_2.png" />
 
-These are change wallpaper screens where you can activate/deactivate single and slideshow wallpapers.
+- These are change wallpaper screens where you can activate/deactivate single and slideshow wallpapers.
 
 <img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_3.png" /> <img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_4.png" />
 
 
-Here you can customize current Parallax Live Wallpaper behaviour
+- Here you can customize current Parallax Live Wallpaper behaviour
 
 <img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_5.png" />
