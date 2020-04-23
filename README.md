@@ -15,6 +15,8 @@ Thanks to this beautiful icon pack:
 - <a href="http://www.elegantthemes.com/blog/freebie-of-the-week/beautiful-flat-icons-for-free/">Beautiful Flat Icons</a>
 *by Nick Roach*
 
-<img src="https://github.com/dklaputa/BelecoLiveWallpaper/raw/master/Images/1.png" width="45%" /> <img src="https://github.com/dklaputa/BelecoLiveWallpaper/raw/master/Images/2.png" width="45%" />
+
+
+<img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_1.png" /> <img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_2.png" />
 
 
