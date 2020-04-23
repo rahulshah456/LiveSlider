@@ -27,4 +27,4 @@ These are change wallpaper screens where you can activate/deactivate single and 
 
 Here you can customize current Parallax Live Wallpaper behaviour
 
-<img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_6.png" />
+<img src="https://github.com/rahulshah456/ParallaxSlideshowLiveWallpaper/blob/master/screenshots/screenshot_5.png" />
