@@ -59,7 +59,7 @@
                     android:id="@+id/collectionTitleId"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/change_wallpaper"
+                    android:text="@string/wallpaper_settings"
                     android:fontFamily="@font/montserrat"
                     android:textStyle="bold"
                     android:layout_centerInParent="true"
