@@ -10,8 +10,7 @@
         android:id="@+id/singleRecyclerId"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="12dp"
-        android:nestedScrollingEnabled="false"/>
+        android:layout_margin="12dp" />
 
 
 

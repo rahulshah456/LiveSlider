@@ -5,10 +5,13 @@ import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 import androidx.room.TypeConverters;
+
+import com.mylaputa.beleco.utils.StringListConverter;
 import com.mylaputa.beleco.utils.TimestampConverter;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.List;
 
 @Entity
 public class Playlist implements Serializable {
@@ -17,7 +20,9 @@ public class Playlist implements Serializable {
     @NonNull
     private String playlistId;
     private String name;
-    private String description;
+
+    @TypeConverters(StringListConverter.class)
+    private List<String> cover_urls;
 
     @ColumnInfo(name = "created_at")
     @TypeConverters({TimestampConverter.class})
@@ -29,10 +34,11 @@ public class Playlist implements Serializable {
     private int size;
 
 
-    public Playlist(@NonNull String playlistId, String name, String description, Date createdAt, Date modifiedAt, int size) {
+    public Playlist(@NonNull String playlistId, String name, List<String> cover_urls,
+                    Date createdAt, Date modifiedAt, int size) {
         this.playlistId = playlistId;
         this.name = name;
-        this.description = description;
+        this.cover_urls = cover_urls;
         this.createdAt = createdAt;
         this.modifiedAt = modifiedAt;
         this.size = size;
@@ -55,13 +61,6 @@ public class Playlist implements Serializable {
         this.name = name;
     }
 
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
 
     public Date getCreatedAt() {
         return createdAt;
@@ -87,13 +86,20 @@ public class Playlist implements Serializable {
         this.size = size;
     }
 
-    @NonNull
+    public List<String> getCover_urls() {
+        return cover_urls;
+    }
+
+    public void setCover_urls(List<String> cover_urls) {
+        this.cover_urls = cover_urls;
+    }
+
     @Override
     public String toString() {
         return "Playlist{" +
                 "playlistId='" + playlistId + '\'' +
                 ", name='" + name + '\'' +
-                ", description='" + description + '\'' +
+                ", cover_urls=" + cover_urls +
                 ", createdAt=" + createdAt +
                 ", modifiedAt=" + modifiedAt +
                 ", size=" + size +

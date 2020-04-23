@@ -8,4 +8,8 @@
 
     <color name="semi_transparent">#99212121</color>
     <color name="material_green">#00e676</color>
+
+    <color name="material_black">#030408</color>
+    <color name="material_dark_light">#616161</color>
+
 </resources>

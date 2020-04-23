@@ -20,7 +20,7 @@ public class PlaylistViewModel extends AndroidViewModel {
         this.allPlaylists = mRepository.getAllPlaylists();
     }
 
-    LiveData<List<Playlist>> getAllPlaylists() {
+    public LiveData<List<Playlist>> getAllPlaylists() {
         return allPlaylists;
     }
 

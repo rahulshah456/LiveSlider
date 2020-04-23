@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
@@ -19,7 +20,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
@@ -28,6 +28,7 @@ import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.mylaputa.beleco.R;
 import com.mylaputa.beleco.adapters.WallpapersListAdapter;
@@ -40,10 +41,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collections;
 import java.util.List;
 
-import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
+import static com.mylaputa.beleco.utils.Constant.DEFAULT_LOCAL_PATH;
 
 public class SingleFragment extends Fragment {
 
@@ -73,8 +73,10 @@ public class SingleFragment extends Fragment {
         progressDialog.setMessage("Processing...");
         prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
         editor = prefs.edit();
-        String localPath = Constant.ASSETS_PATH + Constant.DEFAULT_WALLPAPER;
-        defaultWallpaper = new LocalWallpaper(Constant.DEFAULT,Constant.DEFAULT_WALLPAPER,
+
+        // Creating default wallpaper data
+        String localPath = DEFAULT_LOCAL_PATH;
+        defaultWallpaper = new LocalWallpaper(Constant.DEFAULT,Constant.DEFAULT_WALLPAPER_NAME,
                 localPath,localPath);
 
 
@@ -82,6 +84,7 @@ public class SingleFragment extends Fragment {
             wallpaperViewModel = new ViewModelProvider(getActivity()).get(WallpaperViewModel.class);
             playlistViewModel = new ViewModelProvider(getActivity()).get(PlaylistViewModel.class);
         }
+
         InitRecyclerView();
 
         addWallpaperFAB.setOnClickListener(new View.OnClickListener() {
@@ -109,31 +112,55 @@ public class SingleFragment extends Fragment {
 
         int gridSize = ((getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT)? 2:4);
         mRecyclerView.setLayoutManager(new GridLayoutManager(mContext, gridSize));
-        listAdapter = new WallpapersListAdapter(mContext);
+        listAdapter = new WallpapersListAdapter(mContext,prefs.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH));
         mRecyclerView.setAdapter(listAdapter);
+//        mRecyclerView.setNestedScrollingEnabled(false);
         mRecyclerView.setItemAnimator(new DefaultItemAnimator());
         listAdapter.addWallpaper(defaultWallpaper);
         listAdapter.setOnItemClickListener(new WallpapersListAdapter.OnItemClickListener() {
-            @Override
-            public void OnItemClick(int position) {
-                Log.d(TAG, "OnItemClick: " + position);
-                LocalWallpaper wallpaper = listAdapter.getItemList().get(position);
-                if (wallpaper.getPlaylistId().equals(Constant.DEFAULT)){
-                    editor.putBoolean("default_wallpaper",true).apply();
-                } else {
-                    editor.putBoolean("default_wallpaper",false).apply();
-                }
-                editor.putString("current_wallpaper",wallpaper.getName()).apply();
-                updateSelections(position);
-            }
 
             @Override
             public void OnItemLongClick(int position) {
-                Log.d(TAG, "OnItemLongClick: " + position);
+                LocalWallpaper wallpaper = listAdapter.getItemList().get(position);
+                String localWallpaperPath = prefs.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH);
+
+                new MaterialAlertDialogBuilder(mContext,R.style.MaterialAlertDialogTheme)
+                        .setIcon(getResources().getDrawable(R.drawable.delete_icon))
+                        .setTitle("Delete?")
+                        .setMessage("Are you sure you want to delete this wallpaper...")
+                        .setCancelable(false)
+                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                // Continue with operation
+                                if (wallpaper.getName().equals(Constant.DEFAULT_WALLPAPER_NAME)){
+                                    Toast.makeText(mContext, "This is the default wallpaper and can't be deleted!",
+                                            Toast.LENGTH_SHORT).show();
+                                } else {
+                                    if (wallpaper.getName().equals(localWallpaperPath)){
+                                        Toast.makeText(mContext, "You cannot delete current Wallpaper",
+                                                Toast.LENGTH_SHORT).show();
+                                    } else {
+                                        wallpaperViewModel.delete(wallpaper);
+                                    }
+                                }
+                                dialog.dismiss();
+                            }
+                        })
+                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                Log.d(TAG, "onClick: Cancelled Delete!");
+                                dialog.dismiss();
+                            }
+                        })
+                        .create()
+                        .show();
+
             }
         });
 
-        wallpaperViewModel.getAllWallpapers().observe(getViewLifecycleOwner(), new Observer<List<LocalWallpaper>>() {
+         wallpaperViewModel.getAllWallpapers().observe(getViewLifecycleOwner(), new Observer<List<LocalWallpaper>>() {
             @Override
             public void onChanged(List<LocalWallpaper> localWallpapers) {
                 Log.d(TAG, "onChanged: " + localWallpapers.size());
@@ -168,23 +195,6 @@ public class SingleFragment extends Fragment {
     }
 
 
-    public void updateSelections(int position){
-        for (int pos=0;pos<listAdapter.getItemCount();pos++){
-            if (position == pos){
-                mRecyclerView.findViewHolderForAdapterPosition(pos)
-                        .itemView.findViewById(R.id.view_shadow).setVisibility(View.VISIBLE);
-                mRecyclerView.findViewHolderForAdapterPosition(pos)
-                        .itemView.findViewById(R.id.image_selection).setVisibility(View.VISIBLE);
-            } else {
-                mRecyclerView.findViewHolderForAdapterPosition(pos)
-                        .itemView.findViewById(R.id.view_shadow).setVisibility(View.GONE);
-                mRecyclerView.findViewHolderForAdapterPosition(pos)
-                        .itemView.findViewById(R.id.image_selection).setVisibility(View.GONE);
-            }
-        }
-    }
-
-
     private InputStream openUri(Uri uri) {
         if (uri == null) return null;
         try {
@@ -208,11 +218,11 @@ public class SingleFragment extends Fragment {
                     if (getActivity() != null) {
 
                         String wallpaper_name = Constant.HEADER + System.currentTimeMillis() + Constant.PNG;
-                        String localPath = mContext.getFilesDir() + File.separator + wallpaper_name;
+                        String localPath = mContext.getExternalFilesDir(null) + File.separator + wallpaper_name;
                         LocalWallpaper localWallpaper = new LocalWallpaper(Constant.CUSTOM,
                                 wallpaper_name,localPath,String.valueOf(contentURI));
-                        FileOutputStream fos = getActivity().openFileOutput(wallpaper_name,
-                                Context.MODE_PRIVATE);
+                        FileOutputStream fos = new FileOutputStream(localPath);
+                        //FileOutputStream fos = getActivity().openFileOutput(wallpaper_name, Context.MODE_PRIVATE);
                         byte[] buffer = new byte[1024];
                         int bytes;
                         while ((bytes = in.read(buffer)) > 0) {

@@ -1,30 +1,27 @@
 package com.mylaputa.beleco.database.repository;
 
-import android.app.Application;
 import android.content.Context;
-import android.os.AsyncTask;
 import android.util.Log;
-
 import androidx.lifecycle.LiveData;
-import androidx.room.Room;
-
 import com.mylaputa.beleco.database.LiveWallpaperDatabase;
 import com.mylaputa.beleco.database.dao.WallpaperDao;
 import com.mylaputa.beleco.database.models.LocalWallpaper;
-import com.mylaputa.beleco.utils.Constant;
-
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 public class WallpaperRepository {
 
     public static final String TAG = WallpaperRepository.class.getSimpleName();
+    private Context mContext;
     private WallpaperDao mWallpaperDao;
     private LiveData<List<LocalWallpaper>> mLocalWallpapers;
 
 
-    public WallpaperRepository(Context context) {
+    public WallpaperRepository(Context mContext) {
         Log.d(TAG, "WallpaperRepository: init");
-        LiveWallpaperDatabase database = LiveWallpaperDatabase.getDatabase(context);
+        this.mContext = mContext;
+        LiveWallpaperDatabase database = LiveWallpaperDatabase.getDatabase(mContext);
         mWallpaperDao = database.wallpaperDao();
         mLocalWallpapers = mWallpaperDao.getAllWallpapers();
     }
@@ -43,6 +40,11 @@ public class WallpaperRepository {
     }
 
 
+    public List<LocalWallpaper> getDirectPlaylistWallpapers(String playlistId){
+        return mWallpaperDao.getDirectPlaylistWallpapers(playlistId);
+    }
+
+
     // You must call this on a non-UI thread or your app will throw an exception. Room ensures
     // that you're not doing any long running operations on the main thread, blocking the UI.
     public void insert(LocalWallpaper wallpaper) {
@@ -54,7 +56,15 @@ public class WallpaperRepository {
 
     public void delete(LocalWallpaper wallpaper) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
-            mWallpaperDao.deleteWallpaper(wallpaper);
+            try {
+                boolean isDeleted = deleteLocalFile(wallpaper.getLocalPath());
+                Log.d(TAG, "delete: final Status = " + isDeleted);
+                if (isDeleted){
+                    mWallpaperDao.deleteWallpaper(wallpaper);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
     }
 
@@ -63,6 +73,23 @@ public class WallpaperRepository {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mWallpaperDao.deletePlaylistWallpapers(playlistId);
         });
+    }
+
+
+    private boolean deleteLocalFile(String wallpaperPath) throws IOException {
+        boolean isDeleted;
+        File file = new File(wallpaperPath);
+        isDeleted = file.delete();
+        Log.d(TAG, "deleteLocalFile: 1st Attempt = " + isDeleted);
+        if(file.exists() && !isDeleted){
+            isDeleted = file.getCanonicalFile().delete();
+            Log.d(TAG, "deleteLocalFile: 2nd Attempt = " + isDeleted);
+            if(file.exists()){
+                isDeleted = mContext.deleteFile(file.getName());
+                Log.d(TAG, "deleteLocalFile: Last Attempt = " + isDeleted);
+            }
+        }
+        return isDeleted;
     }
 
 

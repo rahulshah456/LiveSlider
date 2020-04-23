@@ -11,45 +11,64 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Handler;
 import android.os.PowerManager;
-import androidx.preference.PreferenceManager;
-
-import android.service.wallpaper.WallpaperService;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.Observer;
+import androidx.preference.PreferenceManager;
+
+import com.mylaputa.beleco.database.models.LocalWallpaper;
+import com.mylaputa.beleco.database.models.Playlist;
+import com.mylaputa.beleco.database.repository.WallpaperRepository;
 import com.mylaputa.beleco.utils.Constant;
 
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.mylaputa.beleco.utils.Constant.DEFAULT_LOCAL_PATH;
+import static com.mylaputa.beleco.utils.Constant.PLAYLIST_NONE;
+import static com.mylaputa.beleco.utils.Constant.TYPE_SINGLE;
+
 public class LiveWallpaperService extends GLWallpaperService {
+
+    private final static String TAG = LiveWallpaperService.class.getSimpleName();
     public static final int SENSOR_RATE = 60;
-    private final static String TAG = "LiveWallpaperService";
+
 
     @Override
     public Engine onCreateEngine() {
-        return new MyEngine();
+        return new ParallaxEngine();
     }
 
-    class MyEngine extends GLEngine implements LiveWallpaperRenderer.Callbacks,
+    class ParallaxEngine extends GLEngine implements LiveWallpaperRenderer.Callbacks,
             SharedPreferences.OnSharedPreferenceChangeListener, RotationSensor.Callback {
 
-        private SharedPreferences preference;
+        private SharedPreferences prefs;
         private SharedPreferences.Editor editor;
         private LiveWallpaperRenderer renderer;
         private RotationSensor rotationSensor;
         private BroadcastReceiver powerSaverChangeReceiver;
+
         private boolean pauseInSavePowerMode = false;
         private boolean savePowerMode = false;
         private boolean allowClickToChange = false;
         private boolean isSlideShowEnabled = false;
+        private String currentPlaylistId = PLAYLIST_NONE;
 
-        // time related parameters
+        // TODO - time related parameters
         private long TIME_SECOND = 1000;
         private long timer = 30 * TIME_SECOND;
         private long timeStarted = 0;
+
+        // TODO - remove and add ROOM database here
         private int mImagesArrayIndex = 0;
+        private List<LocalWallpaper> playlistWallpapers = new ArrayList<>();
+        private WallpaperRepository mRepository;
 
         private GestureDetector doubleTapDetector;
 
@@ -57,7 +76,7 @@ public class LiveWallpaperService extends GLWallpaperService {
         private final Handler handler = new Handler();
         private final Runnable slideshow = new Runnable() {
             public void run() {
-                Log.d(TAG, "run: Current Wallpaper Changed!");
+                Log.d(TAG, "run: slideshow handler called!");
                 incrementWallpaper();
                 changeWallpaper();
             }
@@ -70,41 +89,56 @@ public class LiveWallpaperService extends GLWallpaperService {
             super.onCreate(surfaceHolder);
             setEGLContextClientVersion(2);
             setEGLConfigChooser(8, 8, 8, 0, 0, 0);
+
+            Log.d(TAG, "onCreate: ");
+            
+            // initial Setup of LiveWallpaper
             renderer = new LiveWallpaperRenderer(LiveWallpaperService.this.getApplicationContext(), this);
             setRenderer(renderer);
             setRenderMode(RENDERMODE_WHEN_DIRTY);
             rotationSensor = new RotationSensor(LiveWallpaperService.this.getApplicationContext(),
                     this, SENSOR_RATE);
-            preference = PreferenceManager.getDefaultSharedPreferences(LiveWallpaperService.this);
-            preference.registerOnSharedPreferenceChangeListener(this);
-            editor = preference.edit();
-            renderer.setBiasRange(preference.getInt("range", 10));
-            renderer.setDelay(21 - preference.getInt("deny", 10));
-            renderer.setScrollMode(preference.getBoolean("scroll", true));
-            renderer.setIsDefaultWallpaper(preference.getBoolean("default_wallpaper", true));
-            renderer.setCurrentWallpaper(preference.getString("current_wallpaper", Constant.DEFAULT_WALLPAPER));
-            setPowerSaverEnabled(preference.getBoolean("power_saver", true));
-            setSlideShowEnabled(preference.getBoolean("slideshow",false));
-            setAllowClickToChange(preference.getBoolean("double_tap",false));
 
+
+            // Shared Preferences initialization
+            prefs = PreferenceManager.getDefaultSharedPreferences(LiveWallpaperService.this);
+            prefs.registerOnSharedPreferenceChangeListener(this);
+            editor = prefs.edit();
+
+            // Setting initial parameters
+            renderer.setBiasRange(prefs.getInt("range", 10));
+            renderer.setDelay(21 - prefs.getInt("deny", 10));
+            renderer.setScrollMode(prefs.getBoolean("scroll", true));
+            renderer.setIsDefaultWallpaper(prefs.getBoolean("default_wallpaper", true));
+            renderer.setLocalWallpaperPath(prefs.getString("local_wallpaper_path", DEFAULT_LOCAL_PATH));
+            setPowerSaverEnabled(prefs.getBoolean("power_saver", true));
+            setSlideShowEnabled(prefs.getBoolean("slideshow",false));
+            renderer.setWallpaperType(prefs.getInt("type",TYPE_SINGLE));
+            setAllowClickToChange(prefs.getBoolean("double_tap",false));
+            setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
+
+            // Adding touch listeners for touch feedback
             setTouchEventsEnabled(true);
             doubleTapDetector = new GestureDetector(getApplicationContext(),
                     new DoubleTapGestureListener(this));
+
+
         }
 
         @Override
         public void onDestroy() {
             // Unregister this as listener
+            Log.d(TAG, "onDestroy: ");
             rotationSensor.unregister();
             handler.removeCallbacks(slideshow);
             if (Build.VERSION.SDK_INT >= 21) {
                 unregisterReceiver(powerSaverChangeReceiver);
             }
-            preference.unregisterOnSharedPreferenceChangeListener(this);
+            prefs.unregisterOnSharedPreferenceChangeListener(this);
             // Kill renderer
             if (renderer != null) {
-                renderer.release(); // assuming yours has this method - it
-                // should!
+                // assuming yours has this method - it should!
+                renderer.release();
             }
             super.onDestroy();
         }
@@ -145,106 +179,30 @@ public class LiveWallpaperService extends GLWallpaperService {
             this.doubleTapDetector.onTouchEvent(event);
         }
 
-        void setPowerSaverEnabled(boolean enabled) {
-            if (pauseInSavePowerMode == enabled) return;
-            pauseInSavePowerMode = enabled;
-            if (Build.VERSION.SDK_INT >= 21) {
-                final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                if (pauseInSavePowerMode) {
-                    powerSaverChangeReceiver = new BroadcastReceiver() {
-                        @TargetApi(21)
-                        @Override
-                        public void onReceive(Context context, Intent intent) {
-                            savePowerMode = pm.isPowerSaveMode();
-                            if (savePowerMode && isVisible()) {
-                                rotationSensor.unregister();
-                                renderer.setOrientationAngle(0, 0);
-                            } else if (!savePowerMode && isVisible()) {
-                                rotationSensor.register();
-                            }
-                        }
-                    };
-
-                    IntentFilter filter = new IntentFilter();
-                    filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
-                    registerReceiver(powerSaverChangeReceiver, filter);
-                    savePowerMode = pm.isPowerSaveMode();
-                    if (savePowerMode && isVisible()) {
-                        rotationSensor.unregister();
-                        renderer.setOrientationAngle(0, 0);
-                    }
-                } else {
-                    unregisterReceiver(powerSaverChangeReceiver);
-                    savePowerMode = pm.isPowerSaveMode();
-                    if (savePowerMode && isVisible()) {
-                        rotationSensor.register();
-                    }
-
-                }
-            }
-        }
-
-        void setAllowClickToChange(boolean enabled){
-            if (allowClickToChange == enabled) return;
-            allowClickToChange = enabled;
-        }
-
-        boolean isAllowClickToChange() {
-            return allowClickToChange;
-        }
-
-        void setSlideShowEnabled(boolean enabled){
-            if (isSlideShowEnabled == enabled) return;
-            isSlideShowEnabled = enabled;
-            if (isSlideShowEnabled){
-                // Activate wallpapers Slideshow
-                handler.removeCallbacks(slideshow);
-                if (isVisible() && isSlideShowEnabled){
-                    handler.postDelayed(slideshow, timer);
-                    timeStarted = systemTime();
-                }
-            } else {
-                handler.removeCallbacks(slideshow);
-            }
-        }
-
-        boolean isSlideShowEnabled(){
-            return isSlideShowEnabled;
-        }
-
-        // Functions for wallpapers slideshow
-        void incrementWallpaper(){
-            // TODO - Change max Index size based on local images too
-            mImagesArrayIndex++;
-            if (mImagesArrayIndex >= 5) {
-                mImagesArrayIndex = 0;
-            }
-            Log.d(TAG, "incrementCounter: " + mImagesArrayIndex);
-        }
-        void changeWallpaper(){
-            String wallpaper = "wallpaper_" + mImagesArrayIndex + ".jpg";
-            editor.putString("current_wallpaper", wallpaper);
-            editor.apply();
-            handler.removeCallbacks(slideshow);
-            if (isVisible()){
-                handler.postDelayed(slideshow, timer);
-                timeStarted = systemTime();
-            }
-        }
-        private long systemTime() {
-            return System.nanoTime() / 1000000;
-        }
-
 
         @Override
-        public void onOffsetsChanged(float xOffset, float yOffset,
-                                     float xOffsetStep, float yOffsetStep, int xPixelOffset,
-                                     int yPixelOffset) {
+        public void onOffsetsChanged(float xOffset, float yOffset, float xOffsetStep, float yOffsetStep,
+                                     int xPixelOffset, int yPixelOffset) {
             if (!isPreview()) {
                 renderer.setOffset(xOffset, yOffset);
                 renderer.setOffsetStep(xOffsetStep, yOffsetStep);
                 Log.i(TAG, xOffset + ", " + yOffset + ", " + xOffsetStep + ", " + yOffsetStep);
             }
+        }
+
+
+        @Override
+        public void onSensorChanged(float[] angle) {
+            if (getResources().getConfiguration().orientation == Configuration
+                    .ORIENTATION_LANDSCAPE)
+                renderer.setOrientationAngle(angle[1], angle[2]);
+            else renderer.setOrientationAngle(-angle[2], angle[1]);
+        }
+
+        @Override
+        public void onSurfaceDestroyed(SurfaceHolder holder) {
+            super.onSurfaceDestroyed(holder);
+            handler.removeCallbacks(slideshow);
         }
 
         @Override
@@ -268,39 +226,161 @@ public class LiveWallpaperService extends GLWallpaperService {
                 case "power_saver":
                     setPowerSaverEnabled(sharedPreferences.getBoolean(key, true));
                     break;
-                case "default_wallpaper":
-                    boolean status = sharedPreferences.getBoolean(key, true);
-                    Log.d(TAG, "onSharedPreferenceChanged: Key = " + key + " & Value = " +  status);
-                    renderer.setIsDefaultWallpaper(status);
+                case "refresh_wallpaper":
+                    String localWallpaperPath = sharedPreferences.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH);
+                    boolean isDefault = sharedPreferences.getBoolean("default_wallpaper", true);
+                    renderer.refreshWallpaper(localWallpaperPath,isDefault);
                     break;
-                case "current_wallpaper":
-                    String value = sharedPreferences.getString(key,Constant.DEFAULT_WALLPAPER);
-                    Log.d(TAG, "onSharedPreferenceChanged: Key = " + key + " & Value = " +  value);
-                    renderer.setCurrentWallpaper(value);
+                case "type":
+                    renderer.setWallpaperType(sharedPreferences.getInt(key, TYPE_SINGLE));
                     break;
                 case "slideshow":
-                    setSlideShowEnabled(preference.getBoolean("slideshow",false));
+                    setSlideShowEnabled(prefs.getBoolean("slideshow",false));
                     break;
                 case "interval":
+                    // TODO - time interval changes comes here
                     break;
                 case "double_tap":
-                    setAllowClickToChange(preference.getBoolean("double_tap",false));
+                    setAllowClickToChange(prefs.getBoolean("double_tap",false));
+                    break;
+                case "current_playlist":
+                    setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
             }
         }
 
-        @Override
-        public void onSensorChanged(float[] angle) {
-            if (getResources().getConfiguration().orientation == Configuration
-                    .ORIENTATION_LANDSCAPE)
-                renderer.setOrientationAngle(angle[1], angle[2]);
-            else renderer.setOrientationAngle(-angle[2], angle[1]);
+
+
+        // enable/disable power saver mode for post lollipop devices
+        void setPowerSaverEnabled(boolean enabled) {
+            if (pauseInSavePowerMode == enabled) return;
+            pauseInSavePowerMode = enabled;
+            if (Build.VERSION.SDK_INT >= 21) {
+                final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pauseInSavePowerMode) {
+                    powerSaverChangeReceiver = new BroadcastReceiver() {
+                        @TargetApi(21)
+                        @Override
+                        public void onReceive(Context context, Intent intent) {
+                            if (pm != null) {
+                                savePowerMode = pm.isPowerSaveMode();
+                            }
+                            if (savePowerMode && isVisible()) {
+                                rotationSensor.unregister();
+                                renderer.setOrientationAngle(0, 0);
+                            } else if (!savePowerMode && isVisible()) {
+                                rotationSensor.register();
+                            }
+                        }
+                    };
+
+                    IntentFilter filter = new IntentFilter();
+                    filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
+                    registerReceiver(powerSaverChangeReceiver, filter);
+                    if (pm != null) {
+                        savePowerMode = pm.isPowerSaveMode();
+                    }
+                    if (savePowerMode && isVisible()) {
+                        rotationSensor.unregister();
+                        renderer.setOrientationAngle(0, 0);
+                    }
+                } else {
+                    unregisterReceiver(powerSaverChangeReceiver);
+                    savePowerMode = pm.isPowerSaveMode();
+                    if (savePowerMode && isVisible()) {
+                        rotationSensor.register();
+                    }
+
+                }
+            }
         }
 
-        @Override
-        public void onSurfaceDestroyed(SurfaceHolder holder) {
-            super.onSurfaceDestroyed(holder);
-            handler.removeCallbacks(slideshow);
+        // enable/disable DoubleTap to change Wallpaper
+        void setAllowClickToChange(boolean enabled){
+            if (allowClickToChange == enabled) return;
+            allowClickToChange = enabled;
         }
+        boolean isAllowClickToChange() {
+            return allowClickToChange;
+        }
+
+        // enable/disable wallpapers slideshow
+        void setSlideShowEnabled(boolean enabled){
+            if (isSlideShowEnabled == enabled) return;
+            isSlideShowEnabled = enabled;
+            if (isSlideShowEnabled){
+                // Activate wallpapers Slideshow
+                handler.removeCallbacks(slideshow);
+                if (isVisible() && isSlideShowEnabled){
+                    handler.postDelayed(slideshow, timer);
+                    timeStarted = systemTime();
+                }
+            } else {
+                handler.removeCallbacks(slideshow);
+            }
+        }
+        boolean isSlideShowEnabled(){
+            return isSlideShowEnabled;
+        }
+
+
+        // enable/disable playlists
+        void setCurrentPlaylist(String playlistId) {
+            if (currentPlaylistId.equals(playlistId)) return;
+            this.currentPlaylistId = playlistId;
+            if (!playlistId.equals(PLAYLIST_NONE)) {
+
+                mRepository = new WallpaperRepository(getApplicationContext());
+                mRepository.getPlaylistWallpapers(playlistId).observeForever(new Observer<List<LocalWallpaper>>() {
+                    @Override
+                    public void onChanged(List<LocalWallpaper> wallpaperList) {
+                        Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
+                        mImagesArrayIndex = 0;
+                        currentPlaylistId = playlistId;
+                        playlistWallpapers = wallpaperList;
+
+                        String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                        boolean isDefault = prefs.getBoolean("default_wallpaper", true);
+                        renderer.refreshWallpaper(localWallpaperPath, isDefault);
+                        //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
+                    }
+                });
+            }
+        }
+
+        // Functions for wallpapers slideshow
+        void incrementWallpaper(){
+            // TODO - Change max Index size based on local images too
+            mImagesArrayIndex++;
+            if (mImagesArrayIndex >= playlistWallpapers.size()) {
+                mImagesArrayIndex = 0;
+            }
+            Log.d(TAG, "incrementCounter: " + mImagesArrayIndex);
+        }
+        void changeWallpaper(){
+
+            if (playlistWallpapers.size()>0){
+                String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                editor.putString("local_wallpaper_path", localWallpaperPath).apply();
+                boolean isDefault = prefs.getBoolean("default_wallpaper", true);
+                renderer.refreshWallpaper(localWallpaperPath, isDefault);
+
+                handler.removeCallbacks(slideshow);
+                if (isVisible()){
+                    handler.postDelayed(slideshow, timer);
+                    timeStarted = systemTime();
+                } 
+            } else {
+                Log.d(TAG, "changeWallpaper: empty playlistWallpapers!");
+            }
+            
+            
+        }
+        private long systemTime() {
+            return System.nanoTime() / 1000000;
+        }
+
+
+
     }
 
 }

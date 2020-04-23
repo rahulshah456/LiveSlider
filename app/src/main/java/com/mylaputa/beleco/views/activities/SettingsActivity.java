@@ -5,7 +5,6 @@ import androidx.cardview.widget.CardView;
 import androidx.preference.PreferenceManager;
 
 import android.annotation.SuppressLint;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -21,13 +20,14 @@ import android.widget.Toast;
 import com.mylaputa.beleco.R;
 import com.mylaputa.beleco.live_wallpaper.Cube;
 import com.mylaputa.beleco.live_wallpaper.LiveWallpaperRenderer;
+import com.mylaputa.beleco.utils.Constant;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import static com.mylaputa.beleco.utils.Constant.PLAYLIST_DEFAULT;
-import static com.mylaputa.beleco.utils.Constant.PLAYLIST_SLIDESHOW;
+import static com.mylaputa.beleco.utils.Constant.TYPE_SINGLE;
+import static com.mylaputa.beleco.utils.Constant.TYPE_SLIDESHOW;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -35,7 +35,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private SharedPreferences.Editor editor;
     private SharedPreferences prefs;
-    private int wallpaperType = PLAYLIST_DEFAULT;
+    private int wallpaperType = TYPE_SINGLE;
     private String currentPlaylist;
     private Cube cube;
 
@@ -104,8 +104,8 @@ public class SettingsActivity extends AppCompatActivity {
         }
         doubleTapSwitch.setChecked(prefs.getBoolean("double_tap",false));
         powerSaverSwitch.setChecked(prefs.getBoolean("power_saver", true));
-        currentPlaylist = prefs.getString("current_playlist",null);
-        wallpaperType = prefs.getInt("type",PLAYLIST_DEFAULT);
+        currentPlaylist = prefs.getString("current_playlist", Constant.PLAYLIST_NONE);
+        wallpaperType = prefs.getInt("type", TYPE_SINGLE);
     }
     private void InitListeners(){
         seekBarRange.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -196,15 +196,15 @@ public class SettingsActivity extends AppCompatActivity {
         slideshowCard.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (wallpaperType == PLAYLIST_SLIDESHOW){
+                if (wallpaperType == TYPE_SLIDESHOW){
                     if (slideshowSwitch.isChecked()){
                         slideshowSwitch.setChecked(false);
                         intervalCard.setVisibility(View.GONE);
                         doubleTapCard.setVisibility(View.GONE);
                     } else {
                         slideshowSwitch.setChecked(true);
-                        intervalCard.setVisibility(View.GONE);
-                        doubleTapCard.setVisibility(View.GONE);
+                        intervalCard.setVisibility(View.VISIBLE);
+                        doubleTapCard.setVisibility(View.VISIBLE);
                     }
                 } else {
                     Toast.makeText(SettingsActivity.this, R.string.select_playlist,

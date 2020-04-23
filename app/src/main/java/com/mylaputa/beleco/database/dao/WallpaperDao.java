@@ -27,7 +27,10 @@ public interface WallpaperDao {
     @Query("SELECT * FROM localwallpaper WHERE playlistId = :key ORDER BY name DESC")
     LiveData<List<LocalWallpaper>> getPlaylistWallpapers(String key);
 
-    @Query("SELECT * FROM localwallpaper ORDER BY name DESC")
+    @Query("SELECT * FROM localwallpaper WHERE playlistId = :key ORDER BY name DESC")
+    List<LocalWallpaper> getDirectPlaylistWallpapers(String key);
+
+    @Query("SELECT * FROM localwallpaper WHERE playlistId = 'Custom' ORDER BY name DESC")
     LiveData<List<LocalWallpaper>> getAllWallpapers();
 
 }

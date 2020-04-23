@@ -54,4 +54,6 @@
     <string name="change_wallpaper">Change Wallpaper</string>
     <string name="wallpaper_settings">Wallpaper Settings</string>
     <string name="thumbnail">thumbnail</string>
+    <string name="playlist_activation">You can activate and edit wallpapers in this playlist right here and any previous selected wallpaper will be changed respectively. </string>
+    <string name="single_wallpaper_alert">Are you sure you want to disable current Playlist slideshow and continue with current single wallpaper selection…</string>
 </resources>

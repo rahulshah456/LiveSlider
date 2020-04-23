@@ -5,8 +5,10 @@ import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.ClipData;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -20,10 +22,17 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.PreferenceManager;
+import androidx.recyclerview.widget.DefaultItemAnimator;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.mylaputa.beleco.R;
+import com.mylaputa.beleco.adapters.PlaylistAdapter;
 import com.mylaputa.beleco.database.models.LocalWallpaper;
 import com.mylaputa.beleco.database.models.Playlist;
 import com.mylaputa.beleco.database.repository.PlaylistRepository;
@@ -36,9 +45,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
-import static com.mylaputa.beleco.utils.Constant.PLAYLIST_SLIDESHOW;
+import static com.mylaputa.beleco.utils.Constant.PLAYLIST_NONE;
+import static com.mylaputa.beleco.utils.Constant.TYPE_SLIDESHOW;
 
 public class SlideshowFragment extends Fragment {
 
@@ -47,6 +59,9 @@ public class SlideshowFragment extends Fragment {
     private PlaylistViewModel playlistViewModel;
     private SharedPreferences.Editor editor;
     private SharedPreferences prefs;
+    private PlaylistAdapter listAdapter;
+    private RecyclerView mRecyclerView;
+    //private PlayListAdapter listAdapter;
     private final int REQUEST_MULTIPLE_PHOTOS = 1;
     private Context mContext;
     private ProgressDialog progressDialog;
@@ -59,6 +74,8 @@ public class SlideshowFragment extends Fragment {
 
         // View initializations
         mContext = getContext();
+        mRecyclerView = view.findViewById(R.id.slideshowRecyclerId);
+        FloatingActionButton addPlaylistFAB = view.findViewById(R.id.addPlaylistId);
         progressDialog = new ProgressDialog(mContext);
         progressDialog.setMessage("Processing...");
         prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
@@ -68,6 +85,19 @@ public class SlideshowFragment extends Fragment {
             wallpaperViewModel = new ViewModelProvider(getActivity()).get(WallpaperViewModel.class);
             playlistViewModel = new ViewModelProvider(getActivity()).get(PlaylistViewModel.class);
         }
+
+        InitRecyclerView();
+
+        addPlaylistFAB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.setType("image/*");
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                startActivityForResult(intent, REQUEST_MULTIPLE_PHOTOS);
+            }
+        });
         return view;
     }
 
@@ -93,6 +123,73 @@ public class SlideshowFragment extends Fragment {
     }
 
 
+
+    private void InitRecyclerView(){
+
+
+        int gridSize = ((getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT)? 1:2);
+        mRecyclerView.setLayoutManager(new GridLayoutManager(mContext, gridSize));
+        listAdapter = new PlaylistAdapter(mContext,prefs.getString("current_playlist",PLAYLIST_NONE));
+        mRecyclerView.setAdapter(listAdapter);
+//        mRecyclerView.setNestedScrollingEnabled(false);
+        mRecyclerView.setItemAnimator(new DefaultItemAnimator());
+        listAdapter.setOnItemClickListener(new PlaylistAdapter.OnItemClickListener() {
+            @Override
+            public void OnItemLongClick(int position) {
+
+                Playlist playlist = listAdapter.getItemList().get(position);
+                String currentPlaylist = prefs.getString("current_playlist",PLAYLIST_NONE);
+
+                new MaterialAlertDialogBuilder(mContext,R.style.MaterialAlertDialogTheme)
+                        .setIcon(getResources().getDrawable(R.drawable.delete_icon))
+                        .setTitle("Delete?")
+                        .setMessage("Are you sure you want to delete this wallpaper...")
+                        .setCancelable(false)
+                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                // Continue with operation
+                                if (playlist.getPlaylistId().equals(currentPlaylist)){
+                                    Toast.makeText(mContext, "You cannot delete current activated playlist!",
+                                            Toast.LENGTH_LONG).show();
+                                } else {
+                                    playlistViewModel.delete(playlist);
+                                    wallpaperViewModel.deletePlaylistWallpapers(playlist.getPlaylistId());
+                                }
+                                dialog.dismiss();
+                            }
+                        })
+                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                Log.d(TAG, "onClick: Cancelled Delete!");
+                                dialog.dismiss();
+                            }
+                        })
+                        .create()
+                        .show();
+
+            }
+        });
+
+        playlistViewModel.getAllPlaylists().observe(getViewLifecycleOwner(), new Observer<List<Playlist>>() {
+            @Override
+            public void onChanged(List<Playlist> playlists) {
+                Log.d(TAG, "onChanged: " + playlists.size());
+                if (listAdapter.getItemCount()>0){
+                    listAdapter.clearList();
+                    listAdapter.addPlaylists(playlists);
+                } else {
+                    listAdapter.addPlaylists(playlists);
+                }
+
+            }
+        });
+
+
+    }
+
+
     private InputStream openUri(Uri uri) {
         if (uri == null) return null;
         try {
@@ -102,7 +199,6 @@ public class SlideshowFragment extends Fragment {
             return null;
         }
     }
-
     @SuppressLint("StaticFieldLeak")
     private class SaveSelections extends AsyncTask<ClipData, Integer, Void> {
 
@@ -114,9 +210,10 @@ public class SlideshowFragment extends Fragment {
 
             String playlistId = String.valueOf(System.currentTimeMillis());
             String name = "Playlist_" + playlistId;
-            String desc = "This is basic wallpapers playlist and uses room as it's local database";
-            Playlist playlist = new Playlist(playlistId,name,desc,new Date(),new Date(),clipData[0].getItemCount());
-            playlistRepository.insert(playlist);
+            List<String> coverUrls = new ArrayList<>();
+            coverUrls.add(String.valueOf(clipData[0].getItemAt(0).getUri()));
+            coverUrls.add(String.valueOf(clipData[0].getItemAt(1).getUri()));
+            coverUrls.add(String.valueOf(clipData[0].getItemAt(2).getUri()));
 
             for(int index=0; index<clipData[0].getItemCount(); index++){
 
@@ -155,11 +252,9 @@ public class SlideshowFragment extends Fragment {
 
             }
 
-            // updating current playlist
-            editor.putString("current_playlist",playlistId);
-            editor.apply();
-            editor.putInt("type",PLAYLIST_SLIDESHOW);
-            editor.apply();
+            Playlist playlist = new Playlist(playlistId,name,coverUrls,
+                    new Date(),new Date(),clipData[0].getItemCount());
+            playlistRepository.insert(playlist);
 
             return null;
         }
