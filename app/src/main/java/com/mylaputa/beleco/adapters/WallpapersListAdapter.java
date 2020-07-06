@@ -27,6 +27,7 @@ import com.mylaputa.beleco.utils.Constant;
 import java.util.ArrayList;
 import java.util.List;
 import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
+import static com.mylaputa.beleco.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.mylaputa.beleco.utils.Constant.PLAYLIST_NONE;
 import static com.mylaputa.beleco.utils.Constant.TYPE_SINGLE;
 import static com.mylaputa.beleco.utils.Constant.TYPE_SLIDESHOW;
@@ -212,6 +213,10 @@ public class WallpapersListAdapter extends RecyclerView.Adapter<WallpapersListAd
             mWallpapersList.clear();
             notifyDataSetChanged();
         }
+    }
+
+    public void updateLocalWallpaper(){
+        localWallpaperPath = prefs.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH);
     }
 
     public List<LocalWallpaper> getItemList(){

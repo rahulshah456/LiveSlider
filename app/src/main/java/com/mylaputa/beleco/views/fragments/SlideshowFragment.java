@@ -37,6 +37,7 @@ import com.mylaputa.beleco.database.models.LocalWallpaper;
 import com.mylaputa.beleco.database.models.Playlist;
 import com.mylaputa.beleco.database.repository.PlaylistRepository;
 import com.mylaputa.beleco.database.repository.WallpaperRepository;
+import com.mylaputa.beleco.live_wallpaper.LiveWallpaperService;
 import com.mylaputa.beleco.utils.Constant;
 import com.mylaputa.beleco.viewmodel.PlaylistViewModel;
 import com.mylaputa.beleco.viewmodel.WallpaperViewModel;
@@ -52,7 +53,7 @@ import java.util.List;
 import static com.mylaputa.beleco.utils.Constant.PLAYLIST_NONE;
 import static com.mylaputa.beleco.utils.Constant.TYPE_SLIDESHOW;
 
-public class SlideshowFragment extends Fragment {
+public class SlideshowFragment extends Fragment implements SharedPreferences.OnSharedPreferenceChangeListener {
 
     private static final String TAG = SlideshowFragment.class.getSimpleName();
     private WallpaperViewModel wallpaperViewModel;
@@ -66,7 +67,7 @@ public class SlideshowFragment extends Fragment {
     private Context mContext;
     private ProgressDialog progressDialog;
 
-    @SuppressLint("CommitPrefEdits")
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -78,14 +79,11 @@ public class SlideshowFragment extends Fragment {
         FloatingActionButton addPlaylistFAB = view.findViewById(R.id.addPlaylistId);
         progressDialog = new ProgressDialog(mContext);
         progressDialog.setMessage("Processing...");
-        prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-        editor = prefs.edit();
 
         if (getActivity()!=null){
             wallpaperViewModel = new ViewModelProvider(getActivity()).get(WallpaperViewModel.class);
             playlistViewModel = new ViewModelProvider(getActivity()).get(PlaylistViewModel.class);
         }
-
         InitRecyclerView();
 
         addPlaylistFAB.setOnClickListener(new View.OnClickListener() {
@@ -178,10 +176,8 @@ public class SlideshowFragment extends Fragment {
                 Log.d(TAG, "onChanged: " + playlists.size());
                 if (listAdapter.getItemCount()>0){
                     listAdapter.clearList();
-                    listAdapter.addPlaylists(playlists);
-                } else {
-                    listAdapter.addPlaylists(playlists);
                 }
+                listAdapter.addPlaylists(playlists);
 
             }
         });
@@ -199,6 +195,7 @@ public class SlideshowFragment extends Fragment {
             return null;
         }
     }
+
     @SuppressLint("StaticFieldLeak")
     private class SaveSelections extends AsyncTask<ClipData, Integer, Void> {
 
@@ -265,6 +262,34 @@ public class SlideshowFragment extends Fragment {
             if (progressDialog.isShowing()) {
                 progressDialog.dismiss();
             }
+        }
+    }
+
+
+    @SuppressLint("CommitPrefEdits")
+    @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if (prefs == null){
+            prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            editor = prefs.edit();
+        }
+        prefs.registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        prefs.unregisterOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        Log.d(TAG, "onSharedPreferenceChanged: " + key);
+        if (key.equals("type")){
+            listAdapter.updatePlaylist();
+            listAdapter.notifyDataSetChanged();
+            Log.d(TAG, "onSharedPreferenceChanged: notifyDataSetChanged!");
         }
     }
 }

@@ -34,6 +34,7 @@ import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOption
 import static com.mylaputa.beleco.utils.Constant.PLAYLIST_NONE;
 import static com.mylaputa.beleco.utils.Constant.TYPE_SINGLE;
 import static com.mylaputa.beleco.utils.Constant.TYPE_SLIDESHOW;
+import static com.mylaputa.beleco.utils.Constant.WALLPAPER_NONE;
 
 public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyViewHolder> {
 
@@ -212,6 +213,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         if (!playlistId.equals(playlist.getPlaylistId())){
 
             editor.putInt("type",TYPE_SLIDESHOW);
+            editor.putString("local_wallpaper_path",WALLPAPER_NONE);
             editor.putBoolean("double_tap",true);
             editor.putString("current_playlist",playlist.getPlaylistId());
             editor.putBoolean("slideshow",true);
@@ -229,6 +231,10 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     public void addPlaylists(List<Playlist> list){
         mAllPlaylist.addAll(list);
         notifyDataSetChanged();
+    }
+
+    public void updatePlaylist(){
+        playlistId = prefs.getString("current_playlist",PLAYLIST_NONE);
     }
 
     public void clearList(){

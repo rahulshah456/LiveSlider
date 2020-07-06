@@ -45,7 +45,7 @@ import java.util.List;
 
 import static com.mylaputa.beleco.utils.Constant.DEFAULT_LOCAL_PATH;
 
-public class SingleFragment extends Fragment {
+public class SingleFragment extends Fragment implements SharedPreferences.OnSharedPreferenceChangeListener {
 
     private static final String TAG = SingleFragment.class.getSimpleName();
     private WallpaperViewModel wallpaperViewModel;
@@ -59,7 +59,7 @@ public class SingleFragment extends Fragment {
     private LocalWallpaper defaultWallpaper;
     private ProgressDialog progressDialog;
 
-    @SuppressLint("CommitPrefEdits")
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -71,8 +71,6 @@ public class SingleFragment extends Fragment {
         FloatingActionButton addWallpaperFAB = view.findViewById(R.id.addWallpaperId);
         progressDialog = new ProgressDialog(mContext);
         progressDialog.setMessage("Processing...");
-        prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-        editor = prefs.edit();
 
         // Creating default wallpaper data
         String localPath = DEFAULT_LOCAL_PATH;
@@ -205,6 +203,7 @@ public class SingleFragment extends Fragment {
         }
     }
 
+
     @SuppressLint("StaticFieldLeak")
     private class SaveSingle extends AsyncTask<Uri, Integer, Void> {
 
@@ -254,6 +253,34 @@ public class SingleFragment extends Fragment {
             if (progressDialog.isShowing()) {
                 progressDialog.dismiss();
             }
+        }
+    }
+
+
+    @SuppressLint("CommitPrefEdits")
+    @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if (prefs==null){
+            prefs = PreferenceManager.getDefaultSharedPreferences(context);
+            editor = prefs.edit();
+        }
+        prefs.registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        prefs.unregisterOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        Log.d(TAG, "onSharedPreferenceChanged: " + key);
+        if (key.equals("type")){
+            listAdapter.updateLocalWallpaper();
+            listAdapter.notifyDataSetChanged();
+            Log.d(TAG, "onSharedPreferenceChanged: notifyDataSetChanged!");
         }
     }
 
