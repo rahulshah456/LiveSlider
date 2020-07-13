@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.mylaputa.beleco">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.droid2developers.liveslider">
 
     <uses-feature
         android:name="android.software.live_wallpaper"
@@ -16,16 +17,18 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
-        <activity android:name=".views.activities.SettingsActivity"
+        android:autoRevokePermissions="allowed"
+        android:theme="@style/AppTheme"
+        tools:ignore="UnusedAttribute">
+        <activity android:name="com.droid2developers.liveslider.views.activities.SettingsActivity"
             android:theme="@style/AppTheme.Transparent">
         </activity>
         <activity
-            android:name=".views.activities.ChangeWallpaperActivity"
+            android:name="com.droid2developers.liveslider.views.activities.ChangeWallpaperActivity"
             android:theme="@style/AppTheme.Transparent">
         </activity>
         <activity
-            android:name=".views.activities.MainActivity"
+            android:name="com.droid2developers.liveslider.views.activities.MainActivity"
             android:launchMode="singleTop"
             android:theme="@style/AppTheme.Transparent">
             <intent-filter>
@@ -39,7 +42,7 @@
             android:resource="@array/preloaded_fonts" />
 
         <service
-            android:name=".live_wallpaper.LiveWallpaperService"
+            android:name="com.droid2developers.liveslider.live_wallpaper.LiveWallpaperService"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>

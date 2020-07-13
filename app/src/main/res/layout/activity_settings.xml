@@ -93,7 +93,7 @@
                 android:layout_marginRight="@dimen/introduction_horizontal_margin"
                 android:fontFamily="@font/montserrat" />
 
-            <com.mylaputa.beleco.live_wallpaper.Cube
+            <com.droid2developers.liveslider.live_wallpaper.Cube
                 android:id="@+id/cube"
                 android:layout_width="@dimen/cube_size"
                 android:layout_height="@dimen/cube_size"
@@ -106,7 +106,6 @@
                 android:layout_marginTop="@dimen/divider_vertical_margin"
                 android:layout_marginBottom="@dimen/divider_vertical_margin"
                 android:background="@color/color_divider" />
-
 
             <LinearLayout
                 android:layout_width="match_parent"
