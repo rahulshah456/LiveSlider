@@ -5,7 +5,7 @@
     <string name="toast_sensor_error">Sorry! This device does not support Rotation Vector Sensor.</string>
     <string name="toast_invalid_pic_path">Invalid picture path!</string>
     <string name="toast_failed_set_picture">Setting failed. Please retry!</string>
-    <string name="toast_failed_launch_wallpaper_chooser">Couldn\'t launch wallpaper chooser. You can still activate Beleco by choosing \"Live Wallpapers\" in your home screen wallpaper picker.</string>
+    <string name="toast_failed_launch_wallpaper_chooser">Couldn\'t launch wallpaper chooser. You can still activate Live Slider by choosing \"Live Wallpapers\" in your home screen wallpaper picker.</string>
 
     <string name="introduction1">Welcome!</string>
     <string name="introduction2">

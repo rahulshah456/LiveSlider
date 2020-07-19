@@ -9,13 +9,23 @@ android {
         applicationId "com.droid2developers.liveslider"
         minSdkVersion 21
         targetSdkVersion 30
-        versionCode 6
-        versionName "1.1"
+        versionCode 8
+        versionName "1.2"
     }
     buildTypes {
         release {
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            shrinkResources true
+            //useProguard true
+            debuggable false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+            //shrinkResources true
+            //useProguard true
+            debuggable true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
@@ -57,7 +67,7 @@ dependencies {
 
 
     implementation "xyz.aprildown:HmsPickerView:0.2.0"
-    implementation 'com.squareup.retrofit2:converter-gson:2.6.2'
+    implementation 'com.squareup.retrofit2:converter-gson:2.8.1'
 }
 repositories {
     mavenCentral()

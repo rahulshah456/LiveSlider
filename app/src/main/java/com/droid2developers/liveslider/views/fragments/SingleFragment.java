@@ -221,6 +221,7 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
                         LocalWallpaper localWallpaper = new LocalWallpaper(Constant.CUSTOM,
                                 wallpaper_name,localPath,String.valueOf(contentURI));
                         FileOutputStream fos = new FileOutputStream(localPath);
+                        Log.d(TAG, "doInBackground: " + localPath);
                         //FileOutputStream fos = getActivity().openFileOutput(wallpaper_name, Context.MODE_PRIVATE);
                         byte[] buffer = new byte[1024];
                         int bytes;

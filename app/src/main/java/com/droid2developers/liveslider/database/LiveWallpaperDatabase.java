@@ -16,7 +16,7 @@ import java.util.concurrent.Executors;
 
 import static com.droid2developers.liveslider.utils.Constant.DB_NAME;
 
-@Database(entities = {LocalWallpaper.class, Playlist.class}, version = 2, exportSchema = false)
+@Database(entities = {LocalWallpaper.class, Playlist.class}, version = 3, exportSchema = false)
 public abstract class LiveWallpaperDatabase extends RoomDatabase {
 
     public abstract WallpaperDao wallpaperDao();

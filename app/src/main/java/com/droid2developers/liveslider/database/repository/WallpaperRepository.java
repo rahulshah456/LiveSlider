@@ -1,7 +1,10 @@
 package com.droid2developers.liveslider.database.repository;
 
 import android.content.Context;
+import android.media.MediaScannerConnection;
 import android.util.Log;
+import android.widget.Toast;
+
 import androidx.lifecycle.LiveData;
 import com.droid2developers.liveslider.database.LiveWallpaperDatabase;
 import com.droid2developers.liveslider.database.dao.WallpaperDao;
@@ -60,7 +63,10 @@ public class WallpaperRepository {
                 boolean isDeleted = deleteLocalFile(wallpaper.getLocalPath());
                 Log.d(TAG, "delete: final Status = " + isDeleted);
                 if (isDeleted){
+                    scanDeletedFile(wallpaper.getLocalPath());
                     mWallpaperDao.deleteWallpaper(wallpaper);
+                } else {
+                    Toast.makeText(mContext, "Error in deleting wallpaper!", Toast.LENGTH_SHORT).show();
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -73,6 +79,21 @@ public class WallpaperRepository {
         LiveWallpaperDatabase.databaseWriteExecutor.execute(() -> {
             mWallpaperDao.deletePlaylistWallpapers(playlistId);
         });
+    }
+
+
+    private void scanDeletedFile(String path) {
+        try {
+            MediaScannerConnection.scanFile(mContext, new String[] { path },
+                    null, (path1, uri) -> {
+                        Log.i("ExternalStorage", "Scanned " + path1 + ":");
+                        Log.i("ExternalStorage", "-> uri=" + uri);
+                        mContext.getContentResolver().delete(uri, null, null);
+                    });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
 
