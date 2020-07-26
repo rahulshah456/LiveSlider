@@ -1,4 +1,4 @@
-# Parallax Slideshow Live Wallpaper
+# Live Slider - Parallax Slideshow Live Wallpaper
 This is a parallax effect wallpaper which will slightly offset the position of the wallpaper when you rotate your device. **Rotation Vector Sensor** is required. Single and Multiple wallpapers can be activated with user defined time interval. Double Tap to change current wallpaper and user can create custom playlists with list of wallpapers for slideshow.
 
 Many thanks to these open source projects:
