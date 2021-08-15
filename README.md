@@ -11,10 +11,6 @@ Many thanks to these open source projects:
 - <a href="https://github.com/greenrobot/EventBus">EventBus</a>
 *by greenrobot*
 
-Thanks to this beautiful icon pack:
-- <a href="http://www.elegantthemes.com/blog/freebie-of-the-week/beautiful-flat-icons-for-free/">Beautiful Flat Icons</a>
-*by Nick Roach*
-
 # Screenshots
 - These are the welcome and home navigation screens
 
