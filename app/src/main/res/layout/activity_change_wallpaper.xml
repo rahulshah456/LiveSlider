@@ -12,6 +12,7 @@
         android:id="@+id/appBarId"
         android:layout_width="match_parent"
         app:elevation="0dp"
+        android:backgroundTint="@android:color/transparent"
         android:layout_height="?attr/actionBarSize">
 
         <androidx.appcompat.widget.Toolbar
@@ -59,7 +60,7 @@
                     android:id="@+id/collectionTitleId"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Change Wallpapers"
+                    android:text="@string/change_wallpapers"
                     android:fontFamily="@font/montserrat"
                     android:textStyle="bold"
                     android:layout_centerInParent="true"
@@ -86,6 +87,7 @@
         android:layout_marginStart="18dp"
         android:layout_marginEnd="18dp"
         app:tabRippleColor="@null"
+        android:background="@android:color/transparent"
         android:layout_below="@+id/appBarId"
         app:tabIndicatorColor="@color/material_green"
         app:tabBackground = "@android:color/transparent"

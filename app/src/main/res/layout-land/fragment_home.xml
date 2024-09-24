@@ -15,32 +15,61 @@
         android:orientation="horizontal"
         app:layout_constraintTop_toTopOf="parent">
 
-        <Button
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/change_wallpaper_button"
             android:layout_width="@dimen/activate_button_size"
             android:layout_height="@dimen/activate_button_size"
-            android:layout_margin="48dp"
-            android:background="@drawable/circle"
-            android:fontFamily="@font/montserrat"
-            android:text="@string/change_wallpaper"
-            android:textAllCaps="false"
-            android:textColor="#333"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="@dimen/activate_button_margin_top"
+            app:cardBackgroundColor="@color/white_mod"
+            android:text="@string/activate"
+            app:strokeWidth="5dp"
+            app:strokeColor="#AAA"
+            android:layout_margin="28dp"
+            app:cardCornerRadius="@dimen/activate_button_size">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="@string/change_wallpaper"
+                    android:textAlignment="center"
+                    android:fontFamily="@font/montserrat"
+                    android:textColor="#000"
+                    android:textSize="18sp" />
+            </RelativeLayout>
+        </com.google.android.material.card.MaterialCardView>
 
 
-        <Button
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/wallpaper_settings_button"
             android:layout_width="@dimen/activate_button_size"
             android:layout_height="@dimen/activate_button_size"
-            android:layout_margin="48dp"
-            android:background="@drawable/circle"
-            android:fontFamily="@font/montserrat"
-            android:text="@string/wallpaper_settings"
-            android:textAllCaps="false"
-            android:textColor="#333"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="@dimen/activate_button_margin_top"
+            app:cardBackgroundColor="@color/white_mod"
+            app:strokeWidth="5dp"
+            app:strokeColor="#AAA"
+            android:layout_margin="28dp"
+            app:cardCornerRadius="@dimen/activate_button_size">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="@string/wallpaper_settings"
+                    android:textAlignment="center"
+                    android:fontFamily="@font/montserrat"
+                    android:textColor="#000"
+                    android:textSize="18sp" />
+            </RelativeLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 

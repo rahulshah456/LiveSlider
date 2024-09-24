@@ -16,6 +16,8 @@ import android.widget.Button;
 import android.widget.Toast;
 import com.droid2developers.liveslider.live_wallpaper.LiveWallpaperService;
 import com.droid2developers.liveslider.R;
+import com.google.android.material.card.MaterialCardView;
+
 import java.util.Objects;
 
 public class ActivateFragment extends Fragment {
@@ -27,25 +29,21 @@ public class ActivateFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_activate, container, false);
 
-        Button buttonActivate = view.findViewById(R.id.activate_button);
-        buttonActivate.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+        view.findViewById(R.id.activate_button).setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                        .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                                new ComponentName(requireContext(), LiveWallpaperService.class))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (ActivityNotFoundException e) {
+                Log.d(TAG, "onClick: ",e);
                 try {
-                    startActivity(new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-                            .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                                    new ComponentName(Objects.requireNonNull(getContext()), LiveWallpaperService.class))
+                    startActivity(new Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                } catch (ActivityNotFoundException e) {
+                } catch (ActivityNotFoundException e2) {
                     Log.d(TAG, "onClick: ",e);
-                    try {
-                        startActivity(new Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                    } catch (ActivityNotFoundException e2) {
-                        Log.d(TAG, "onClick: ",e);
-                        Toast.makeText(getContext(), R.string
-                                .toast_failed_launch_wallpaper_chooser, Toast.LENGTH_LONG).show();
-                    }
+                    Toast.makeText(getContext(), R.string
+                            .toast_failed_launch_wallpaper_chooser, Toast.LENGTH_LONG).show();
                 }
             }
         });

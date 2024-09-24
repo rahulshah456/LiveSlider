@@ -85,15 +85,12 @@ public class SlideshowFragment extends Fragment implements SharedPreferences.OnS
         }
         InitRecyclerView();
 
-        addPlaylistFAB.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.setType("image/*");
-                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(intent, REQUEST_MULTIPLE_PHOTOS);
-            }
+        addPlaylistFAB.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.setType("image/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            startActivityForResult(intent, REQUEST_MULTIPLE_PHOTOS);
         });
         return view;
     }
@@ -130,55 +127,43 @@ public class SlideshowFragment extends Fragment implements SharedPreferences.OnS
         mRecyclerView.setAdapter(listAdapter);
 //        mRecyclerView.setNestedScrollingEnabled(false);
         mRecyclerView.setItemAnimator(new DefaultItemAnimator());
-        listAdapter.setOnItemClickListener(new PlaylistAdapter.OnItemClickListener() {
-            @Override
-            public void OnItemLongClick(int position) {
+        listAdapter.setOnItemClickListener(position -> {
 
-                Playlist playlist = listAdapter.getItemList().get(position);
-                String currentPlaylist = prefs.getString("current_playlist",PLAYLIST_NONE);
+            Playlist playlist = listAdapter.getItemList().get(position);
+            String currentPlaylist = prefs.getString("current_playlist",PLAYLIST_NONE);
 
-                new MaterialAlertDialogBuilder(mContext)
-                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.delete_icon, null))
-                        .setTitle("Delete?")
-                        .setMessage("Are you sure you want to delete this wallpaper...")
-                        .setCancelable(false)
-                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                // Continue with operation
-                                if (playlist.getPlaylistId().equals(currentPlaylist)){
-                                    Toast.makeText(mContext, "You cannot delete current activated playlist!",
-                                            Toast.LENGTH_LONG).show();
-                                } else {
-                                    playlistViewModel.delete(playlist);
-                                    wallpaperViewModel.deletePlaylistWallpapers(playlist.getPlaylistId());
-                                }
-                                dialog.dismiss();
-                            }
-                        })
-                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                Log.d(TAG, "onClick: Cancelled Delete!");
-                                dialog.dismiss();
-                            }
-                        })
-                        .create()
-                        .show();
+            new MaterialAlertDialogBuilder(mContext)
+                    .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.delete_icon, null))
+                    .setTitle("Delete?")
+                    .setMessage("Are you sure you want to delete this wallpaper...")
+                    .setCancelable(false)
+                    .setPositiveButton("Confirm", (dialog, which) -> {
+                        // Continue with operation
+                        if (playlist.getPlaylistId().equals(currentPlaylist)){
+                            Toast.makeText(mContext, "You cannot delete current activated playlist!",
+                                    Toast.LENGTH_LONG).show();
+                        } else {
+                            playlistViewModel.delete(playlist);
+                            wallpaperViewModel.deletePlaylistWallpapers(playlist.getPlaylistId());
+                        }
+                        dialog.dismiss();
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        Log.d(TAG, "onClick: Cancelled Delete!");
+                        dialog.dismiss();
+                    })
+                    .create()
+                    .show();
 
-            }
         });
 
-        playlistViewModel.getAllPlaylists().observe(getViewLifecycleOwner(), new Observer<List<Playlist>>() {
-            @Override
-            public void onChanged(List<Playlist> playlists) {
-                Log.d(TAG, "onChanged: " + playlists.size());
-                if (listAdapter.getItemCount()>0){
-                    listAdapter.clearList();
-                }
-                listAdapter.addPlaylists(playlists);
-
+        playlistViewModel.getAllPlaylists().observe(getViewLifecycleOwner(), playlists -> {
+            Log.d(TAG, "onChanged: " + playlists.size());
+            if (listAdapter.getItemCount()>0){
+                listAdapter.clearList();
             }
+            listAdapter.addPlaylists(playlists);
+
         });
 
 

@@ -212,7 +212,7 @@
                                 android:id="@+id/scrollingTextID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Wallpaper Scrolling"
+                                android:text="@string/wallpaper_scrolling"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/white_mod" />
 
@@ -224,9 +224,9 @@
                                 android:textSize="12sp"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/material_light"
-                                android:text="Enable to get scroll effect" />
+                                android:text="@string/enable_to_get_scroll_effect" />
 
-                            <Switch
+                            <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch1ID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -277,7 +277,7 @@
                                 android:id="@+id/powerTextID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Power Saver Mode"
+                                android:text="@string/power_saver_mode"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/white_mod" />
 
@@ -289,9 +289,9 @@
                                 android:textSize="12sp"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/material_light"
-                                android:text="Pause everything in battery saver mode" />
+                                android:text="@string/pause_everything_in_battery_saver_mode" />
 
-                            <Switch
+                            <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch4ID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -342,7 +342,7 @@
                                 android:id="@+id/slideshowTextID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Wallpaper Slideshow"
+                                android:text="@string/wallpaper_slideshow"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/white_mod" />
 
@@ -354,9 +354,9 @@
                                 android:textSize="12sp"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/material_light"
-                                android:text="Wallpaper changes after some time" />
+                                android:text="@string/wallpaper_changes_after_some_time" />
 
-                            <Switch
+                            <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch2ID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -465,7 +465,7 @@
                                 android:id="@+id/tapTextID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Double Tap Wallpaper"
+                                android:text="@string/double_tap_wallpaper"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/white_mod" />
 
@@ -477,9 +477,9 @@
                                 android:textSize="12sp"
                                 android:fontFamily="@font/montserrat"
                                 android:textColor="@color/material_light"
-                                android:text="Change current wallpaper" />
+                                android:text="@string/change_current_wallpaper" />
 
-                            <Switch
+                            <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch3ID"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"

@@ -30,4 +30,13 @@
     <string name="thumbnail">thumbnail</string>
     <string name="playlist_activation">You can activate and edit wallpapers in this playlist right here and any previous selected wallpaper will be changed respectively. </string>
     <string name="single_wallpaper_alert">Are you sure you want to disable current Playlist slideshow and continue with current single wallpaper selection…</string>
+    <string name="change_wallpapers">Change Wallpapers</string>
+    <string name="change_current_wallpaper">Change current wallpaper</string>
+    <string name="double_tap_wallpaper">Double Tap Wallpaper</string>
+    <string name="wallpaper_slideshow">Wallpaper Slideshow</string>
+    <string name="wallpaper_changes_after_some_time">Wallpaper changes after some time</string>
+    <string name="pause_everything_in_battery_saver_mode">Pause everything in battery saver mode</string>
+    <string name="power_saver_mode">Power Saver Mode</string>
+    <string name="enable_to_get_scroll_effect">Enable to get scroll effect</string>
+    <string name="wallpaper_scrolling">Wallpaper Scrolling</string>
 </resources>

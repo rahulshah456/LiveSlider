@@ -41,12 +41,7 @@ public class ChangeWallpaperActivity extends AppCompatActivity {
         tabLayout.setupWithViewPager(viewPager);
 
         CardView backButton = findViewById(R.id.backButtonId);
-        backButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onBackPressed();
-            }
-        });
+        backButton.setOnClickListener(v -> onBackPressed());
 
     }
 }

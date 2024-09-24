@@ -27,6 +27,7 @@ import com.droid2developers.liveslider.R;
 import com.droid2developers.liveslider.live_wallpaper.Cube;
 import com.droid2developers.liveslider.live_wallpaper.LiveWallpaperRenderer;
 import com.droid2developers.liveslider.utils.Constant;
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -50,7 +51,7 @@ public class SettingsActivity extends AppCompatActivity {
     private Cube cube;
 
     private CardView scrollCard,slideshowCard,intervalCard,doubleTapCard,powerSaverCard,backButton;
-    private Switch scrollSwitch,slideshowSwitch,doubleTapSwitch,powerSaverSwitch;
+    private MaterialSwitch scrollSwitch,slideshowSwitch,doubleTapSwitch,powerSaverSwitch;
     private TextView intervalText;
     private SeekBar seekBarRange,seekBarDelay;
 
@@ -159,101 +160,55 @@ public class SettingsActivity extends AppCompatActivity {
 
             }
         });
-        scrollSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                editor.putBoolean("scroll", isChecked);
-                editor.apply();
-            }
+        scrollSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            editor.putBoolean("scroll", isChecked);
+            editor.apply();
         });
-        slideshowSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                editor.putBoolean("slideshow", isChecked);
-                editor.apply();
-            }
+        slideshowSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            editor.putBoolean("slideshow", isChecked);
+            editor.apply();
         });
-        powerSaverSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                editor.putBoolean("power_saver", isChecked);
-                editor.apply();
-            }
+        powerSaverSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            editor.putBoolean("power_saver", isChecked);
+            editor.apply();
         });
-        doubleTapSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                editor.putBoolean("double_tap", isChecked);
-                editor.apply();
-            }
+        doubleTapSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            editor.putBoolean("double_tap", isChecked);
+            editor.apply();
         });
     }
     private void InitOnClicks(){
 
-        backButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onBackPressed();
-            }
+        backButton.setOnClickListener(v -> onBackPressed());
+        scrollCard.setOnClickListener(v -> {
+            scrollSwitch.setChecked(!scrollSwitch.isChecked());
         });
-        scrollCard.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (scrollSwitch.isChecked()){
-                    scrollSwitch.setChecked(false);
+        slideshowCard.setOnClickListener(v -> {
+            if (wallpaperType == TYPE_SLIDESHOW){
+                if (slideshowSwitch.isChecked()){
+                    slideshowSwitch.setChecked(false);
+                    intervalCard.setVisibility(View.GONE);
+                    doubleTapCard.setVisibility(View.GONE);
                 } else {
-                    scrollSwitch.setChecked(true);
+                    slideshowSwitch.setChecked(true);
+                    intervalCard.setVisibility(View.VISIBLE);
+                    doubleTapCard.setVisibility(View.VISIBLE);
                 }
+            } else {
+                Toast.makeText(SettingsActivity.this, R.string.select_playlist,
+                        Toast.LENGTH_SHORT).show();
             }
-        });
-        slideshowCard.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (wallpaperType == TYPE_SLIDESHOW){
-                    if (slideshowSwitch.isChecked()){
-                        slideshowSwitch.setChecked(false);
-                        intervalCard.setVisibility(View.GONE);
-                        doubleTapCard.setVisibility(View.GONE);
-                    } else {
-                        slideshowSwitch.setChecked(true);
-                        intervalCard.setVisibility(View.VISIBLE);
-                        doubleTapCard.setVisibility(View.VISIBLE);
-                    }
-                } else {
-                    Toast.makeText(SettingsActivity.this, R.string.select_playlist,
-                            Toast.LENGTH_SHORT).show();
-                }
 
 
-            }
         });
-        intervalCard.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showIntervalDialog();
-            }
-        });
+        intervalCard.setOnClickListener(v -> showIntervalDialog());
 
 
-        doubleTapCard.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (doubleTapSwitch.isChecked()){
-                    doubleTapSwitch.setChecked(false);
-                } else {
-                    doubleTapSwitch.setChecked(true);
-                }
-            }
+        doubleTapCard.setOnClickListener(v -> {
+            doubleTapSwitch.setChecked(!doubleTapSwitch.isChecked());
         });
-        powerSaverCard.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (powerSaverSwitch.isChecked()){
-                    powerSaverSwitch.setChecked(false);
-                } else {
-                    powerSaverSwitch.setChecked(true);
-                }
-            }
+        powerSaverCard.setOnClickListener(v -> {
+            powerSaverSwitch.setChecked(!powerSaverSwitch.isChecked());
         });
 
     }
@@ -280,37 +235,26 @@ public class SettingsActivity extends AppCompatActivity {
                         .setNegativeButton(android.R.string.cancel, null);
 
         AlertDialog alertDialog = dialogBuilder.create();
-        alertDialog.setOnShowListener(new DialogInterface.OnShowListener() {
-            @Override
-            public void onShow(DialogInterface dialog) {
+        alertDialog.setOnShowListener(dialog -> {
 
-                Button positive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
-                positive.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        long timeInMillis = hmsPickerView.getTimeInMillis();
-                        if (timeInMillis > MINIMUM_SLIDESHOW_TIME) {
-                            intervalText.setText(Constant.getTimeText(timeInMillis));
-                            editor.putLong("slideshow_timer",timeInMillis).apply();
-                            dialog.dismiss();
-                        } else {
-                            Toast.makeText(SettingsActivity.this,
-                                    "Slideshow Time can't be empty or less than 10 Seconds!",
-                                    Toast.LENGTH_LONG).show();
-                        }
-                    }
-                });
+            Button positive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            positive.setOnClickListener(v -> {
+                long timeInMillis1 = hmsPickerView.getTimeInMillis();
+                if (timeInMillis1 > MINIMUM_SLIDESHOW_TIME) {
+                    intervalText.setText(Constant.getTimeText(timeInMillis1));
+                    editor.putLong("slideshow_timer", timeInMillis1).apply();
+                    dialog.dismiss();
+                } else {
+                    Toast.makeText(SettingsActivity.this,
+                            "Slideshow Time can't be empty or less than 10 Seconds!",
+                            Toast.LENGTH_LONG).show();
+                }
+            });
 
 
-                Button negative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-                negative.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        dialog.dismiss();
-                    }
-                });
+            Button negative = alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+            negative.setOnClickListener(v -> dialog.dismiss());
 
-            }
         });
         alertDialog.show();
 

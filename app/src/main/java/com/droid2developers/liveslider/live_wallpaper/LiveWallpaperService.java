@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -70,13 +71,11 @@ public class LiveWallpaperService extends GLWallpaperService {
         private GestureDetector doubleTapDetector;
 
         // Runnable Threads
-        private final Handler handler = new Handler();
-        private final Runnable slideshow = new Runnable() {
-            public void run() {
-                Log.d(TAG, "run: slideshow handler called!");
-                incrementWallpaper();
-                changeWallpaper();
-            }
+        private final Handler handler = new Handler(Looper.getMainLooper());
+        private final Runnable slideshow = () -> {
+            Log.d(TAG, "run: slideshow handler called!");
+            incrementWallpaper();
+            changeWallpaper();
         };
 
 
@@ -129,7 +128,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             Log.d(TAG, "onDestroy: ");
             rotationSensor.unregister();
             handler.removeCallbacks(slideshow);
-            if (Build.VERSION.SDK_INT >= 21) {
+            if(powerSaverChangeReceiver != null) {
                 unregisterReceiver(powerSaverChangeReceiver);
             }
             prefs.unregisterOnSharedPreferenceChangeListener(this);
@@ -256,43 +255,40 @@ public class LiveWallpaperService extends GLWallpaperService {
         void setPowerSaverEnabled(boolean enabled) {
             if (pauseInSavePowerMode == enabled) return;
             pauseInSavePowerMode = enabled;
-            if (Build.VERSION.SDK_INT >= 21) {
-                final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                if (pauseInSavePowerMode) {
-                    powerSaverChangeReceiver = new BroadcastReceiver() {
-                        @TargetApi(21)
-                        @Override
-                        public void onReceive(Context context, Intent intent) {
-                            if (pm != null) {
-                                savePowerMode = pm.isPowerSaveMode();
-                            }
-                            if (savePowerMode && isVisible()) {
-                                rotationSensor.unregister();
-                                renderer.setOrientationAngle(0, 0);
-                            } else if (!savePowerMode && isVisible()) {
-                                rotationSensor.register();
-                            }
+            final PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pauseInSavePowerMode) {
+                powerSaverChangeReceiver = new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        if (pm != null) {
+                            savePowerMode = pm.isPowerSaveMode();
                         }
-                    };
+                        if (savePowerMode && isVisible()) {
+                            rotationSensor.unregister();
+                            renderer.setOrientationAngle(0, 0);
+                        } else if (!savePowerMode && isVisible()) {
+                            rotationSensor.register();
+                        }
+                    }
+                };
 
-                    IntentFilter filter = new IntentFilter();
-                    filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
-                    registerReceiver(powerSaverChangeReceiver, filter);
-                    if (pm != null) {
-                        savePowerMode = pm.isPowerSaveMode();
-                    }
-                    if (savePowerMode && isVisible()) {
-                        rotationSensor.unregister();
-                        renderer.setOrientationAngle(0, 0);
-                    }
-                } else {
-                    unregisterReceiver(powerSaverChangeReceiver);
+                IntentFilter filter = new IntentFilter();
+                filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
+                registerReceiver(powerSaverChangeReceiver, filter);
+                if (pm != null) {
                     savePowerMode = pm.isPowerSaveMode();
-                    if (savePowerMode && isVisible()) {
-                        rotationSensor.register();
-                    }
-
                 }
+                if (savePowerMode && isVisible()) {
+                    rotationSensor.unregister();
+                    renderer.setOrientationAngle(0, 0);
+                }
+            } else {
+                unregisterReceiver(powerSaverChangeReceiver);
+                savePowerMode = pm.isPowerSaveMode();
+                if (savePowerMode && isVisible()) {
+                    rotationSensor.register();
+                }
+
             }
         }
 
@@ -360,7 +356,7 @@ public class LiveWallpaperService extends GLWallpaperService {
         }
         void changeWallpaper(){
 
-            if (playlistWallpapers.size()>0){
+            if (!playlistWallpapers.isEmpty()){
                 String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
                 editor.putString("local_wallpaper_path", localWallpaperPath).apply();
                 boolean isDefault = prefs.getBoolean("default_wallpaper", true);

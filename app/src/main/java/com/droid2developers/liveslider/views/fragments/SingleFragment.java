@@ -75,25 +75,22 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
 
         // Creating default wallpaper data
         String localPath = DEFAULT_LOCAL_PATH;
-        defaultWallpaper = new LocalWallpaper(Constant.DEFAULT,Constant.DEFAULT_WALLPAPER_NAME,
-                localPath,localPath);
+        defaultWallpaper = new LocalWallpaper(Constant.DEFAULT, Constant.DEFAULT_WALLPAPER_NAME,
+                localPath, localPath);
 
 
-        if (getActivity()!=null){
+        if (getActivity() != null) {
             wallpaperViewModel = new ViewModelProvider(getActivity()).get(WallpaperViewModel.class);
             playlistViewModel = new ViewModelProvider(getActivity()).get(PlaylistViewModel.class);
         }
 
         InitRecyclerView();
 
-        addWallpaperFAB.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.setType("image/*");
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(intent, REQUEST_CHOOSE_PHOTOS);
-            }
+        addWallpaperFAB.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.setType("image/*");
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            startActivityForResult(intent, REQUEST_CHOOSE_PHOTOS);
         });
 
 
@@ -107,74 +104,61 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
     }
 
 
-    private void InitRecyclerView(){
+    private void InitRecyclerView() {
 
-        int gridSize = ((getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT)? 2:4);
+        int gridSize = ((getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) ? 2 : 4);
         mRecyclerView.setLayoutManager(new GridLayoutManager(mContext, gridSize));
-        listAdapter = new WallpapersListAdapter(mContext,prefs.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH));
+        listAdapter = new WallpapersListAdapter(mContext, prefs.getString("local_wallpaper_path", DEFAULT_LOCAL_PATH));
         mRecyclerView.setAdapter(listAdapter);
 //        mRecyclerView.setNestedScrollingEnabled(false);
         mRecyclerView.setItemAnimator(new DefaultItemAnimator());
         listAdapter.addWallpaper(defaultWallpaper);
-        listAdapter.setOnItemClickListener(new WallpapersListAdapter.OnItemClickListener() {
+        listAdapter.setOnItemClickListener(position -> {
+            LocalWallpaper wallpaper = listAdapter.getItemList().get(position);
+            String localWallpaperPath = prefs.getString("local_wallpaper_path", DEFAULT_LOCAL_PATH);
 
-            @Override
-            public void OnItemLongClick(int position) {
-                LocalWallpaper wallpaper = listAdapter.getItemList().get(position);
-                String localWallpaperPath = prefs.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH);
-
-                new MaterialAlertDialogBuilder(mContext)
-                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.delete_icon, null))
-                        .setTitle("Delete?")
-                        .setMessage("Are you sure you want to delete this wallpaper...")
-                        .setCancelable(false)
-                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                // Continue with operation
-                                if (wallpaper.getName().equals(Constant.DEFAULT_WALLPAPER_NAME)){
-                                    Toast.makeText(mContext, "This is the default wallpaper and can't be deleted!",
-                                            Toast.LENGTH_SHORT).show();
-                                } else {
-                                    if (wallpaper.getName().equals(localWallpaperPath)){
-                                        Toast.makeText(mContext, "You cannot delete current Wallpaper",
-                                                Toast.LENGTH_SHORT).show();
-                                    } else {
-                                        wallpaperViewModel.delete(wallpaper);
-                                    }
-                                }
-                                dialog.dismiss();
+            new MaterialAlertDialogBuilder(mContext)
+                    .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.delete_icon, null))
+                    .setTitle("Delete?")
+                    .setMessage("Are you sure you want to delete this wallpaper...")
+                    .setCancelable(false)
+                    .setPositiveButton("Confirm", (dialog, which) -> {
+                        // Continue with operation
+                        if (wallpaper.getName().equals(Constant.DEFAULT_WALLPAPER_NAME)) {
+                            Toast.makeText(mContext, "This is the default wallpaper and can't be deleted!",
+                                    Toast.LENGTH_SHORT).show();
+                        } else {
+                            if (wallpaper.getName().equals(localWallpaperPath)) {
+                                Toast.makeText(mContext, "You cannot delete current Wallpaper",
+                                        Toast.LENGTH_SHORT).show();
+                            } else {
+                                wallpaperViewModel.delete(wallpaper);
                             }
-                        })
-                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                Log.d(TAG, "onClick: Cancelled Delete!");
-                                dialog.dismiss();
-                            }
-                        })
-                        .create()
-                        .show();
+                        }
+                        dialog.dismiss();
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        Log.d(TAG, "onClick: Cancelled Delete!");
+                        dialog.dismiss();
+                    })
+                    .create()
+                    .show();
 
-            }
         });
 
-         wallpaperViewModel.getAllWallpapers().observe(getViewLifecycleOwner(), new Observer<List<LocalWallpaper>>() {
-            @Override
-            public void onChanged(List<LocalWallpaper> localWallpapers) {
-                Log.d(TAG, "onChanged: " + localWallpapers.size());
-                if (listAdapter.getItemCount()>0){
-                    listAdapter.clearList();
+        wallpaperViewModel.getAllWallpapers().observe(getViewLifecycleOwner(), localWallpapers -> {
+            Log.d(TAG, "onChanged: " + localWallpapers.size());
+            if (listAdapter.getItemCount() > 0) {
+                listAdapter.clearList();
+                listAdapter.addWallpaper(defaultWallpaper);
+                listAdapter.addWallpapers(localWallpapers);
+            } else {
+                if (!listAdapter.getItemList().contains(defaultWallpaper)) {
                     listAdapter.addWallpaper(defaultWallpaper);
-                    listAdapter.addWallpapers(localWallpapers);
-                } else {
-                    if (!listAdapter.getItemList().contains(defaultWallpaper)){
-                        listAdapter.addWallpaper(defaultWallpaper);
-                    }
-                    listAdapter.addWallpapers(localWallpapers);
                 }
-
+                listAdapter.addWallpapers(localWallpapers);
             }
+
         });
 
     }
@@ -183,8 +167,8 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_CHOOSE_PHOTOS) {
-            if (resultCode == Activity.RESULT_OK && data!=null) {
-                if (data.getData()!=null){
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                if (data.getData() != null) {
                     progressDialog.show();
                     new SaveSingle().execute(data.getData());
                     Log.d(TAG, "onActivityResult: getData() = " + data.getData());
@@ -211,7 +195,7 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
         @Override
         protected Void doInBackground(Uri... uris) {
 
-            Uri contentURI  = uris[0];
+            Uri contentURI = uris[0];
             InputStream in = openUri(contentURI);
             if (in != null) {
                 try {
@@ -220,7 +204,7 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
                         String wallpaper_name = Constant.HEADER + System.currentTimeMillis() + Constant.PNG;
                         String localPath = mContext.getExternalFilesDir(null) + File.separator + wallpaper_name;
                         LocalWallpaper localWallpaper = new LocalWallpaper(Constant.CUSTOM,
-                                wallpaper_name,localPath,String.valueOf(contentURI));
+                                wallpaper_name, localPath, String.valueOf(contentURI));
                         FileOutputStream fos = new FileOutputStream(localPath);
                         Log.d(TAG, "doInBackground: " + localPath);
                         //FileOutputStream fos = getActivity().openFileOutput(wallpaper_name, Context.MODE_PRIVATE);
@@ -263,7 +247,7 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
-        if (prefs==null){
+        if (prefs == null) {
             prefs = PreferenceManager.getDefaultSharedPreferences(context);
             editor = prefs.edit();
         }
@@ -279,7 +263,7 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         Log.d(TAG, "onSharedPreferenceChanged: " + key);
-        if (key.equals("type")){
+        if (key.equals("type")) {
             listAdapter.updateLocalWallpaper();
             listAdapter.notifyDataSetChanged();
             Log.d(TAG, "onSharedPreferenceChanged: notifyDataSetChanged!");

@@ -53,41 +53,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    public class CheckStorage extends AsyncTask<Void,Void,Void>{
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-
-            // App needs 10 MB within internal storage.
-            final long NUM_BYTES_NEEDED_FOR_MY_APP = 1024 * 1024 * 10L;
-
-            try {
-
-                if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
-                    StorageManager storageManager = getApplicationContext().getSystemService(StorageManager.class);
-                    if (storageManager!=null){
-                        UUID appSpecificInternalDirUuid = storageManager.getUuidForPath(getFilesDir());
-                        long availableBytes = storageManager.getAllocatableBytes(appSpecificInternalDirUuid);
-                        if (availableBytes >= NUM_BYTES_NEEDED_FOR_MY_APP) {
-                            storageManager.allocateBytes(appSpecificInternalDirUuid, NUM_BYTES_NEEDED_FOR_MY_APP);
-                        } else {
-                            // Display prompt to user, requesting that they choose files to remove.
-                            Intent storageIntent = new Intent();
-                            storageIntent.setAction(ACTION_MANAGE_STORAGE);
-                        }
-                    }
-                }
-
-            } catch (IOException e){
-                e.printStackTrace();
-            }
-
-            return null;
-        }
-    }
-
-
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
@@ -119,22 +84,5 @@ public class MainActivity extends AppCompatActivity {
                     .commit();
             intro = true;
         }
-    }
-
-
-
-    public static String humanReadableByteCountBin(long bytes) {
-        long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
-        if (absB < 1024) {
-            return bytes + " B";
-        }
-        long value = absB;
-        CharacterIterator ci = new StringCharacterIterator("KMGTPE");
-        for (int i = 40; i >= 0 && absB > 0xfffccccccccccccL >> i; i -= 10) {
-            value >>= 10;
-            ci.next();
-        }
-        value *= Long.signum(bytes);
-        return String.format("%.1f %ciB", value / 1024.0, ci.current());
     }
 }

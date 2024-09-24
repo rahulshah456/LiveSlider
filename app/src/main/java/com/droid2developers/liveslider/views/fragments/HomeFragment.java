@@ -21,23 +21,15 @@ public class HomeFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        Button changeWallpaper = view.findViewById(R.id.change_wallpaper_button);
-        changeWallpaper.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(getContext(), ChangeWallpaperActivity.class);
-                startActivity(intent);
-            }
+        view.findViewById(R.id.change_wallpaper_button).setOnClickListener(v -> {
+            Intent intent = new Intent(getContext(), ChangeWallpaperActivity.class);
+            startActivity(intent);
         });
 
 
-        Button wallpaperSettings = view.findViewById(R.id.wallpaper_settings_button);
-        wallpaperSettings.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(getContext(), SettingsActivity.class);
-                startActivity(intent);
-            }
+        view.findViewById(R.id.wallpaper_settings_button).setOnClickListener(v -> {
+            Intent intent = new Intent(getContext(), SettingsActivity.class);
+            startActivity(intent);
         });
 
         return view;
