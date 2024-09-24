@@ -18,79 +18,73 @@
         <item name="android:fontFamily">@font/montserrat</item>
     </style>
 
-    <style name="TabTextAppearance" parent="TextAppearance.Design.Tab">
-        <item name="android:fontFamily">@font/montserrat</item>
-    </style>
-
     <style name="Montserrat_Text" parent="@android:style/TextAppearance.Widget.TabWidget">
         <item name="android:fontFamily">@font/montserrat</item>
         <item name="android:textStyle">bold</item>
     </style>
 
-
-
-    <style name="MaterialAlertDialogTheme" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
-        <item name="colorSurface">@color/material_black</item>
-        <item name="materialAlertDialogTitlePanelStyle">@style/TitlePaneStyleCenter</item>
-        <item name="materialAlertDialogTitleTextStyle">@style/TitleTextStyle</item>
-        <item name="materialAlertDialogTitleIconStyle">@style/TitleIconStyleCenter</item>
-        <item name="materialAlertDialogBodyTextStyle">@style/BodyTextStyle</item>
-        <item name="buttonBarPositiveButtonStyle">@style/PositiveButtonStyle</item>
-        <item name="buttonBarNegativeButtonStyle">@style/NegativeButtonStyle</item>
-        <item name="shapeAppearanceMediumComponent">@style/RoundShapeAppearance</item>
-        <item name="buttonBarNeutralButtonStyle">@style/NeutralButtonStyle</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:backgroundDimEnabled">true</item>
-        <!--        <item name="buttonBarStyle">@style/ButtonBarStyle</item>-->
-        <item name="android:fontFamily">@font/montserrat</item>
-        <!--        <item name="android:layout_marginTop">2dp</item>-->
-        <!--        <item name="android:layout_marginBottom">2dp</item>-->
-    </style>
-    <style name="TitlePaneStyleCenter" parent="MaterialAlertDialog.MaterialComponents.Title.Panel.CenterStacked">
-        <item name="android:background">@color/white_mod</item>
-        <item name="android:padding">18dp</item>
-    </style>
-    <style name="TitleTextStyle" parent="MaterialAlertDialog.MaterialComponents.Title.Text.CenterStacked">
-        <item name="android:textColor">@color/material_black</item>
-        <item name="android:textStyle">bold</item>
-        <item name="android:fontFamily">@font/montserrat</item>
-        <item name="android:textSize">28sp</item>
-    </style>
-    <style name="TitleIconStyleCenter" parent="MaterialAlertDialog.MaterialComponents.Title.Icon.CenterStacked">
-        <item name="android:padding">2dp</item>
-    </style>
-    <style name="BodyTextStyle" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
-        <item name="android:textColor">@color/white_mod</item>
-        <item name="android:fontFamily">@font/montserrat</item>
-        <item name="android:textAppearance">@font/montserrat</item>
-        <item name="android:textSize">16sp</item>
-    </style>
-    <style name="PositiveButtonStyle" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
-        <item name="android:textColor">@color/material_green</item>
-        <item name="rippleColor">@color/material_green</item>
-        <item name="android:textAllCaps">false</item>
-        <item name="android:textStyle">bold</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:fontFamily">@font/montserrat</item>
-    </style>
-    <style name="NegativeButtonStyle" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
-        <item name="android:textColor">@color/material_light</item>
-        <item name="rippleColor">#a4a4a4</item>
-        <item name="android:textAllCaps">false</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:fontFamily">@font/montserrat</item>
-    </style>
-    <style name="NeutralButtonStyle" parent="Widget.MaterialComponents.Button.TextButton">
-        <item name="android:textColor">@color/material_light</item>
-        <item name="rippleColor">#a4a4a4</item>
-        <item name="android:textAllCaps">false</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:fontFamily">@font/montserrat</item>
-    </style>
-    <style name="RoundShapeAppearance" parent="ShapeAppearance.MaterialComponents.MediumComponent">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">12dp</item>
-    </style>
+<!--    <style name="MaterialAlertDialogTheme" parent="Theme.AppCompat.DayNight.Dialog.Alert">-->
+<!--        <item name="android:colorBackground">@color/material_black</item>-->
+<!--        <item name="materialAlertDialogTitlePanelStyle">@style/TitlePaneStyleCenter</item>-->
+<!--        <item name="materialAlertDialogTitleTextStyle">@style/TitleTextStyle</item>-->
+<!--        <item name="materialAlertDialogTitleIconStyle">@style/TitleIconStyleCenter</item>-->
+<!--        <item name="materialAlertDialogBodyTextStyle">@style/BodyTextStyle</item>-->
+<!--        <item name="buttonBarPositiveButtonStyle">@style/PositiveButtonStyle</item>-->
+<!--        <item name="buttonBarNegativeButtonStyle">@style/NegativeButtonStyle</item>-->
+<!--        <item name="shapeAppearanceMediumComponent">@style/RoundShapeAppearance</item>-->
+<!--        <item name="buttonBarNeutralButtonStyle">@style/NeutralButtonStyle</item>-->
+<!--        <item name="android:windowBackground">@android:color/transparent</item>-->
+<!--        <item name="android:backgroundDimEnabled">true</item>-->
+<!--        &lt;!&ndash;        <item name="buttonBarStyle">@style/ButtonBarStyle</item>&ndash;&gt;-->
+<!--        <item name="android:fontFamily">@font/montserrat</item>-->
+<!--        &lt;!&ndash;        <item name="android:layout_marginTop">2dp</item>&ndash;&gt;-->
+<!--        &lt;!&ndash;        <item name="android:layout_marginBottom">2dp</item>&ndash;&gt;-->
+<!--    </style>-->
+<!--    <style name="TitlePaneStyleCenter" parent="MaterialAlertDialog.MaterialComponents.Title.Panel.CenterStacked">-->
+<!--        <item name="android:background">@color/white_mod</item>-->
+<!--        <item name="android:padding">18dp</item>-->
+<!--    </style>-->
+<!--    <style name="TitleTextStyle" parent="MaterialAlertDialog.MaterialComponents.Title.Text.CenterStacked">-->
+<!--        <item name="android:textColor">@color/material_black</item>-->
+<!--        <item name="android:textStyle">bold</item>-->
+<!--        <item name="android:fontFamily">@font/montserrat</item>-->
+<!--        <item name="android:textSize">28sp</item>-->
+<!--    </style>-->
+<!--    <style name="TitleIconStyleCenter" parent="MaterialAlertDialog.MaterialComponents.Title.Icon.CenterStacked">-->
+<!--        <item name="android:padding">2dp</item>-->
+<!--    </style>-->
+<!--    <style name="BodyTextStyle" parent="MaterialAlertDialog.MaterialComponents.Body.Text">-->
+<!--        <item name="android:textColor">@color/white_mod</item>-->
+<!--        <item name="android:fontFamily">@font/montserrat</item>-->
+<!--        <item name="android:textAppearance">@font/montserrat</item>-->
+<!--        <item name="android:textSize">16sp</item>-->
+<!--    </style>-->
+<!--    <style name="PositiveButtonStyle" parent="Widget.MaterialComponents.Button.TextButton.Dialog">-->
+<!--        <item name="android:textColor">@color/material_green</item>-->
+<!--        <item name="rippleColor">@color/material_green</item>-->
+<!--        <item name="android:textAllCaps">false</item>-->
+<!--        <item name="android:textStyle">bold</item>-->
+<!--        <item name="android:textSize">14sp</item>-->
+<!--        <item name="android:fontFamily">@font/montserrat</item>-->
+<!--    </style>-->
+<!--    <style name="NegativeButtonStyle" parent="Widget.MaterialComponents.Button.TextButton.Dialog">-->
+<!--        <item name="android:textColor">@color/material_light</item>-->
+<!--&lt;!&ndash;        <item name="rippleColor">#a4a4a4</item>&ndash;&gt;-->
+<!--        <item name="android:textAllCaps">false</item>-->
+<!--        <item name="android:textSize">14sp</item>-->
+<!--        <item name="android:fontFamily">@font/montserrat</item>-->
+<!--    </style>-->
+<!--    <style name="NeutralButtonStyle" parent="Widget.MaterialComponents.Button.TextButton">-->
+<!--        <item name="android:textColor">@color/material_light</item>-->
+<!--&lt;!&ndash;        <item name="rippleColor">#a4a4a4</item>&ndash;&gt;-->
+<!--        <item name="android:textAllCaps">false</item>-->
+<!--        <item name="android:textSize">14sp</item>-->
+<!--        <item name="android:fontFamily">@font/montserrat</item>-->
+<!--    </style>-->
+<!--    <style name="RoundShapeAppearance" parent="ShapeAppearance.MaterialComponents.MediumComponent">-->
+<!--        <item name="cornerFamily">rounded</item>-->
+<!--        <item name="cornerSize">12dp</item>-->
+<!--    </style>-->
     <style name="ButtonBarStyle">
         <item name="android:background">@color/material_dark_light</item>
     </style>

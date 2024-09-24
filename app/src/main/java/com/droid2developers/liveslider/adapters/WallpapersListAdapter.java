@@ -13,6 +13,7 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
@@ -83,8 +84,8 @@ public class WallpapersListAdapter extends RecyclerView.Adapter<WallpapersListAd
             int wallpaperType = prefs.getInt("type",TYPE_SINGLE);
 
             if (isSlideShow || wallpaperType == TYPE_SLIDESHOW){
-                new MaterialAlertDialogBuilder(mContext,R.style.MaterialAlertDialogTheme)
-                        .setIcon(mContext.getResources().getDrawable(R.drawable.error_24dp))
+                new MaterialAlertDialogBuilder(mContext)
+                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
                         .setTitle("Change Wallpaper?")
                         .setMessage(R.string.single_wallpaper_alert)
                         .setCancelable(false)

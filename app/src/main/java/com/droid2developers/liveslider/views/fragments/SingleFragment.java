@@ -20,6 +20,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
@@ -122,8 +123,8 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
                 LocalWallpaper wallpaper = listAdapter.getItemList().get(position);
                 String localWallpaperPath = prefs.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH);
 
-                new MaterialAlertDialogBuilder(mContext,R.style.MaterialAlertDialogTheme)
-                        .setIcon(getResources().getDrawable(R.drawable.delete_icon))
+                new MaterialAlertDialogBuilder(mContext)
+                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.delete_icon, null))
                         .setTitle("Delete?")
                         .setMessage("Are you sure you want to delete this wallpaper...")
                         .setCancelable(false)

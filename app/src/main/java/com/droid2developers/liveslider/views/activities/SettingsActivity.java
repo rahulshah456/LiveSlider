@@ -3,6 +3,7 @@ package com.droid2developers.liveslider.views.activities;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.preference.PreferenceManager;
 
 import android.annotation.SuppressLint;
@@ -268,9 +269,8 @@ public class SettingsActivity extends AppCompatActivity {
         hmsPickerView.setTimeInMillis(timeInMillis);
 
         MaterialAlertDialogBuilder dialogBuilder =
-                new MaterialAlertDialogBuilder(SettingsActivity.this,
-                        R.style.MaterialAlertDialogTheme)
-                        .setIcon(R.drawable.clock_icon)
+                new MaterialAlertDialogBuilder(SettingsActivity.this)
+                        .setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.clock_icon, null))
                         .setTitle("Change slideshow time interval?")
                         .setView(dialogView)
                         // Because the picker is long, remove vertical insets to make sure the view not get clipped.

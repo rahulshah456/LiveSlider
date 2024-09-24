@@ -13,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -92,8 +93,8 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         public void onClick(View view) {
             Playlist playlist = getItemList().get(getLayoutPosition());
 
-            new MaterialAlertDialogBuilder(mContext, R.style.MaterialAlertDialogTheme)
-                    .setIcon(mContext.getResources().getDrawable(R.drawable.error_24dp))
+            new MaterialAlertDialogBuilder(mContext)
+                    .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
                     .setTitle("Activate Playlist?")
                     .setMessage(R.string.playlist_activation)
                     .setCancelable(false)

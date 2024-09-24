@@ -1,17 +1,21 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
+plugins {
+    id 'com.android.application'
+}
 
 android {
-    compileSdkVersion 30
+    namespace 'com.droid2developers.liveslider'
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.droid2developers.liveslider"
-        minSdkVersion 21
-        targetSdkVersion 30
+        minSdk 28
+        targetSdk 34
         versionCode 8
-        versionName "1.2"
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+
+
     buildTypes {
         release {
             minifyEnabled true
@@ -36,39 +40,40 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
-    testImplementation 'junit:junit:4.12'
-    implementation 'androidx.appcompat:appcompat:1.2.0-beta01'
-    implementation 'org.apache.commons:commons-collections4:4.3'
-    implementation 'androidx.recyclerview:recyclerview:1.2.0-alpha02'
-    implementation 'androidx.recyclerview:recyclerview-selection:1.1.0-rc01'
-    implementation 'org.greenrobot:eventbus:3.2.0'
-    implementation 'com.google.android.material:material:1.1.0'
+    implementation libs.appcompat
+    implementation libs.material
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+
+    // appcompat
+    implementation libs.constraintlayout
+    implementation libs.commons.collections4
+    implementation libs.recyclerview
+    implementation libs.recyclerview.selection
+    implementation libs.eventbus
 
     // Android JetPack Library - Room Database
-    implementation 'android.arch.persistence.room:runtime:1.1.1'
-    annotationProcessor 'android.arch.persistence.room:compiler:1.1.1'
+    implementation libs.room.runtime
+    annotationProcessor libs.room.compiler
 
     // Android JetPack Library - ViewModel Extensions
-    implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
-    implementation "androidx.lifecycle:lifecycle-viewmodel:2.2.0"
+    implementation libs.lifecycle.extensions
+    implementation libs.lifecycle.viewmodel.ktx
 
 
     // OpenSource Library - Glide + Integration RandomColors
-    implementation 'com.github.bumptech.glide:glide:4.11.0'
-    annotationProcessor 'com.github.bumptech.glide:compiler:4.11.0'
-    implementation "com.github.bumptech.glide:okhttp3-integration:4.10.0"
+    implementation libs.glide
+    annotationProcessor libs.compiler
+    implementation libs.okhttp3.integration
 
-    implementation "androidx.legacy:legacy-preference-v14:1.0.0"
-    implementation "androidx.preference:preference:1.1.0"
-    implementation "androidx.core:core-ktx:+"
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.2.0"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation libs.legacy.preference.v14
+    implementation libs.preference.ktx
+    implementation libs.core.ktx
+    implementation libs.lifecycle.viewmodel.ktx
+    implementation libs.kotlin.stdlib.jdk7
 
-
-    implementation "xyz.aprildown:HmsPickerView:0.2.0"
-    implementation 'com.squareup.retrofit2:converter-gson:2.8.1'
-}
-repositories {
-    mavenCentral()
+    // external
+    implementation libs.hmspickerview
+    implementation libs.converter.gson
 }
