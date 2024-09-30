@@ -183,7 +183,7 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
         try {
             return mContext.getContentResolver().openInputStream(uri);
         } catch (Exception e) {
-            e.printStackTrace();
+            e.fillInStackTrace();
             return null;
         }
     }
@@ -220,7 +220,7 @@ public class SingleFragment extends Fragment implements SharedPreferences.OnShar
 
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    e.fillInStackTrace();
                     Toast.makeText(getActivity(), R.string.toast_failed_set_picture,
                             Toast.LENGTH_LONG).show();
                 }

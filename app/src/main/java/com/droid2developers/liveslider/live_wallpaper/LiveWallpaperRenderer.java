@@ -7,6 +7,8 @@ import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.droid2developers.liveslider.utils.Constant;
@@ -30,11 +32,14 @@ import javax.microedition.khronos.opengles.GL10;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 
+import androidx.lifecycle.MutableLiveData;
+
 public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private final static int REFRESH_RATE = 60;
     private final static float MAX_BIAS_RANGE = 0.003f;
     private final static String TAG = LiveWallpaperRenderer.class.getSimpleName();
 
+    private MutableLiveData<Float> mutableAlfa = null;  // Initial alpha value
     private final float[] mMVPMatrix = new float[16];
     private final float[] mProjectionMatrix = new float[16];
     private final float[] mViewMatrix = new float[16];
@@ -71,9 +76,50 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean isDefaultWallpaper;
     private int wallpaperType;
 
+    private final Handler animationHandler = new Handler(Looper.getMainLooper());
+
+    // Runnable for fade-in animation
+    Runnable fadeInRunnable = new Runnable() {
+        private float alpha = 0.0f;
+        private boolean increasing = true;
+
+        @Override
+        public void run() {
+            // Update the alpha value based on fade-in and fade-out logic
+            if (increasing) {
+                alpha += 0.02f; // Increase alpha
+                if (alpha >= 1.0f) {
+                    alpha = 1.0f;
+                    increasing = false; // Start fading out
+                }
+            } else {
+                alpha -= 0.02f; // Decrease alpha
+                if (alpha <= 0.0f) {
+                    alpha = 0.0f;
+                    increasing = true; // Start fading in
+                }
+            }
+            mutableAlfa.setValue(alpha);
+            mCallbacks.requestRender();
+
+            Log.d(TAG, "run:" + alpha);
+
+            // Check if the animation is complete
+            if ((alpha == 1.0f && !increasing)) {
+                // The animation is complete; you can perform any necessary actions here
+                // For example, you can stop the HandlerThread: alphaUpdateThread.quit();
+
+            } else {
+                // Continue the animation loop
+                animationHandler.postDelayed(this, 8); // Delay for approximately 60 FPS
+            }
+        }
+    };
+
     LiveWallpaperRenderer(Context context, Callbacks callbacks) {
         mContext = context;
         mCallbacks = callbacks;
+        mutableAlfa = new MutableLiveData<>(1.0f);
     }
 
     void release() {
@@ -97,7 +143,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Transition methods
     void startTransition() {
         stopTransition();
-        transitionHandle = scheduler.scheduleAtFixedRate(transition,
+        transitionHandle = scheduler.scheduleWithFixedDelay(transition,
                 0, 1000 / REFRESH_RATE, TimeUnit.MILLISECONDS);
     }
     void stopTransition() {
@@ -123,7 +169,11 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
         // Draw square
-        wallpaper.draw(mMVPMatrix);
+        if(mutableAlfa.getValue() == null) {
+            wallpaper.draw(mMVPMatrix, 1.0f);
+        } else {
+            wallpaper.draw(mMVPMatrix, mutableAlfa.getValue());
+        }
 
     }
 
@@ -224,10 +274,14 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // refreshes current wallpaper and update canvas
     void refreshWallpaper(String wallpaperPath, boolean isDefault){
-        setLocalWallpaperPath(wallpaperPath);
-        setIsDefaultWallpaper(isDefault);
-        needsRefreshWallpaper = true;
-        mCallbacks.requestRender();
+        Log.d(TAG, "refreshWallpaper: ");
+        animationHandler.post(fadeInRunnable);
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            setLocalWallpaperPath(wallpaperPath);
+            setIsDefaultWallpaper(isDefault);
+            needsRefreshWallpaper = true;
+            mCallbacks.requestRender();
+        }, 400);
     }
 
 
@@ -269,7 +323,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     is = new FileInputStream(localWallpaperPath);
                     //is = mContext.openFileInput(localWallpaperPath);
                 } catch (FileNotFoundException e) {
-                    e.printStackTrace();
+                    e.fillInStackTrace();
                     // resetting to default wallpaper
                     refreshWallpaper(DEFAULT_LOCAL_PATH,true);
                 }
@@ -279,7 +333,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     is = fileDescriptor.createInputStream();
                     //is = mContext.getAssets().open(Constant.DEFAULT_WALLPAPER);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    e.fillInStackTrace();
                 }
             }
         } else {
@@ -287,7 +341,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 is = new FileInputStream(localWallpaperPath);
                 //is = mContext.openFileInput(localWallpaperPath);
             } catch (FileNotFoundException e) {
-                e.printStackTrace();
+                e.fillInStackTrace();
                 // resetting to default wallpaper
                 refreshWallpaper(DEFAULT_LOCAL_PATH,true);
             }
@@ -303,7 +357,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         try {
             is.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            e.fillInStackTrace();
         }
         System.gc();
     }

@@ -21,7 +21,7 @@ public class TimestampConverter {
                 df.setTimeZone(timeZone);
                 return df.parse(value);
             } catch (ParseException e) {
-                e.printStackTrace();
+                e.fillInStackTrace();
             }
             return null;
         } else {

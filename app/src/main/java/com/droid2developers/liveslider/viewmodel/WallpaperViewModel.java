@@ -32,13 +32,11 @@ public class WallpaperViewModel extends AndroidViewModel {
     }
 
     public LiveData<List<LocalWallpaper>> getPlaylistWallpapers(String playlistId){
-        if (this.playlistId.equals(playlistId) && playlistWallpapers!=null){
-            return playlistWallpapers;
-        } else {
+        if (!this.playlistId.equals(playlistId) || playlistWallpapers == null) {
             this.playlistId = playlistId;
             playlistWallpapers = mRepository.getPlaylistWallpapers(playlistId);
-            return playlistWallpapers;
         }
+        return playlistWallpapers;
     }
 
     public void insert(LocalWallpaper wallpaper) {

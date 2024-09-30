@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -36,6 +37,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
 }
 
 dependencies {
@@ -55,11 +59,13 @@ dependencies {
 
     // Android JetPack Library - Room Database
     implementation libs.room.runtime
+    implementation libs.room.ktx
     annotationProcessor libs.room.compiler
 
     // Android JetPack Library - ViewModel Extensions
     implementation libs.lifecycle.extensions
     implementation libs.lifecycle.viewmodel.ktx
+    implementation libs.workmanager.ktx
 
 
     // OpenSource Library - Glide + Integration RandomColors
@@ -70,10 +76,10 @@ dependencies {
     implementation libs.legacy.preference.v14
     implementation libs.preference.ktx
     implementation libs.core.ktx
-    implementation libs.lifecycle.viewmodel.ktx
     implementation libs.kotlin.stdlib.jdk7
 
     // external
     implementation libs.hmspickerview
     implementation libs.converter.gson
+    implementation libs.compressor
 }

@@ -2,7 +2,6 @@ package com.droid2developers.liveslider.adapters;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,7 +23,6 @@ import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.droid2developers.liveslider.R;
 import com.droid2developers.liveslider.database.models.Playlist;
-import com.droid2developers.liveslider.utils.BlurTransformation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,11 +37,11 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
 
     private static final String TAG = PlaylistAdapter.class.getSimpleName();
     private OnItemClickListener onItemClickListener;
-    private List<Playlist> mAllPlaylist =  new ArrayList<>();
+    private final List<Playlist> mAllPlaylist = new ArrayList<>();
     private String playlistId;
-    private SharedPreferences prefs;
-    private SharedPreferences.Editor editor;
-    private Context mContext;
+    private final SharedPreferences prefs;
+    private final SharedPreferences.Editor editor;
+    private final Context mContext;
 
 
     @SuppressLint("CommitPrefEdits")
@@ -65,10 +63,10 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     }
 
 
-    public class MyViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener{
+    public class MyViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener {
         View viewShadow;
-        ImageView thumb_1,thumb_2,thumb_3,selectionImage;
-        TextView count,title,description,month,day;
+        ImageView thumbIv, selectionImage;
+        TextView count, title, description, month, day;
 
         MyViewHolder(View itemView) {
             super(itemView);
@@ -77,9 +75,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
 
             selectionImage = itemView.findViewById(R.id.image_selection);
             viewShadow = itemView.findViewById(R.id.view_shadow);
-            thumb_1 = itemView.findViewById(R.id.mainThumbnailId);
-            thumb_2 = itemView.findViewById(R.id.secThumbnailId);
-            thumb_3 = itemView.findViewById(R.id.blurThumbnailId);
+            thumbIv = itemView.findViewById(R.id.mainThumbnailId);
             count = itemView.findViewById(R.id.collectionCountId);
             title = itemView.findViewById(R.id.collectionTitleId);
             description = itemView.findViewById(R.id.descriptionId);
@@ -98,27 +94,18 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
                     .setTitle("Activate Playlist?")
                     .setMessage(R.string.playlist_activation)
                     .setCancelable(false)
-                    .setPositiveButton("Activate", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            // Continue with operation
-                            updateSelection(playlist);
-                            dialog.dismiss();
-                        }
+                    .setPositiveButton("Activate", (dialog, which) -> {
+                        // Continue with operation
+                        updateSelection(playlist);
+                        dialog.dismiss();
                     })
-                    .setNeutralButton("Edit", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Toast.makeText(mContext, "Work in progress!", Toast.LENGTH_SHORT).show();
-                            dialog.dismiss();
-                        }
+                    .setNeutralButton("Edit", (dialog, which) -> {
+                        Toast.makeText(mContext, "Work in progress!", Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
                     })
-                    .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            Log.d(TAG, "onClick: Cancelled Delete!");
-                            dialog.dismiss();
-                        }
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        Log.d(TAG, "onClick: Cancelled Delete!");
+                        dialog.dismiss();
                     })
                     .create()
                     .show();
@@ -143,13 +130,12 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     public void onBindViewHolder(@NonNull MyViewHolder holder, int position) {
 
         Playlist playlist = mAllPlaylist.get(position);
-        List<String> coverUrls = playlist.getCover_urls();
+        String coverImage = playlist.coverImage;
 
+        String currentPlaylist = prefs.getString("current_playlist", PLAYLIST_NONE);
+        int wallpaperType = prefs.getInt("type", TYPE_SINGLE);
 
-        String currentPlaylist = prefs.getString("current_playlist",PLAYLIST_NONE);
-        int wallpaperType = prefs.getInt("type",TYPE_SINGLE);
-
-        if (wallpaperType == TYPE_SLIDESHOW && currentPlaylist.equals(playlist.getPlaylistId())){
+        if (wallpaperType == TYPE_SLIDESHOW && currentPlaylist.equals(playlist.playlistId)) {
             holder.viewShadow.setVisibility(View.VISIBLE);
             holder.selectionImage.setVisibility(View.VISIBLE);
         } else {
@@ -157,42 +143,24 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
             holder.selectionImage.setVisibility(View.GONE);
         }
 
-        String itemCount = playlist.getSize() + "+";
+        String itemCount = playlist.size + "+";
         holder.count.setText(itemCount);
-        holder.title.setText(playlist.getName());
+        holder.title.setText(playlist.name);
 
         RequestOptions options = new RequestOptions()
                 .centerInside()
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .priority(Priority.HIGH);
 
-        // Load Thumbnail from Local Storage
-        Glide.with(mContext)
-                .load(coverUrls.get(0))
-                .thumbnail(0.5f)
-                .transition(withCrossFade())
-                .apply(options)
-                .into(holder.thumb_1);
-        Glide.with(mContext)
-                .load(coverUrls.get(1))
-                .thumbnail(0.5f)
-                .transition(withCrossFade())
-                .apply(options)
-                .into(holder.thumb_2);
-
-        RequestOptions options_blur = new RequestOptions()
-                .centerCrop()
-                .transform(new BlurTransformation(25,3))
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .priority(Priority.HIGH);
-        Glide.with(mContext)
-                .load(coverUrls.get(2))
-                .thumbnail(0.5f)
-                .transition(withCrossFade())
-                .apply(options_blur)
-                .into(holder.thumb_3);
-
-
+        if (coverImage != null) {
+            // Load Thumbnail from Local Storage
+            Glide.with(holder.thumbIv.getContext())
+                    .load(coverImage)
+                    .thumbnail(0.5f)
+                    .transition(withCrossFade())
+                    .apply(options)
+                    .into(holder.thumbIv);
+        }
 
     }
 
@@ -207,17 +175,17 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     }
 
 
-    private void updateSelection(Playlist playlist){
+    private void updateSelection(Playlist playlist) {
 
-        if (!playlistId.equals(playlist.getPlaylistId())){
+        if (!playlistId.equals(playlist.playlistId)) {
 
-            editor.putInt("type",TYPE_SLIDESHOW);
-            editor.putString("local_wallpaper_path",WALLPAPER_NONE);
-            editor.putBoolean("double_tap",true);
-            editor.putString("current_playlist",playlist.getPlaylistId());
-            editor.putBoolean("slideshow",true);
-            if (editor.commit()){
-                playlistId = playlist.getPlaylistId();
+            editor.putInt("type", TYPE_SLIDESHOW);
+            editor.putString("local_wallpaper_path", WALLPAPER_NONE);
+            editor.putBoolean("double_tap", true);
+            editor.putString("current_playlist", playlist.playlistId);
+            editor.putBoolean("slideshow", true);
+            if (editor.commit()) {
+                playlistId = playlist.playlistId;
                 notifyDataSetChanged();
             }
         } else {
@@ -227,23 +195,23 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     }
 
 
-    public void addPlaylists(List<Playlist> list){
+    public void addPlaylists(List<Playlist> list) {
         mAllPlaylist.addAll(list);
         notifyDataSetChanged();
     }
 
-    public void updatePlaylist(){
-        playlistId = prefs.getString("current_playlist",PLAYLIST_NONE);
+    public void updatePlaylist() {
+        playlistId = prefs.getString("current_playlist", PLAYLIST_NONE);
     }
 
-    public void clearList(){
-        if (mAllPlaylist.size()>0){
+    public void clearList() {
+        if (!mAllPlaylist.isEmpty()) {
             mAllPlaylist.clear();
             notifyDataSetChanged();
         }
     }
 
-    public List<Playlist> getItemList(){
+    public List<Playlist> getItemList() {
         return mAllPlaylist;
     }
 }

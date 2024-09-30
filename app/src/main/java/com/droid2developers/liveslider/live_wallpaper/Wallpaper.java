@@ -36,10 +36,10 @@ class Wallpaper {
 
     private static final String FRAGMENT_SHADER_CODE = ""
             + "precision mediump float;" + "uniform sampler2D uTexture;"
-            // + "uniform float uAlpha;"
+            + "uniform float uAlpha;"
             + "varying vec2 vTexCoords;" + "void main(){"
             + "  gl_FragColor = texture2D(uTexture, vTexCoords);"
-            // + "  gl_FragColor.a = uAlpha;"
+            + "  gl_FragColor.a = uAlpha;"
             + "}";
 
     // number of coordinates per vertex in this array
@@ -64,6 +64,7 @@ class Wallpaper {
     private static int sMaxTextureSize;
     private static int sProgramHandle;
     private static int sAttribPositionHandle;
+    private static int sAlphaUniformHandle;
     private static int sAttribTextureCoordsHandle;
     private static int sUniformTextureHandle;
     private static int sUniformMVPMatrixHandle;
@@ -134,6 +135,8 @@ class Wallpaper {
 
         sProgramHandle = GLUtil.createAndLinkProgram(vertexShaderHandle,
                 fragShaderHandle, null);
+        sAlphaUniformHandle = GLES20.glGetUniformLocation(sProgramHandle,
+                "uAlpha");
         sAttribPositionHandle = GLES20.glGetAttribLocation(sProgramHandle,
                 "aPosition");
         sAttribTextureCoordsHandle = GLES20.glGetAttribLocation(sProgramHandle,
@@ -149,7 +152,7 @@ class Wallpaper {
         sMaxTextureSize = maxTextureSize[0];
     }
 
-    void draw(float[] mvpMatrix) {
+    void draw(float[] mvpMatrix, float alpha) {
         if (!mHasContent) {
             return;
         }
@@ -163,6 +166,7 @@ class Wallpaper {
         GLUtil.checkGlError("glUniformMatrix4fv");
 
         // Set up vertex buffer
+        GLES20.glUniform1f(sAlphaUniformHandle, alpha);
         GLES20.glEnableVertexAttribArray(sAttribPositionHandle);
         GLES20.glVertexAttribPointer(sAttribPositionHandle, COORDS_PER_VERTEX,
                 GLES20.GL_FLOAT, false, VERTEX_STRIDE_BYTES, mVertexBuffer);

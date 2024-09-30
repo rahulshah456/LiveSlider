@@ -39,4 +39,6 @@
     <string name="power_saver_mode">Power Saver Mode</string>
     <string name="enable_to_get_scroll_effect">Enable to get scroll effect</string>
     <string name="wallpaper_scrolling">Wallpaper Scrolling</string>
+    <string name="photos">Photos</string>
+    <string name="_100">100+</string>
 </resources>

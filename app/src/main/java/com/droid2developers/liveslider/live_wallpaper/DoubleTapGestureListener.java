@@ -6,14 +6,14 @@ import android.view.MotionEvent;
 
 public class DoubleTapGestureListener extends SimpleOnGestureListener {
 
-    private LiveWallpaperService.ParallaxEngine parallaxEngine;
+    private final LiveWallpaperService.ParallaxEngine parallaxEngine;
 
     DoubleTapGestureListener(LiveWallpaperService.ParallaxEngine parallaxEngine) {
         this.parallaxEngine = parallaxEngine;
     }
 
     /** (non-Javadoc)
-     * @see android.view.GestureDetector.SimpleOnGestureListener#onDoubleTap(android.view.MotionEvent)
+     * @see SimpleOnGestureListener#onDoubleTap(MotionEvent)
      */
     @Override
     public boolean onDoubleTap(MotionEvent e) {
@@ -26,4 +26,3 @@ public class DoubleTapGestureListener extends SimpleOnGestureListener {
 
 
 }
-

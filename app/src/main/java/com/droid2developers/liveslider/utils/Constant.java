@@ -38,6 +38,8 @@ public class Constant {
     public static final String PLAYLIST_NONE = "none";
     public static final String WALLPAPER_NONE = "none";
 
+    public static final String WORKER_KEY_PLAYLIST_ID = "playlist_id";
+
 
 
     public enum StorageState {NOT_AVAILABLE, WRITEABLE, READ_ONLY}
