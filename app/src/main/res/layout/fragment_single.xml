@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto">
@@ -12,12 +13,11 @@
         android:layout_height="match_parent"
         android:layout_margin="12dp" />
 
-
-
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/addWallpaperId"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:contentDescription="@string/add_wallpaper"
         app:fabSize="normal"
         app:elevation="8dp"
         app:borderWidth="0dp"
@@ -27,7 +27,15 @@
         android:layout_gravity="bottom|end"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        app:srcCompat="@drawable/add_white_24dp" />
+        app:srcCompat="@drawable/add_white_24dp"
+        tools:ignore="RelativeOverlap" />
 
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progressIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        app:indicatorColor="@color/color_accent"
+        android:layout_alignParentBottom="true"/>
 
 </RelativeLayout>

@@ -12,11 +12,11 @@
         android:layout_height="match_parent" />
 
 
-
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/addPlaylistId"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:contentDescription="@string/add_wallpaper"
         app:fabSize="normal"
         app:elevation="8dp"
         app:borderWidth="0dp"
@@ -27,6 +27,5 @@
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
         app:srcCompat="@drawable/add_white_24dp" />
-
 
 </RelativeLayout>

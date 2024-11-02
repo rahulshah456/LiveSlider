@@ -41,4 +41,8 @@
     <string name="wallpaper_scrolling">Wallpaper Scrolling</string>
     <string name="photos">Photos</string>
     <string name="_100">100+</string>
+    <string name="na">NA</string>
+    <string name="march">March</string>
+    <string name="date">24</string>
+    <string name="add_wallpaper">add wallpaper</string>
 </resources>

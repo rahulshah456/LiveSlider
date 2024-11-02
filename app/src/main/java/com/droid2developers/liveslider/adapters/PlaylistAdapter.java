@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,9 +24,13 @@ import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.droid2developers.liveslider.R;
 import com.droid2developers.liveslider.database.models.Playlist;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
 import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
@@ -66,7 +71,8 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     public class MyViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener {
         View viewShadow;
         ImageView thumbIv, selectionImage;
-        TextView count, title, description, month, day;
+        TextView count, title, month, day;
+        ProgressBar progressIndicator;
 
         MyViewHolder(View itemView) {
             super(itemView);
@@ -78,10 +84,10 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
             thumbIv = itemView.findViewById(R.id.mainThumbnailId);
             count = itemView.findViewById(R.id.collectionCountId);
             title = itemView.findViewById(R.id.collectionTitleId);
-            description = itemView.findViewById(R.id.descriptionId);
             month = itemView.findViewById(R.id.monthHeaderId);
             day = itemView.findViewById(R.id.dayHeaderId);
-
+            progressIndicator = itemView.findViewById(R.id.progressView);
+            progressIndicator.setIndeterminate(true);
 
         }
 
@@ -99,10 +105,10 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
                         updateSelection(playlist);
                         dialog.dismiss();
                     })
-                    .setNeutralButton("Edit", (dialog, which) -> {
-                        Toast.makeText(mContext, "Work in progress!", Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
-                    })
+//                    .setNeutralButton("Edit", (dialog, which) -> {
+//                        Toast.makeText(mContext, "Work in progress!", Toast.LENGTH_SHORT).show();
+//                        dialog.dismiss();
+//                    })
                     .setNegativeButton("Cancel", (dialog, which) -> {
                         Log.d(TAG, "onClick: Cancelled Delete!");
                         dialog.dismiss();
@@ -143,9 +149,19 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
             holder.selectionImage.setVisibility(View.GONE);
         }
 
-        String itemCount = playlist.size + "+";
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(playlist.createdAt);
+
+        // Get the day of the month and month (in text format)
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+        String month = new SimpleDateFormat("MMM", Locale.getDefault()).format(playlist.createdAt);
+
+        String itemCount = playlist.size + "+ Photos";
         holder.count.setText(itemCount);
         holder.title.setText(playlist.name);
+        holder.day.setText(String.valueOf(day));
+        holder.month.setText(month);
+
 
         RequestOptions options = new RequestOptions()
                 .centerInside()
@@ -154,14 +170,18 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
 
         if (coverImage != null) {
             // Load Thumbnail from Local Storage
+            holder.progressIndicator.setVisibility(View.INVISIBLE);
+            holder.thumbIv.setVisibility(View.VISIBLE);
             Glide.with(holder.thumbIv.getContext())
                     .load(coverImage)
                     .thumbnail(0.5f)
                     .transition(withCrossFade())
                     .apply(options)
                     .into(holder.thumbIv);
+        } else {
+            holder.thumbIv.setVisibility(View.INVISIBLE);
+            holder.progressIndicator.setVisibility(View.VISIBLE);
         }
-
     }
 
     @Override

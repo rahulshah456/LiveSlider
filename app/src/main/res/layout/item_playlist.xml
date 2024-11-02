@@ -44,7 +44,7 @@
                         android:id="@+id/dayHeaderId"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="24"
+                        android:text="@string/date"
                         android:layout_centerInParent="true"
                         android:layout_alignParentTop="true"
                         android:fontFamily="@font/montserrat"
@@ -56,7 +56,7 @@
                         android:id="@+id/monthHeaderId"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="March"
+                        android:text="@string/march"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:textColor="@color/white_mod"
@@ -81,7 +81,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_alignParentTop="true"
-                    android:text="This is First Playlist"
+                    android:text="@string/na"
                     android:textStyle="bold"
                     android:textColor="@color/white_mod"
                     android:textSize="18sp"
@@ -89,10 +89,10 @@
 
 
                 <TextView
-                    android:id="@+id/descriptionId"
+                    android:id="@+id/collectionCountId"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="2 Months Ago"
+                    android:text="@string/na"
                     android:textSize="14sp"
                     android:textColor="@color/material_light"
                     android:fontFamily="@font/montserrat"
@@ -125,42 +125,19 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
+                <ProgressBar
+                    android:id="@+id/progressView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="visible"
+                    android:layout_centerInParent="true"/>
+
                 <ImageView
                     android:id="@+id/mainThumbnailId"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
+                    android:contentDescription="@string/thumbnail"
                     android:scaleType="centerCrop" />
-
-                <LinearLayout
-                    android:id="@+id/countLayoutId"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_centerInParent="true">
-
-
-                    <TextView
-                        android:id="@+id/collectionCountId"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/montserrat"
-                        android:gravity="center"
-                        android:text="@string/_100"
-                        android:textColor="@color/white_mod"
-                        android:textSize="32sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/montserrat"
-                        android:text="@string/photos"
-                        android:textColor="@color/material_light"
-                        android:textSize="18sp" />
-
-
-                </LinearLayout>
-
 
             </RelativeLayout>
 

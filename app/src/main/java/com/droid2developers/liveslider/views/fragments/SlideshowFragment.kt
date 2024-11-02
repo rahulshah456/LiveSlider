@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
@@ -51,16 +52,17 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
         private val TAG: String = SlideshowFragment::class.java.simpleName
     }
 
-    private var wallpaperViewModel: WallpaperViewModel? = null
-    private var playlistViewModel: PlaylistViewModel? = null
     private var editor: SharedPreferences.Editor? = null
     private var prefs: SharedPreferences? = null
     private var listAdapter: PlaylistAdapter? = null
     private var mRecyclerView: RecyclerView? = null
+    private var mFabButton: FloatingActionButton? = null
 
     //private PlayListAdapter listAdapter;
     private var showProgress = MutableLiveData(false)
     private var workManager: WorkManager? = null
+    private var wallpaperViewModel: WallpaperViewModel? = null
+    private var playlistViewModel: PlaylistViewModel? = null
 
 
     override fun onCreateView(
@@ -73,16 +75,23 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
         // View initializations
         workManager = WorkManager.getInstance(requireContext())
         mRecyclerView = view.findViewById(R.id.slideshowRecyclerId)
-        val addPlaylistFAB = view.findViewById<FloatingActionButton>(R.id.addPlaylistId)
+        mFabButton = view.findViewById(R.id.addPlaylistId)
 
         if (activity != null) {
             wallpaperViewModel =
                 ViewModelProvider(requireActivity())[WallpaperViewModel::class.java]
             playlistViewModel = ViewModelProvider(requireActivity())[PlaylistViewModel::class.java]
         }
+        return view
+    }
+
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        view.rootView.setBackgroundColor(Color.argb(153, 35, 35, 35))
+
         initRv()
 
-        addPlaylistFAB.setOnClickListener {
+        mFabButton?.setOnClickListener {
             pickMultipleMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
 
@@ -96,23 +105,12 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
                 Log.d(TAG, "onCreateView: Completed")
             }
         }
-
-        return view
     }
 
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        view.rootView.setBackgroundColor(Color.argb(153, 35, 35, 35))
-    }
-
-
-    // Registers a photo picker activity launcher in multi-select mode.
     private val pickMultipleMedia =
         registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(99)) { uris ->
-            // Callback is invoked after the user selects media items or closes the
-            // photo picker.
             if (uris.isNotEmpty()) {
-                Log.d("PhotoPicker", "Number of items selected: " + uris.size)
                 showProgress.value = true
                 lifecycleScope.launch {
                     try {
@@ -124,9 +122,6 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
                         showProgress.value = false
                     }
                 }
-
-            } else {
-                Log.d("PhotoPicker", "No media selected")
             }
         }
 
@@ -141,7 +136,6 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
                 prefs?.getString("current_playlist", Constant.PLAYLIST_NONE)
             )
         mRecyclerView?.adapter = listAdapter
-        // mRecyclerView.setNestedScrollingEnabled(false);
         mRecyclerView?.itemAnimator = DefaultItemAnimator()
         listAdapter?.setOnItemClickListener { position: Int ->
             val playlist = listAdapter?.itemList?.get(position)
@@ -220,7 +214,7 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
         val processWorkRequest: OneTimeWorkRequest =
             processPlaylistWorker(playlistId, name)
         workManager?.enqueueUniqueWork(
-            name,
+            playlistId,
             ExistingWorkPolicy.REPLACE, processWorkRequest
         )
     }
