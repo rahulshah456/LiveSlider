@@ -10,12 +10,9 @@ import android.opengl.Matrix;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-
 import com.droid2developers.liveslider.utils.Constant;
-
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 import org.greenrobot.eventbus.EventBus;
-
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -25,18 +22,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
-
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
-
 import androidx.lifecycle.MutableLiveData;
 
 public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private final static int REFRESH_RATE = 60;
-    private final static float MAX_BIAS_RANGE = 0.003f;
+    private final static float MAX_BIAS_RANGE = 0.006f;
     private final static String TAG = LiveWallpaperRenderer.class.getSimpleName();
 
     private MutableLiveData<Float> mutableAlfa = null;  // Initial alpha value
@@ -46,12 +40,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private final Context mContext;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private float scrollStep = 1f;
-    private Queue<Float> scrollOffsetXQueue = new CircularFifoQueue<>(10);
+    private final Queue<Float> scrollOffsetXQueue = new CircularFifoQueue<>(10);
     private float scrollOffsetX = 0.5f;// , offsetY = 0.5f;
     private float scrollOffsetXBackup = 0.5f;
     private float currentOrientationOffsetX, currentOrientationOffsetY;
     private float orientationOffsetX, orientationOffsetY;
-    private Callbacks mCallbacks;
+    private final Callbacks mCallbacks;
     private float screenAspectRatio;
     private int screenH;
     private float wallpaperAspectRatio;
@@ -68,7 +62,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Important mutable parameters for live wallpaper
     private Wallpaper wallpaper;
     private String localWallpaperPath = null;
-    private int delay = 3;
+    private int delay = 1;
     private float biasRange;
     private float scrollRange;
     private boolean scrollMode = true;
@@ -242,8 +236,17 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         orientationOffsetY = (float) (biasRange * Math.sin(pitch));
     }
     void setBiasRange(int multiples) {
-        // Log.d("tinyOffset", tinyOffsetX + ", " + tinyOffsetY);
-        biasRange = multiples * MAX_BIAS_RANGE + 0.03f;
+        if (multiples == 0) {
+            stopTransition();
+            biasRange = 0f;
+            currentOrientationOffsetX = 0f;
+            currentOrientationOffsetY = 0f;
+            orientationOffsetX = 0f;
+            orientationOffsetY = 0f;
+        } else {
+            biasRange = multiples * MAX_BIAS_RANGE + 0.03f;
+            startTransition();
+        }
         preCalculate();
         mCallbacks.requestRender();
     }
@@ -274,7 +277,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // refreshes current wallpaper and update canvas
     void refreshWallpaper(String wallpaperPath, boolean isDefault){
-        Log.d(TAG, "refreshWallpaper: ");
+//        Log.d(TAG, "refreshWallpaper: ");
         animationHandler.post(fadeInRunnable);
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             setLocalWallpaperPath(wallpaperPath);
@@ -288,15 +291,22 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Calculate the transition offsets and refresh smooth effect in canvas
     private void transitionCal() {
         boolean needRefresh = false;
+//        Log.d(TAG, "transitionCal: DELAY:" + delay);
         if (Math.abs(currentOrientationOffsetX - orientationOffsetX) > .0001
                 || Math.abs(currentOrientationOffsetY - orientationOffsetY) > .0001) {
-            float transitionStep = REFRESH_RATE / LiveWallpaperService.SENSOR_RATE;
-            float tinyOffsetX = (orientationOffsetX - currentOrientationOffsetX)
-                    / (transitionStep * delay);
-            float tinyOffsetY = (orientationOffsetY - currentOrientationOffsetY)
-                    / (transitionStep * delay);
-            currentOrientationOffsetX += tinyOffsetX;
-            currentOrientationOffsetY += tinyOffsetY;
+
+            if(delay == 1) {
+                currentOrientationOffsetX += (orientationOffsetX - currentOrientationOffsetX) * 0.8f;
+                currentOrientationOffsetY += (orientationOffsetY - currentOrientationOffsetY) * 0.8f;
+            } else {
+                float transitionStep = REFRESH_RATE / LiveWallpaperService.SENSOR_RATE;
+                float tinyOffsetX = (orientationOffsetX - currentOrientationOffsetX)
+                        / (transitionStep * delay);
+                float tinyOffsetY = (orientationOffsetY - currentOrientationOffsetY)
+                        / (transitionStep * delay);
+                currentOrientationOffsetX += tinyOffsetX;
+                currentOrientationOffsetY += tinyOffsetY;
+            }
             EventBus.getDefault().post(new BiasChangeEvent(currentOrientationOffsetX / biasRange,
                     currentOrientationOffsetY / biasRange));
             needRefresh = true;
@@ -309,11 +319,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         if (needRefresh) mCallbacks.requestRender();
     }
 
+
     // Create and loads new Wallpaper from the required settings
     private void loadTexture() {
         System.gc();
-        Log.d(TAG, "loadTexture: default_wallpaper = " + isDefaultWallpaper);
-        Log.d(TAG, "loadTexture: local_wallpaper_path = " + localWallpaperPath);
+//        Log.d(TAG, "loadTexture: default_wallpaper = " + isDefaultWallpaper);
+//        Log.d(TAG, "loadTexture: local_wallpaper_path = " + localWallpaperPath);
         //InputStream is = null;
         FileInputStream is = null;
 

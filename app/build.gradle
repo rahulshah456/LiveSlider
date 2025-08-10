@@ -5,14 +5,13 @@ plugins {
 
 android {
     namespace 'com.droid2developers.liveslider'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.droid2developers.liveslider"
         minSdk 28
-        targetSdk 34
-        versionCode 8
-        versionName "1.2"
+        versionCode 10
+        versionName "1.22"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
