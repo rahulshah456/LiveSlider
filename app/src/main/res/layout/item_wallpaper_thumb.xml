@@ -23,7 +23,7 @@
             android:adjustViewBounds="true"
             android:contentDescription="@string/thumbnail"
             android:scaleType="centerCrop"
-            android:src="@mipmap/ic_launcher"
+            android:src="@mipmap/ic_launcher_monochrome"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintDimensionRatio="1:1"
             app:layout_constraintEnd_toEndOf="parent"
