@@ -1,7 +1,7 @@
 <img width="1200" height="208" alt="header" src="https://github.com/user-attachments/assets/736cc2d3-8352-4ee7-8a7a-93fff452a6b7" />
 
 # Live Slider - Parallax Slideshow Live Wallpaper
-[![GitHub release](https://img.shields.io/github/v/release/rahulshah456/LiveSlider?style=for-the-badge)](https://github.com/droid2developers/LiveSlider/releases/latest)
+[![GitHub release](https://img.shields.io/github/v/release/rahulshah456/LiveSlider?style=for-the-badge)](https://github.com/rahulshah456/LiveSlider/releases/latest)
 <a href="https://play.google.com/store/apps/details?id=com.droid2developers.liveslider"><img alt="Get it on Google Play" src="https://img.shields.io/badge/Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white" /></a>
 <img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" />
 
@@ -159,3 +159,4 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
