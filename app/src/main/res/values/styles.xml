@@ -1,6 +1,6 @@
 <resources>
 
-    <style name="AppThemeBase" parent="Theme.Material3.Dark.NoActionBar">
+    <style name="AppThemeBase" parent="Theme.Material3.DynamicColors.Dark.NoActionBar">
         <item name="colorPrimaryDark">@android:color/transparent</item>
         <item name="colorPrimary">@android:color/transparent</item>
         <item name="colorAccent">@color/color_accent</item>

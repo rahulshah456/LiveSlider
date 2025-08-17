@@ -17,6 +17,7 @@
     </queries>
 
     <application
+        android:name=".views.LiveApplication"
         android:allowBackup="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher_monochrome"

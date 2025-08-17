@@ -103,7 +103,7 @@ public class LiveWallpaperService extends GLWallpaperService {
 
             // Setting initial parameters
             renderer.setBiasRange(prefs.getInt("range", 10));
-            renderer.setDelay(21 - prefs.getInt("deny", 10));
+            renderer.setDelay(21 - prefs.getInt("delay", 10));
             renderer.setScrollMode(prefs.getBoolean("scroll", true));
             renderer.setIsDefaultWallpaper(prefs.getBoolean("default_wallpaper", true));
             renderer.setLocalWallpaperPath(prefs.getString("local_wallpaper_path", DEFAULT_LOCAL_PATH));
