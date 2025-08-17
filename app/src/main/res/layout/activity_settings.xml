@@ -12,9 +12,10 @@
         android:id="@+id/appBarId"
         android:layout_width="match_parent"
         app:elevation="0dp"
-        android:layout_height="?attr/actionBarSize">
+        android:layout_height="?attr/actionBarSize"
+        android:background="@android:color/transparent">
 
-        <androidx.appcompat.widget.Toolbar
+        <com.google.android.material.appbar.MaterialToolbar
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:contentInsetLeft="0dp"
@@ -70,7 +71,7 @@
             </RelativeLayout>
 
 
-        </androidx.appcompat.widget.Toolbar>
+        </com.google.android.material.appbar.MaterialToolbar>
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -228,11 +229,11 @@
 
                             <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch1ID"
+                                style="@style/CustomMaterialSwitch"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentEnd="true"
                                 android:layout_centerVertical="true"
-                                android:shadowColor="@color/white_mod"
                                 android:clickable="false"
                                 android:layout_marginEnd="25dp" />
                         </RelativeLayout>
@@ -293,11 +294,12 @@
 
                             <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch4ID"
+                                style="@style/CustomMaterialSwitch"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentEnd="true"
                                 android:layout_centerVertical="true"
-                                android:shadowColor="@color/white_mod"
+                                android:enabled="true"
                                 android:clickable="false"
                                 android:layout_marginEnd="25dp" />
                         </RelativeLayout>
@@ -358,11 +360,11 @@
 
                             <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch2ID"
+                                style="@style/CustomMaterialSwitch"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentEnd="true"
                                 android:layout_centerVertical="true"
-                                android:shadowColor="@color/white_mod"
                                 android:clickable="false"
                                 android:layout_marginEnd="25dp" />
                         </RelativeLayout>
@@ -481,11 +483,11 @@
 
                             <com.google.android.material.materialswitch.MaterialSwitch
                                 android:id="@+id/switch3ID"
+                                style="@style/CustomMaterialSwitch"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentEnd="true"
                                 android:layout_centerVertical="true"
-                                android:shadowColor="@color/white_mod"
                                 android:clickable="false"
                                 android:layout_marginEnd="25dp" />
                         </RelativeLayout>

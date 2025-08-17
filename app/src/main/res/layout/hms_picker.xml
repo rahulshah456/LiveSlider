@@ -1,12 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingTop="16dp">
+<LinearLayout android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:paddingTop="16dp"
+    android:gravity="center_horizontal"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="18dp"
+        android:layout_marginRight="18dp"
+        android:layout_marginBottom="18dp"
+        app:cardCornerRadius="8dp"
+        android:layout_gravity="center"
+        android:background="@color/material_dark_light">
+
+        <TextView
+            android:id="@+id/errorTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/holo_red_light"
+            android:visibility="gone"
+            android:fontFamily="@font/montserrat"
+            android:textSize="14sp"
+            android:padding="8dp"
+            android:layout_gravity="center"
+            android:text="@string/no_empty_time"
+            android:gravity="center_horizontal" />
+
+    </com.google.android.material.card.MaterialCardView>
 
     <xyz.aprildown.hmspickerview.HmsPickerView
         android:id="@+id/hmsPickerView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center" />
-</FrameLayout>
+
+</LinearLayout>

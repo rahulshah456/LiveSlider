@@ -45,4 +45,5 @@
     <string name="march">March</string>
     <string name="date">24</string>
     <string name="add_wallpaper">add wallpaper</string>
+    <string name="no_empty_time">Slideshow time must be at least 3 seconds.</string>
 </resources>

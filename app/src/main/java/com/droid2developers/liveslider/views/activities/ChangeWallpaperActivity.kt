@@ -37,6 +37,6 @@ class ChangeWallpaperActivity : AppCompatActivity() {
         tabLayout.setupWithViewPager(viewPager)
 
         val backButton = findViewById<CardView>(R.id.backButtonId)
-        backButton.setOnClickListener { v: View? -> onBackPressed() }
+        backButton.setOnClickListener { v: View? -> onBackPressedDispatcher.onBackPressed() }
     }
 }

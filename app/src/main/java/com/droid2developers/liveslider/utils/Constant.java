@@ -15,7 +15,7 @@ public class Constant {
 
     //slideshow timer constants
     public static final long DEFAULT_SLIDESHOW_TIME = 15 * 60 * 1000;
-    public static final long MINIMUM_SLIDESHOW_TIME = 10 * 1000;
+    public static final long MINIMUM_SLIDESHOW_TIME = 2 * 1000;
 
 
     // Image file formats

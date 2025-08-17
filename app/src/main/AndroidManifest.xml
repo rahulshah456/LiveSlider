@@ -10,10 +10,6 @@
         android:glEsVersion="0x00020000"
         android:required="true" />
 
-    <uses-permission
-        android:name="android.permission.QUERY_ALL_PACKAGES" android:maxSdkVersion="33"
-        tools:ignore="QueryAllPackagesPermission" />
-
     <queries>
         <intent>
             <action android:name="android.service.wallpaper.WallpaperService"/>

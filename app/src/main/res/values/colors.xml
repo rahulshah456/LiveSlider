@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="color_accent">#30d9de</color>
+    <color name="color_accent">#00809D</color>
     <color name="color_divider">#56FFFFFF</color>
 
     <color name="white_mod">#FFFFFF</color>
@@ -12,4 +12,7 @@
     <color name="material_black">#030408</color>
     <color name="material_dark_light">#616161</color>
 
+    <color name="switch_track_color">#80FFFFFF</color> <!-- semi-transparent white -->
+    <color name="switch_thumb_color">@color/color_accent</color>
+    <color name="switch_thumb_tint_disabled">#B0B0B0</color> <!-- accent color -->
 </resources>
