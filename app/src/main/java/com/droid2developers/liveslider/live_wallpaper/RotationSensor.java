@@ -1,5 +1,13 @@
 package com.droid2developers.liveslider.live_wallpaper;
 
+import static com.droid2developers.liveslider.utils.Constant.FACE_LANDSCAPE_RIGHT;
+import static com.droid2developers.liveslider.utils.Constant.FACE_LANDSCAPE_LEFT;
+import static com.droid2developers.liveslider.utils.Constant.FACE_PORTRAIT_UP;
+import static com.droid2developers.liveslider.utils.Constant.FACE_PORTRAIT_DOWN;
+import static com.droid2developers.liveslider.utils.Constant.FACE_FLAT_UP;
+import static com.droid2developers.liveslider.utils.Constant.FACE_FLAT_DOWN;
+import static com.droid2developers.liveslider.utils.Constant.FACE_UNKNOWN;
+import static com.droid2developers.liveslider.utils.Constant.getFaceName;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -9,10 +17,8 @@ import android.widget.Toast;
 import android.util.Log;
 import com.droid2developers.liveslider.R;
 
-import java.util.Locale;
-
 public class RotationSensor implements SensorEventListener {
-    private static final String TAG = "RotationSensor";
+    private static final String TAG = RotationSensor.class.getSimpleName();
 
     // Face detection thresholds
     private static final float ROLL_THRESHOLD = (float) Math.PI / 4;    // 45 degrees
@@ -38,15 +44,6 @@ public class RotationSensor implements SensorEventListener {
     // Sensor data storage
     private final float[] rotationMatrix = new float[9];
     private final float[] orientationValues = new float[3];
-
-    // Phone face orientation constants
-    public static final int FACE_UNKNOWN = -1;
-    public static final int FACE_PORTRAIT_UP = 0;      // Normal holding
-    public static final int FACE_LANDSCAPE_LEFT = 1;   // Rotated left
-    public static final int FACE_LANDSCAPE_RIGHT = 2;  // Rotated right
-    public static final int FACE_PORTRAIT_DOWN = 3;    // Upside down
-    public static final int FACE_FLAT_UP = 4;          // Lying flat, screen up
-    public static final int FACE_FLAT_DOWN = 5;        // Lying flat, screen down
 
     RotationSensor(Context context, Callback callback, int sampleRate) {
         this.sampleRate = sampleRate;
@@ -74,7 +71,8 @@ public class RotationSensor implements SensorEventListener {
         candidatePhoneFace = FACE_UNKNOWN;
         candidateStableCount = 0;
 
-        boolean success = sensorManager.registerListener(this, rotationSensor, 1000000 / sampleRate);
+        boolean success = sensorManager.registerListener(this,
+                rotationSensor, 1000000 / sampleRate);
         listenerRegistered = success;
 
         if (!success) {
@@ -178,13 +176,12 @@ public class RotationSensor implements SensorEventListener {
 
     // Switch to new phone face and establish new reference matrix for parallax calculations
     private void switchToNewFace(int newFace) {
+        Log.i(TAG, "Face changed to: " + getFaceName(newFace));
         currentPhoneFace = newFace;
         candidatePhoneFace = FACE_UNKNOWN;
         candidateStableCount = 0;
-
         initialRotationMatrix = rotationMatrix.clone();
-
-        Log.i(TAG, "Face changed to: " + getFaceName(newFace));
+        callback.onFaceChanged(newFace);
     }
 
     // Calculate parallax movement using angle differences from reference orientation
@@ -218,39 +215,6 @@ public class RotationSensor implements SensorEventListener {
         return true;
     }
 
-    private String getFaceName(int face) {
-        switch (face) {
-            case FACE_PORTRAIT_UP: return "PORTRAIT_UP";
-            case FACE_LANDSCAPE_LEFT: return "LANDSCAPE_LEFT";
-            case FACE_LANDSCAPE_RIGHT: return "LANDSCAPE_RIGHT";
-            case FACE_PORTRAIT_DOWN: return "PORTRAIT_DOWN";
-            case FACE_FLAT_UP: return "FLAT_UP";
-            case FACE_FLAT_DOWN: return "FLAT_DOWN";
-            default: return "UNKNOWN";
-        }
-    }
-
-    // Public API methods for external monitoring
-    public String getCurrentFaceInfo() {
-        if (currentPhoneFace >= 0) {
-            String candidateInfo = "";
-            if (candidatePhoneFace >= 0) {
-                candidateInfo = String.format(Locale.ENGLISH, " (candidate: %s %d/%d)",
-                        getFaceName(candidatePhoneFace), candidateStableCount, FACE_STABLE_COUNT);
-            }
-            return getFaceName(currentPhoneFace) + candidateInfo;
-        }
-        return "Not detected";
-    }
-
-    public int getCurrentFace() {
-        return currentPhoneFace;
-    }
-
-    public boolean isFaceDetected() {
-        return currentPhoneFace >= 0 && initialRotationMatrix != null;
-    }
-
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
         if (accuracy < SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM) {
@@ -260,5 +224,6 @@ public class RotationSensor implements SensorEventListener {
 
     public interface Callback {
         void onSensorChanged(float[] angle);
+        void onFaceChanged(int face);
     }
 }

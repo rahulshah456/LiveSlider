@@ -94,12 +94,43 @@
                 android:layout_marginRight="@dimen/introduction_horizontal_margin"
                 android:fontFamily="@font/montserrat" />
 
-            <com.droid2developers.liveslider.live_wallpaper.Cube
-                android:id="@+id/cube"
-                android:layout_width="@dimen/cube_size"
-                android:layout_height="@dimen/cube_size"
-                android:layout_gravity="center_horizontal"
-                android:layout_margin="@dimen/cube_margin" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <com.droid2developers.liveslider.live_wallpaper.Cube
+                    android:id="@+id/cube"
+                    android:layout_width="@dimen/cube_size"
+                    android:layout_height="@dimen/cube_size"
+                    android:layout_gravity="center"
+                    android:layout_marginEnd="40dp"
+                    android:layout_margin="@dimen/cube_margin" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:layout_gravity="center"
+                    android:layout_marginStart="40dp"
+                    app:strokeColor="@color/material_light"
+                    app:cardBackgroundColor="@android:color/transparent">
+
+                    <TextView
+                        android:id="@+id/face"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:fontFamily="@font/montserrat"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:textSize="9sp"
+                        android:padding="8dp"
+                        android:text="@string/default_face"/>
+
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"

@@ -68,4 +68,37 @@ public class Constant {
         if (seconds > 0) timeString = timeString + seconds + " seconds ";
         return timeString;
     }
+
+    // Phone face orientation constants
+    public static final int FACE_UNKNOWN = -1;
+    public static final int FACE_PORTRAIT_UP = 0;      // Normal holding
+    public static final int FACE_LANDSCAPE_LEFT = 1;   // Rotated left
+    public static final int FACE_LANDSCAPE_RIGHT = 2;  // Rotated right
+    public static final int FACE_PORTRAIT_DOWN = 3;    // Upside down
+    public static final int FACE_FLAT_UP = 4;          // Lying flat, screen up
+    public static final int FACE_FLAT_DOWN = 5;        // Lying flat, screen down
+
+    public static String getFaceName(int face) {
+        switch (face) {
+            case FACE_PORTRAIT_UP: return "PORTRAIT_UP";
+            case FACE_LANDSCAPE_LEFT: return "LANDSCAPE_LEFT";
+            case FACE_LANDSCAPE_RIGHT: return "LANDSCAPE_RIGHT";
+            case FACE_PORTRAIT_DOWN: return "PORTRAIT_DOWN";
+            case FACE_FLAT_UP: return "FLAT_UP";
+            case FACE_FLAT_DOWN: return "FLAT_DOWN";
+            default: return "UNKNOWN";
+        }
+    }
+
+    public static String getFaceNameReadable(int face) {
+        switch (face) {
+            case FACE_PORTRAIT_UP: return "FACING TOP";
+            case FACE_LANDSCAPE_LEFT: return "FACING LEFT";
+            case FACE_LANDSCAPE_RIGHT: return "FACING RIGHT";
+            case FACE_PORTRAIT_DOWN: return "FACING BOTTOM";
+            case FACE_FLAT_UP: return "DEFAULT";
+            case FACE_FLAT_DOWN: return "INVERTED";
+            default: return "UNKNOWN";
+        }
+    }
 }

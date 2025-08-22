@@ -46,4 +46,6 @@
     <string name="date">24</string>
     <string name="add_wallpaper">add wallpaper</string>
     <string name="no_empty_time">Slideshow time must be at least 3 seconds.</string>
+    <string name="front_face">FRONT FACE</string>
+    <string name="default_face">DEFAULT</string>
 </resources>

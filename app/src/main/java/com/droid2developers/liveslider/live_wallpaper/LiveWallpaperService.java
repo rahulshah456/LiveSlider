@@ -197,6 +197,11 @@ public class LiveWallpaperService extends GLWallpaperService {
         }
 
         @Override
+        public void onFaceChanged(int face) {
+            renderer.setNewFaceRotation(face);
+        }
+
+        @Override
         public void onSurfaceDestroyed(SurfaceHolder holder) {
             super.onSurfaceDestroyed(holder);
             handler.removeCallbacks(slideshow);
@@ -328,19 +333,16 @@ public class LiveWallpaperService extends GLWallpaperService {
             if (!playlistId.equals(PLAYLIST_NONE)) {
 
                 mRepository = new WallpaperRepository(getApplicationContext());
-                mRepository.getPlaylistWallpapers(playlistId).observeForever(new Observer<List<LocalWallpaper>>() {
-                    @Override
-                    public void onChanged(List<LocalWallpaper> wallpaperList) {
-                        Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
-                        mImagesArrayIndex = 0;
-                        currentPlaylistId = playlistId;
-                        playlistWallpapers = wallpaperList;
+                mRepository.getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
+                    Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
+                    mImagesArrayIndex = 0;
+                    currentPlaylistId = playlistId;
+                    playlistWallpapers = wallpaperList;
 
-                        String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
-                        boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                        renderer.refreshWallpaper(localWallpaperPath, isDefault);
-                        //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
-                    }
+                    String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                    boolean isDefault = prefs.getBoolean("default_wallpaper", true);
+                    renderer.refreshWallpaper(localWallpaperPath, isDefault);
+                    //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
                 });
             }
         }

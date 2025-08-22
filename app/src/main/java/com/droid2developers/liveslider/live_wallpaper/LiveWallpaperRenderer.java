@@ -10,6 +10,9 @@ import android.opengl.Matrix;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import com.droid2developers.liveslider.models.BiasChangeEvent;
+import com.droid2developers.liveslider.models.FaceRotationEvent;
 import com.droid2developers.liveslider.utils.Constant;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 import org.greenrobot.eventbus.EventBus;
@@ -258,10 +261,17 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             preCalculate();
         }
     }
+
     void setOrientationAngle(float roll, float pitch) {
         orientationOffsetX = (float) (biasRange * Math.sin(roll));
         orientationOffsetY = (float) (biasRange * Math.sin(pitch));
     }
+
+    void setNewFaceRotation(int face) {
+        // Fire FaceRotationEvent for UI updates
+        EventBus.getDefault().post(new FaceRotationEvent(face));
+    }
+
     void setBiasRange(int multiples) {
         if (multiples == 0) {
             stopTransition();
@@ -439,26 +449,5 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Internal Callback for refreshing the current canvas
     interface Callbacks {
         void requestRender();
-    }
-    // Change the current rotation parameters
-    public static class BiasChangeEvent {
-        float x, y;
-
-        BiasChangeEvent(float x, float y) {
-            if (x > 1) this.x = 1;
-            else if (x < -1) this.x = -1;
-            else this.x = x;
-            if (y > 1) this.y = 1;
-            else if (y < -1) this.y = -1;
-            else this.y = y;
-        }
-
-        public float getX() {
-            return x;
-        }
-
-        public float getY() {
-            return y;
-        }
     }
 }

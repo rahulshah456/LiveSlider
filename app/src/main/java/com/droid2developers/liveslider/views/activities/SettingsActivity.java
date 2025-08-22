@@ -5,35 +5,28 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Html;
-import android.text.SpannableString;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.preference.PreferenceManager;
-
 import com.droid2developers.liveslider.R;
 import com.droid2developers.liveslider.live_wallpaper.Cube;
-import com.droid2developers.liveslider.live_wallpaper.LiveWallpaperRenderer;
+import com.droid2developers.liveslider.models.BiasChangeEvent;
+import com.droid2developers.liveslider.models.FaceRotationEvent;
 import com.droid2developers.liveslider.utils.Constant;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
-import com.google.android.material.snackbar.Snackbar;
-
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
-
 import xyz.aprildown.hmspickerview.HmsPickerView;
-
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_SLIDESHOW_TIME;
 import static com.droid2developers.liveslider.utils.Constant.MINIMUM_SLIDESHOW_TIME;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
@@ -47,7 +40,7 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
 
     private CardView scrollCard, slideshowCard, intervalCard, doubleTapCard, powerSaverCard, backButton;
     private MaterialSwitch scrollSwitch, slideshowSwitch, doubleTapSwitch, powerSaverSwitch;
-    private TextView intervalText;
+    private TextView intervalText, faceText;
     private SeekBar seekBarRange, seekBarDelay;
     private Cube cube;
 
@@ -84,9 +77,13 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
         powerSaverSwitch = findViewById(R.id.switch4ID);
 
         intervalText = findViewById(R.id.interval_intro);
+        faceText = findViewById(R.id.face);
 
         TextView introduction = findViewById(R.id.introduction);
-        introduction.setText(new SpannableString(Html.fromHtml(getResources().getString(R.string.introduction2))));
+        CharSequence intro = Html.fromHtml(getResources().getString(R.string.introduction2),
+                Html.FROM_HTML_MODE_LEGACY
+        );
+        introduction.setText(intro);
     }
 
     private void setupInitialState() {
@@ -216,8 +213,13 @@ public class SettingsActivity extends AppCompatActivity implements View.OnClickL
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
-    public void onMessageEvent(LiveWallpaperRenderer.BiasChangeEvent event) {
+    public void onMessageEvent(BiasChangeEvent event) {
         cube.setRotation(event.getY(), event.getX());
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onFaceRotationEvent(FaceRotationEvent event) {
+        faceText.setText(event.getReadableFaceName());
     }
 
     @Override
