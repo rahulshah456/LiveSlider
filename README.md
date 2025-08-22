@@ -1,10 +1,12 @@
-[![GitHub release](https://img.shields.io/github/v/release/droid2developers/LiveSlider?style=for-the-badge)](https://github.com/droid2developers/LiveSlider/releases/latest)
+<img width="1200" height="208" alt="header" src="https://github.com/user-attachments/assets/736cc2d3-8352-4ee7-8a7a-93fff452a6b7" />
+
+# Live Slider - Parallax Slideshow Live Wallpaper
+[![GitHub release](https://img.shields.io/github/v/release/rahulshah456/LiveSlider?style=for-the-badge)](https://github.com/rahulshah456/LiveSlider/releases/latest)
 <a href="https://play.google.com/store/apps/details?id=com.droid2developers.liveslider"><img alt="Get it on Google Play" src="https://img.shields.io/badge/Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white" /></a>
 <img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" />
 
-# Live Slider - Parallax Slideshow Live Wallpaper
-
 Welcome to Live Slider! This open-source Android application transforms your home screen into a dynamic, interactive experience. It creates a captivating parallax effect based on your device's movements and allows you to set up a personalized slideshow of your favorite wallpapers. Built with modern Android development practices, Live Slider is designed to be both feature-rich and developer-friendly.
+
 
 ## ✨ Key Features
 - **Dynamic Parallax Effect:** Creates an illusion of depth by shifting the wallpaper in response to the device's rotation, providing an immersive 3D-like experience.
@@ -14,16 +16,11 @@ Welcome to Live Slider! This open-source Android application transforms your hom
 - **Material You & Dynamic Theming:** The app's UI seamlessly integrates with your device's color palette and system theme (Android 12+).
 - **Fine-Grained Customization:** Adjust the parallax sensitivity, slideshow frequency, and other settings to perfectly match your preferences.
 
+
+
+
 ## 📸 Screenshots
-<p align="center">
-  <img src="screenshots/screenshot_1.png" width="200"/>
-  <img src="screenshots/screenshot_2.png" width="200"/>
-  <img src="screenshots/screenshot_3.png" width="200"/>
-  <img src="screenshots/screenshot_4.png" width="200"/>
-</p>
-<p align="center">
-  <img src="screenshots/screenshot_5.png" width="200"/>
-</p>
+<img width="1771" height="720" alt="group banner" src="https://github.com/user-attachments/assets/75b718d8-42ce-4170-ba44-fafdc3b09195" />
 
 ## 🚀 Getting Started
 
@@ -130,6 +127,13 @@ Contributions are what make the open-source community such an amazing place to l
 
 Please make sure to describe your changes clearly in the pull request. If you're fixing a bug, link to the issue if one exists.
 
+## 🙏 Credits & Acknowledgements
+This project was inspired by and builds upon the excellent work of the following open-source projects:
+- [Beleco Parallax Live Wallpaper](https://github.com/dklaputa/BelecoLiveWallpaper)
+- [Muzei Live Wallpaper](https://github.com/romannurik/muzei/)
+- [GLWallpaperService](https://github.com/GLWallpaperService/GLWallpaperService)
+- [EventBus](https://github.com/greenrobot/EventBus)
+
 ## 📜 License
 
 This project is distributed under the MIT License. See the `LICENSE` file for more information.
@@ -155,10 +159,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## 🙏 Credits & Acknowledgements
-This project was inspired by and builds upon the excellent work of the following open-source projects:
-- [Beleco Parallax Live Wallpaper](https://github.com/dklaputa/BelecoLiveWallpaper)
-- [Muzei Live Wallpaper](https://github.com/romannurik/muzei/)
-- [GLWallpaperService](https://github.com/GLWallpaperService/GLWallpaperService)
-- [EventBus](https://github.com/greenrobot/EventBus)
