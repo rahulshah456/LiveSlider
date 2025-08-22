@@ -145,6 +145,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     }
 
     // Here we do our drawing
+    private boolean hasLoggedNullWallpaper = false;
     @Override
     public void onDrawFrame(GL10 gl) {
         if (needsRefreshWallpaper) {
@@ -153,6 +154,15 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         }
         // Draw background color
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+
+        // Only proceed if preA and preB are valid numbers
+        if (Float.isNaN(preA) || Float.isNaN(preB) || Float.isInfinite(preA) || Float.isInfinite(preB)) {
+            if (!hasLoggedNullWallpaper) {
+                Log.w(TAG, "onDrawFrame: Invalid matrix parameters (preA/preB), skipping draw");
+                hasLoggedNullWallpaper = true;
+            }
+            return;
+        }
 
         // Set the camera position (View matrix)
         float x = preA * (-2 * scrollOffsetX + 1) + currentOrientationOffsetX;
@@ -163,18 +173,35 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
         // Draw square
-        if(mutableAlfa.getValue() == null) {
-            wallpaper.draw(mMVPMatrix, 1.0f);
+        if (wallpaper != null) {
+            hasLoggedNullWallpaper = false;
+            if(mutableAlfa.getValue() == null) {
+                wallpaper.draw(mMVPMatrix, 1.0f);
+            } else {
+                wallpaper.draw(mMVPMatrix, mutableAlfa.getValue());
+            }
         } else {
-            wallpaper.draw(mMVPMatrix, mutableAlfa.getValue());
+            if (!hasLoggedNullWallpaper) {
+                Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
+                hasLoggedNullWallpaper = true;
+            }
         }
-
     }
 
     private void preCalculate() {
+        // Guard against zero or invalid aspect ratios
+        if (screenAspectRatio == 0 || Float.isNaN(screenAspectRatio) || Float.isInfinite(screenAspectRatio)) {
+            preA = Float.NaN;
+            preB = Float.NaN;
+            return;
+        }
+        if (wallpaperAspectRatio == 0 || Float.isNaN(wallpaperAspectRatio) || Float.isInfinite(wallpaperAspectRatio)) {
+            preA = Float.NaN;
+            preB = Float.NaN;
+            return;
+        }
         if (scrollStep > 0) {
-            if (wallpaperAspectRatio > (1 + 1 / (3 * scrollStep))
-                    * screenAspectRatio) {
+            if (wallpaperAspectRatio > (1 + 1 / (3 * scrollStep)) * screenAspectRatio) {
                 scrollRange = 1 + 1 / (3 * scrollStep);
             } else if (wallpaperAspectRatio >= screenAspectRatio) {
                 scrollRange = wallpaperAspectRatio / screenAspectRatio;
@@ -323,60 +350,64 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Create and loads new Wallpaper from the required settings
     private void loadTexture() {
         System.gc();
-//        Log.d(TAG, "loadTexture: default_wallpaper = " + isDefaultWallpaper);
-//        Log.d(TAG, "loadTexture: local_wallpaper_path = " + localWallpaperPath);
-        //InputStream is = null;
         FileInputStream is = null;
-
         if (wallpaperType == TYPE_SINGLE){
             if (!isDefaultWallpaper) {
                 try {
                     is = new FileInputStream(localWallpaperPath);
-                    //is = mContext.openFileInput(localWallpaperPath);
                 } catch (FileNotFoundException e) {
-                    e.fillInStackTrace();
-                    // resetting to default wallpaper
+                    Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
                     refreshWallpaper(DEFAULT_LOCAL_PATH,true);
                 }
             } else {
                 try {
                     AssetFileDescriptor fileDescriptor = mContext.getAssets().openFd(Constant.DEFAULT_WALLPAPER_NAME);
                     is = fileDescriptor.createInputStream();
-                    //is = mContext.getAssets().open(Constant.DEFAULT_WALLPAPER);
                 } catch (IOException e) {
-                    e.fillInStackTrace();
+                    Log.e(TAG, "loadTexture: IOException loading default wallpaper", e);
                 }
             }
         } else {
             try {
                 is = new FileInputStream(localWallpaperPath);
-                //is = mContext.openFileInput(localWallpaperPath);
             } catch (FileNotFoundException e) {
-                e.fillInStackTrace();
-                // resetting to default wallpaper
+                Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
                 refreshWallpaper(DEFAULT_LOCAL_PATH,true);
             }
         }
-
-
-
-        if (is == null) return;
+        if (is == null) {
+            Log.e(TAG, "loadTexture: InputStream is null, cannot load wallpaper");
+            return;
+        }
         if (wallpaper != null)
             wallpaper.destroy();
-        wallpaper = new Wallpaper(cropBitmap(is));
+        Bitmap bmp = cropBitmap(is);
+        if (bmp == null) {
+            Log.e(TAG, "loadTexture: cropBitmap returned null, cannot create wallpaper");
+            return;
+        }
+        wallpaper = new Wallpaper(bmp);
         preCalculate();
         try {
             is.close();
         } catch (IOException e) {
-            e.fillInStackTrace();
+            Log.e(TAG, "loadTexture: IOException closing InputStream", e);
         }
         System.gc();
     }
     private Bitmap cropBitmap(InputStream is) {
         Bitmap src = BitmapFactory.decodeStream(is);
-        if (src == null) return null;
+        if (src == null) {
+            Log.e(TAG, "cropBitmap: BitmapFactory.decodeStream returned null");
+            return null;
+        }
         final float width = src.getWidth();
         final float height = src.getHeight();
+        if (height == 0) {
+            Log.e(TAG, "cropBitmap: height is zero, cannot calculate aspect ratio");
+            src.recycle();
+            return null;
+        }
         wallpaperAspectRatio = width / height;
         if (wallpaperAspectRatio < screenAspectRatio) {
             scrollRange = 1;
