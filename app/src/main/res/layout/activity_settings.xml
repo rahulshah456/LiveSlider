@@ -78,6 +78,8 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:paddingBottom="54dp"
         android:layout_gravity="center_vertical">
 
         <LinearLayout
@@ -131,6 +133,38 @@
                 </com.google.android.material.card.MaterialCardView>
 
             </LinearLayout>
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/calibrationGroup"
+                android:layout_gravity="center"
+                android:gravity="center"
+                app:singleSelection="true"
+                app:checkedButton="@+id/defaultCalibration"
+                android:layout_marginBottom="18dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <Button
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:id="@+id/defaultCalibration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/default_calibration"
+                    />
+                <Button
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:id="@+id/button2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/vertical_calibration"
+                    />
+                <Button
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:id="@+id/dynamicCalibration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/dynamic_calibration"
+                    />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
 
             <View
                 android:layout_width="match_parent"
@@ -207,326 +241,47 @@
                     android:background="@color/color_divider" />
 
 
-                <!--Actual Live Wallpaper Settings-->
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/card1ID"
-                    android:layout_width="match_parent"
-                    android:layout_height="70dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:animateLayoutChanges="true"
-                    app:cardBackgroundColor="@android:color/transparent"
-                    app:cardElevation="0dp"
-                    android:foreground="?attr/selectableItemBackground">
-
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:layout_marginStart="18dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/scroll_24dp"/>
-
-                        <RelativeLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginStart="80dp"
-                            android:layout_centerInParent="true">
-
-
-                            <TextView
-                                android:id="@+id/scrollingTextID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/wallpaper_scrolling"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/white_mod" />
-
-                            <TextView
-                                android:id="@+id/scrolling_intro"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_below="@+id/scrollingTextID"
-                                android:textSize="12sp"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/material_light"
-                                android:text="@string/enable_to_get_scroll_effect" />
-
-                            <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/switch1ID"
-                                style="@style/CustomMaterialSwitch"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true"
-                                android:clickable="false"
-                                android:layout_marginEnd="25dp" />
-                        </RelativeLayout>
-
-
-                    </RelativeLayout>
-
-                </androidx.cardview.widget.CardView>
-                <androidx.cardview.widget.CardView
+                <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card5ID"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
-                    android:clickable="true"
-                    android:focusable="true"
                     android:animateLayoutChanges="true"
-                    app:cardBackgroundColor="@android:color/transparent"
-                    app:cardElevation="0dp"
-                    android:foreground="?attr/selectableItemBackground">
+                    app:cardIcon="@drawable/battery_24dp"
+                    app:cardHeader="@string/power_saver_mode"
+                    app:cardSubHeader="@string/pause_everything_in_battery_saver_mode"
+                    app:hasSwitch="true" />
 
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:layout_marginStart="18dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/battery_24dp"/>
-
-                        <RelativeLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginStart="80dp"
-                            android:layout_centerInParent="true">
-
-
-                            <TextView
-                                android:id="@+id/powerTextID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/power_saver_mode"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/white_mod" />
-
-                            <TextView
-                                android:id="@+id/power_intro"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_below="@+id/powerTextID"
-                                android:textSize="12sp"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/material_light"
-                                android:text="@string/pause_everything_in_battery_saver_mode" />
-
-                            <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/switch4ID"
-                                style="@style/CustomMaterialSwitch"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true"
-                                android:enabled="true"
-                                android:clickable="false"
-                                android:layout_marginEnd="25dp" />
-                        </RelativeLayout>
-
-
-                    </RelativeLayout>
-
-                </androidx.cardview.widget.CardView>
-                <androidx.cardview.widget.CardView
+                <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card2ID"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
-                    android:clickable="true"
-                    android:focusable="true"
                     android:animateLayoutChanges="true"
-                    app:cardBackgroundColor="@android:color/transparent"
-                    app:cardElevation="0dp"
-                    android:foreground="?attr/selectableItemBackground">
+                    app:cardIcon="@drawable/slideshow_24dp"
+                    app:cardHeader="@string/wallpaper_slideshow"
+                    app:cardSubHeader="@string/wallpaper_changes_after_some_time"
+                    app:hasSwitch="true" />
 
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:layout_marginStart="18dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/slideshow_24dp"/>
-
-                        <RelativeLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginStart="80dp"
-                            android:layout_centerInParent="true">
-
-
-                            <TextView
-                                android:id="@+id/slideshowTextID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/wallpaper_slideshow"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/white_mod" />
-
-                            <TextView
-                                android:id="@+id/slideshow_intro"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_below="@+id/slideshowTextID"
-                                android:textSize="12sp"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/material_light"
-                                android:text="@string/wallpaper_changes_after_some_time" />
-
-                            <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/switch2ID"
-                                style="@style/CustomMaterialSwitch"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true"
-                                android:clickable="false"
-                                android:layout_marginEnd="25dp" />
-                        </RelativeLayout>
-
-
-                    </RelativeLayout>
-
-                </androidx.cardview.widget.CardView>
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/card3ID"
-                    android:layout_width="match_parent"
-                    android:layout_height="70dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:animateLayoutChanges="true"
-                    app:cardBackgroundColor="@android:color/transparent"
-                    app:cardElevation="0dp"
-                    android:visibility="gone"
-                    android:foreground="?attr/selectableItemBackground">
-
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:layout_marginStart="18dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/clock_icon"/>
-
-                        <RelativeLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginStart="80dp"
-                            android:layout_centerInParent="true">
-
-
-                            <TextView
-                                android:id="@+id/intervalTextID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Slideshow Time Interval"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/white_mod" />
-
-                            <TextView
-                                android:id="@+id/interval_intro"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_below="@+id/intervalTextID"
-                                android:textSize="12sp"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/material_light"
-                                android:text="15 Minutes (Default)" />
-
-                        </RelativeLayout>
-
-
-                    </RelativeLayout>
-
-                </androidx.cardview.widget.CardView>
-                <androidx.cardview.widget.CardView
+                <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card4ID"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
-                    android:clickable="true"
-                    android:focusable="true"
                     android:animateLayoutChanges="true"
-                    app:cardBackgroundColor="@android:color/transparent"
-                    app:cardElevation="0dp"
                     android:visibility="gone"
-                    android:foreground="?attr/selectableItemBackground">
+                    app:cardIcon="@drawable/double_tap_24dp"
+                    app:cardHeader="@string/double_tap_wallpaper"
+                    app:cardSubHeader="@string/change_current_wallpaper"
+                    app:hasSwitch="true" />
 
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:layout_marginStart="18dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/double_tap_24dp"/>
-
-                        <RelativeLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginStart="80dp"
-                            android:layout_centerInParent="true">
-
-
-                            <TextView
-                                android:id="@+id/tapTextID"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/double_tap_wallpaper"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/white_mod" />
-
-                            <TextView
-                                android:id="@+id/tap_intro"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_below="@+id/tapTextID"
-                                android:textSize="12sp"
-                                android:fontFamily="@font/montserrat"
-                                android:textColor="@color/material_light"
-                                android:text="@string/change_current_wallpaper" />
-
-                            <com.google.android.material.materialswitch.MaterialSwitch
-                                android:id="@+id/switch3ID"
-                                style="@style/CustomMaterialSwitch"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_alignParentEnd="true"
-                                android:layout_centerVertical="true"
-                                android:clickable="false"
-                                android:layout_marginEnd="25dp" />
-                        </RelativeLayout>
-
-
-                    </RelativeLayout>
-
-                </androidx.cardview.widget.CardView>
+                <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/card3ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:animateLayoutChanges="true"
+                    android:visibility="gone"
+                    app:cardIcon="@drawable/clock_icon"
+                    app:cardHeader="Slideshow Time Interval"
+                    app:cardSubHeader="15 Minutes (Default)"
+                    app:hasSwitch="false" />
 
             </LinearLayout>
 

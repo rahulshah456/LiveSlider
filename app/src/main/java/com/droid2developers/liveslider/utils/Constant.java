@@ -35,6 +35,11 @@ public class Constant {
     public static final int TYPE_AUTO = 1;
     public static final int TYPE_SLIDESHOW = 2;
 
+    // Calibration Mode Constants
+    public static final int CALIBRATION_DEFAULT = 0;
+    public static final int CALIBRATION_VERTICAL = 1;
+    public static final int CALIBRATION_DYNAMIC = 2;
+
     public static final String PLAYLIST_NONE = "none";
     public static final String WALLPAPER_NONE = "none";
 

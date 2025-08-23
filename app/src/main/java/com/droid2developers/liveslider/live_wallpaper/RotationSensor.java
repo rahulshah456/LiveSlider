@@ -7,6 +7,9 @@ import static com.droid2developers.liveslider.utils.Constant.FACE_PORTRAIT_DOWN;
 import static com.droid2developers.liveslider.utils.Constant.FACE_FLAT_UP;
 import static com.droid2developers.liveslider.utils.Constant.FACE_FLAT_DOWN;
 import static com.droid2developers.liveslider.utils.Constant.FACE_UNKNOWN;
+import static com.droid2developers.liveslider.utils.Constant.CALIBRATION_DEFAULT;
+import static com.droid2developers.liveslider.utils.Constant.CALIBRATION_VERTICAL;
+import static com.droid2developers.liveslider.utils.Constant.CALIBRATION_DYNAMIC;
 import static com.droid2developers.liveslider.utils.Constant.getFaceName;
 import android.content.Context;
 import android.hardware.Sensor;
@@ -17,14 +20,14 @@ import android.widget.Toast;
 import android.util.Log;
 import com.droid2developers.liveslider.R;
 
+/**
+ * Rotation sensor that handles phone orientation detection and parallax calculations
+ * Supports three calibration modes: Default, Vertical, and Dynamic
+ */
 public class RotationSensor implements SensorEventListener {
     private static final String TAG = RotationSensor.class.getSimpleName();
-
-    // Face detection thresholds
-    private static final float ROLL_THRESHOLD = (float) Math.PI / 4;    // 45 degrees
-    private static final float FLAT_THRESHOLD = (float) Math.PI / 3;    // 60 degrees for flat detection
-
-    // Stability requirements to prevent rapid face switching
+    private static final float ROLL_THRESHOLD = (float) Math.PI / 4;
+    private static final float FLAT_THRESHOLD = (float) Math.PI / 3;
     private static final int FACE_STABLE_COUNT = 5;
     private static final long FACE_DETECTION_DEBOUNCE_MS = 100;
 
@@ -33,15 +36,14 @@ public class RotationSensor implements SensorEventListener {
     private final SensorManager sensorManager;
     private Sensor rotationSensor;
     private boolean listenerRegistered = false;
+    private int calibrationMode = CALIBRATION_DEFAULT;
 
-    // Face detection state tracking
     private float[] initialRotationMatrix = null;
     private int currentPhoneFace = -1;
     private int candidatePhoneFace = -1;
     private int candidateStableCount = 0;
     private long lastFaceDetectionCheck = 0;
 
-    // Sensor data storage
     private final float[] rotationMatrix = new float[9];
     private final float[] orientationValues = new float[3];
 
@@ -58,21 +60,17 @@ public class RotationSensor implements SensorEventListener {
             Log.e(TAG, "Rotation vector sensor not available");
             Toast.makeText(context, context.getText(R.string.toast_sensor_error), Toast.LENGTH_LONG).show();
         }
-
-        Log.d(TAG, "RotationSensor initialized with orientation-based face detection");
     }
 
     void register() {
         if (listenerRegistered) return;
 
-        // Reset face detection state
         initialRotationMatrix = null;
         currentPhoneFace = FACE_UNKNOWN;
         candidatePhoneFace = FACE_UNKNOWN;
         candidateStableCount = 0;
 
-        boolean success = sensorManager.registerListener(this,
-                rotationSensor, 1000000 / sampleRate);
+        boolean success = sensorManager.registerListener(this, rotationSensor, 1000000 / sampleRate);
         listenerRegistered = success;
 
         if (!success) {
@@ -93,7 +91,6 @@ public class RotationSensor implements SensorEventListener {
         currentPhoneFace = FACE_UNKNOWN;
         candidatePhoneFace = FACE_UNKNOWN;
         candidateStableCount = 0;
-        Log.d(TAG, "Manual recalibration triggered");
     }
 
     @Override
@@ -110,6 +107,54 @@ public class RotationSensor implements SensorEventListener {
             return;
         }
 
+        // Handle different calibration modes
+        switch (calibrationMode) {
+            case CALIBRATION_DEFAULT:
+                handleDefaultCalibration();
+                break;
+            case CALIBRATION_VERTICAL:
+                handleVerticalCalibration();
+                break;
+            case CALIBRATION_DYNAMIC:
+                handleDynamicCalibration();
+                break;
+        }
+    }
+
+    // Original simple implementation - sets initial matrix once and calculates angle changes
+    private void handleDefaultCalibration() {
+        if (initialRotationMatrix == null) {
+            initialRotationMatrix = rotationMatrix.clone();
+            return;
+        }
+
+        float[] angleChange = new float[3];
+        SensorManager.getAngleChange(angleChange, rotationMatrix, initialRotationMatrix);
+        
+        if (isValidAngles(angleChange)) {
+            callback.onSensorChanged(angleChange);
+        }
+    }
+
+    // Vertical mode - only updates matrix when switching between portrait up/down faces
+    private void handleVerticalCalibration() {
+        // Extract orientation angles for vertical face detection
+        SensorManager.getOrientation(rotationMatrix, orientationValues);
+
+        // Detect if phone is in top or bottom orientation
+        int detectedVerticalFace = detectVerticalFace(orientationValues);
+
+        // Handle vertical face changes with stability checking
+        handleVerticalFaceDetection(detectedVerticalFace);
+
+        // Calculate parallax if we have established reference
+        if (initialRotationMatrix != null) {
+            calculateParallax();
+        }
+    }
+
+    // Dynamic mode - full face detection with automatic matrix updates for all orientations
+    private void handleDynamicCalibration() {
         // Extract orientation angles (azimuth, pitch, roll) from rotation matrix
         SensorManager.getOrientation(rotationMatrix, orientationValues);
 
@@ -125,10 +170,56 @@ public class RotationSensor implements SensorEventListener {
         }
     }
 
-    // Analyze orientation angles to determine which face of the phone is active
+    // Detects only portrait orientations for vertical calibration mode
+    private int detectVerticalFace(float[] orientation) {
+        float roll = orientation[2];
+        float absRoll = Math.abs(roll);
+
+        if (absRoll < ROLL_THRESHOLD) {
+            return FACE_PORTRAIT_UP;
+        } else if (absRoll > Math.PI - ROLL_THRESHOLD) {
+            return FACE_PORTRAIT_DOWN;
+        }
+
+        // If not in vertical orientation, return current face or default to portrait up
+        return currentPhoneFace != FACE_UNKNOWN ? currentPhoneFace : FACE_PORTRAIT_UP;
+    }
+
+    // Handles vertical face detection with stability checking
+    private void handleVerticalFaceDetection(int detectedFace) {
+        long currentTime = System.currentTimeMillis();
+
+        if (currentTime - lastFaceDetectionCheck < FACE_DETECTION_DEBOUNCE_MS) {
+            return;
+        }
+
+        lastFaceDetectionCheck = currentTime;
+
+        // Only process portrait up/down face changes
+        if ((detectedFace == FACE_PORTRAIT_UP || detectedFace == FACE_PORTRAIT_DOWN) &&
+            detectedFace != currentPhoneFace) {
+
+            if (candidatePhoneFace == detectedFace) {
+                candidateStableCount++;
+
+                if (candidateStableCount >= FACE_STABLE_COUNT) {
+                    switchToNewFace(detectedFace);
+                }
+            } else {
+                candidatePhoneFace = detectedFace;
+                candidateStableCount = 1;
+            }
+        } else if (detectedFace == currentPhoneFace) {
+            // Reset candidate when returning to current face
+            candidatePhoneFace = FACE_UNKNOWN;
+            candidateStableCount = 0;
+        }
+    }
+
+    // Detects all phone orientations for dynamic calibration mode
     private int detectPhoneFace(float[] orientation) {
-        float pitch = orientation[1];    // Forward/backward tilt
-        float roll = orientation[2];     // Sideways tilt
+        float pitch = orientation[1];
+        float roll = orientation[2];
 
         // Check for flat orientations first (high pitch values indicate flat positioning)
         if (Math.abs(pitch) > FLAT_THRESHOLD) {
@@ -147,13 +238,14 @@ public class RotationSensor implements SensorEventListener {
         }
     }
 
-    // Manage face change detection with debouncing and stability requirements
+    // Manages face change detection with debouncing and stability requirements
     private void handleFaceDetection(int detectedFace) {
         long currentTime = System.currentTimeMillis();
 
         if (currentTime - lastFaceDetectionCheck < FACE_DETECTION_DEBOUNCE_MS) {
             return;
         }
+
         lastFaceDetectionCheck = currentTime;
 
         // Process face change candidates with stability checking
@@ -174,7 +266,7 @@ public class RotationSensor implements SensorEventListener {
         }
     }
 
-    // Switch to new phone face and establish new reference matrix for parallax calculations
+    // Updates to new phone face and establishes new reference matrix
     private void switchToNewFace(int newFace) {
         Log.i(TAG, "Face changed to: " + getFaceName(newFace));
         currentPhoneFace = newFace;
@@ -184,7 +276,7 @@ public class RotationSensor implements SensorEventListener {
         callback.onFaceChanged(newFace);
     }
 
-    // Calculate parallax movement using angle differences from reference orientation
+    // Calculates parallax movement using angle differences from reference orientation
     private void calculateParallax() {
         float[] angleChange = new float[3];
         SensorManager.getAngleChange(angleChange, rotationMatrix, initialRotationMatrix);
@@ -196,7 +288,6 @@ public class RotationSensor implements SensorEventListener {
         }
     }
 
-    // Utility methods for validation and information
     private boolean isValidMatrix(float[] matrix) {
         for (float value : matrix) {
             if (Float.isNaN(value) || Float.isInfinite(value)) {
@@ -220,6 +311,30 @@ public class RotationSensor implements SensorEventListener {
         if (accuracy < SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM) {
             Log.w(TAG, "Sensor accuracy low: " + accuracy);
         }
+    }
+
+    /**
+     * Sets the calibration mode for the rotation sensor
+     * @param mode The calibration mode (CALIBRATION_DEFAULT, CALIBRATION_VERTICAL, or CALIBRATION_DYNAMIC)
+     */
+    public void setCalibrationMode(int mode) {
+        if (mode != calibrationMode) {
+            calibrationMode = mode;
+
+            // Reset calibration state when mode changes
+            initialRotationMatrix = null;
+            currentPhoneFace = FACE_UNKNOWN;
+            candidatePhoneFace = FACE_UNKNOWN;
+            candidateStableCount = 0;
+        }
+    }
+
+    /**
+     * Gets the current calibration mode
+     * @return The current calibration mode
+     */
+    public int getCalibrationMode() {
+        return calibrationMode;
     }
 
     public interface Callback {

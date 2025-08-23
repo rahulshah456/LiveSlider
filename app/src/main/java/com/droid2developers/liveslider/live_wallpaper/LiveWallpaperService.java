@@ -114,6 +114,9 @@ public class LiveWallpaperService extends GLWallpaperService {
             setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
             setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
 
+            // Set initial calibration mode
+            rotationSensor.setCalibrationMode(prefs.getInt("calibration_mode", 0)); // 0 = CALIBRATION_DEFAULT
+
             // Adding touch listeners for touch feedback
             setTouchEventsEnabled(true);
             doubleTapDetector = new GestureDetector(getApplicationContext(),
@@ -223,6 +226,7 @@ public class LiveWallpaperService extends GLWallpaperService {
                     renderer.setDelay(21 - sharedPreferences.getInt(key, 10));
                     break;
                 case "scroll":
+                    Log.d(TAG, "onSharedPreferenceChanged: " + sharedPreferences.getBoolean(key, true));
                     renderer.setScrollMode(sharedPreferences.getBoolean(key, true));
                     break;
                 case "power_saver":
@@ -250,6 +254,11 @@ public class LiveWallpaperService extends GLWallpaperService {
                     break;
                 case "slideshow_timer":
                     setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
+                    break;
+                case "calibration_mode":
+                    int calibrationMode = sharedPreferences.getInt(key, 0); // 0 = DEFAULT
+                    rotationSensor.setCalibrationMode(calibrationMode);
+                    Log.d(TAG, "Calibration mode changed to: " + calibrationMode);
                     break;
             }
         }
