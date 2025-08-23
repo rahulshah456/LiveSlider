@@ -75,44 +75,6 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     private final Handler animationHandler = new Handler(Looper.getMainLooper());
 
-    // Runnable for fade-in animation
-    Runnable fadeInRunnable = new Runnable() {
-        private float alpha = 0.0f;
-        private boolean increasing = true;
-
-        @Override
-        public void run() {
-            // Update the alpha value based on fade-in and fade-out logic
-            if (increasing) {
-                alpha += 0.02f; // Increase alpha
-                if (alpha >= 1.0f) {
-                    alpha = 1.0f;
-                    increasing = false; // Start fading out
-                }
-            } else {
-                alpha -= 0.02f; // Decrease alpha
-                if (alpha <= 0.0f) {
-                    alpha = 0.0f;
-                    increasing = true; // Start fading in
-                }
-            }
-            mutableAlfa.setValue(alpha);
-            mCallbacks.requestRender();
-
-            Log.d(TAG, "run:" + alpha);
-
-            // Check if the animation is complete
-            if ((alpha == 1.0f && !increasing)) {
-                // The animation is complete; you can perform any necessary actions here
-                // For example, you can stop the HandlerThread: alphaUpdateThread.quit();
-
-            } else {
-                // Continue the animation loop
-                animationHandler.postDelayed(this, 8); // Delay for approximately 60 FPS
-            }
-        }
-    };
-
     LiveWallpaperRenderer(Context context, Callbacks callbacks) {
         mContext = context;
         mCallbacks = callbacks;
@@ -314,14 +276,58 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // refreshes current wallpaper and update canvas
     void refreshWallpaper(String wallpaperPath, boolean isDefault){
-//        Log.d(TAG, "refreshWallpaper: ");
-        animationHandler.post(fadeInRunnable);
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            setLocalWallpaperPath(wallpaperPath);
-            setIsDefaultWallpaper(isDefault);
-            needsRefreshWallpaper = true;
-            mCallbacks.requestRender();
-        }, 400);
+        // Create a fade-out -> change wallpaper -> fade-in sequence
+        Runnable fadeOutThenInRunnable = new Runnable() {
+            private float alpha = 1.0f;
+            private boolean fadeOutComplete = false;
+            private boolean wallpaperChanged = false;
+
+            @Override
+            public void run() {
+                if (!fadeOutComplete) {
+                    // Fade out phase
+                    alpha -= 0.05f; // Fade out speed
+
+                    if (alpha <= 0.0f) {
+                        alpha = 0.0f;
+                        fadeOutComplete = true;
+
+                        // Change wallpaper when screen is completely dark
+                        if (!wallpaperChanged) {
+                            setLocalWallpaperPath(wallpaperPath);
+                            setIsDefaultWallpaper(isDefault);
+                            needsRefreshWallpaper = true;
+                            wallpaperChanged = true;
+
+                            // Small delay to ensure wallpaper is loaded before fade-in
+                            animationHandler.postDelayed(this, 50);
+                            mutableAlfa.setValue(alpha);
+                            mCallbacks.requestRender();
+                            return;
+                        }
+                    }
+                } else {
+                    // Fade in phase - show new wallpaper
+                    alpha += 0.04f; // Fade in speed
+
+                    if (alpha >= 1.0f) {
+                        alpha = 1.0f;
+                        mutableAlfa.setValue(alpha);
+                        mCallbacks.requestRender();
+                        // Animation complete
+                        return;
+                    }
+                }
+
+                mutableAlfa.setValue(alpha);
+                mCallbacks.requestRender();
+
+                // Continue animation
+                animationHandler.postDelayed(this, 16); // 60 FPS
+            }
+        };
+
+        animationHandler.post(fadeOutThenInRunnable);
     }
 
 
