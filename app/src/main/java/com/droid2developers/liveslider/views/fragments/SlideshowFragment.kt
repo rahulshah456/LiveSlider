@@ -37,6 +37,7 @@ import com.droid2developers.liveslider.database.models.Playlist
 import com.droid2developers.liveslider.database.repository.PlaylistRepository
 import com.droid2developers.liveslider.database.repository.WallpaperRepository
 import com.droid2developers.liveslider.utils.Constant
+import com.droid2developers.liveslider.utils.SpacingItemDecoration
 import com.droid2developers.liveslider.utils.processPlaylistWorker
 import com.droid2developers.liveslider.viewmodel.PlaylistViewModel
 import com.droid2developers.liveslider.viewmodel.WallpaperViewModel
@@ -130,6 +131,11 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
         val gridSize =
             (if ((resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT)) 1 else 2)
         mRecyclerView?.layoutManager = GridLayoutManager(requireContext(), gridSize)
+
+        // Add 12dp spacing between items
+        val spacingInPixels = resources.getDimensionPixelSize(R.dimen.item_spacing_12dp)
+        mRecyclerView?.addItemDecoration(SpacingItemDecoration(spacingInPixels))
+
         listAdapter =
             PlaylistAdapter(
                 requireContext(),

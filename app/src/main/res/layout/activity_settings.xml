@@ -51,6 +51,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
+                        android:contentDescription="@string/back_button"
                         android:background="@drawable/back_white_24dp" />
 
                 </androidx.cardview.widget.CardView>
@@ -66,6 +67,30 @@
                     android:layout_centerInParent="true"
                     android:textColor="@color/material_light"
                     android:textSize="18sp"/>
+
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/helpButtonId"
+                    android:layout_width="?attr/actionBarSize"
+                    app:cardCornerRadius="32dp"
+                    android:layout_marginEnd="8dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    android:foreground="?android:selectableItemBackground"
+                    android:layout_height="match_parent"
+                    android:layout_alignParentEnd="true">
+
+
+                    <ImageView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:contentDescription="@string/back_button"
+                        android:background="@drawable/help_24dp" />
+
+                </androidx.cardview.widget.CardView>
 
 
             </RelativeLayout>
@@ -86,15 +111,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/introduction"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/divider_vertical_margin"
-                android:layout_marginLeft="@dimen/introduction_horizontal_margin"
-                android:layout_marginRight="@dimen/introduction_horizontal_margin"
-                android:fontFamily="@font/montserrat" />
 
             <LinearLayout
                 android:layout_width="match_parent"

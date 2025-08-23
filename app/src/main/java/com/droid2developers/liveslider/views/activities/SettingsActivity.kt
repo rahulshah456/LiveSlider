@@ -16,6 +16,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.preference.PreferenceManager
 import com.droid2developers.liveslider.R
 import com.droid2developers.liveslider.live_wallpaper.Cube
@@ -56,7 +60,10 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     @SuppressLint("CommitPrefEdits")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_settings)
+        setupSystemBarsAndCutouts()
+
         window.decorView.getRootView()
             .setBackgroundColor(Color.argb(153, 35, 35, 35))
 
@@ -66,6 +73,32 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         bindViews()
         setupInitialState()
         setupListeners()
+    }
+
+    /**
+     * Sets up proper handling of system bars and display cutouts/notches
+     * Following Android's modern edge-to-edge guidelines
+     */
+    private fun setupSystemBarsAndCutouts() {
+        val rootView = findViewById<View>(android.R.id.content)
+
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, windowInsets ->
+            val insets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                        WindowInsetsCompat.Type.displayCutout()
+            )
+
+            // Apply padding to avoid system bars and cutouts
+            view.updatePadding(
+                left = insets.left,
+                top = insets.top,
+                right = insets.right,
+                bottom = insets.bottom
+            )
+
+            // Return the insets to continue propagation
+            windowInsets
+        }
     }
 
     private fun bindViews() {
@@ -81,18 +114,15 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         faceText = findViewById<TextView>(R.id.face)
 
-        val introduction = findViewById<TextView>(R.id.introduction)
-        val intro: CharSequence? = Html.fromHtml(
-            getResources().getString(R.string.introduction2),
-            Html.FROM_HTML_MODE_LEGACY
-        )
-        introduction.text = intro
-
         // Calibration controls
         calibrationGroup = findViewById(R.id.calibrationGroup)
         defaultCalibrationButton = findViewById(R.id.defaultCalibration)
         verticalCalibrationButton = findViewById(R.id.button2)
         dynamicCalibrationButton = findViewById(R.id.dynamicCalibration)
+
+        // Help button
+        val helpButton = findViewById<CardView>(R.id.helpButtonId)
+        helpButton?.setOnClickListener { showHelpDialog() }
     }
 
     private fun setupInitialState() {
@@ -270,6 +300,52 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             }
         }
         alertDialog.show()
+    }
+
+    /**
+     * Shows a help dialog with information about settings controls and calibration modes
+     */
+    private fun showHelpDialog() {
+        val helpMessage = buildString {
+            // Introduction
+            append(getString(R.string.introduction1))
+            append("\n\n")
+            append(Html.fromHtml(getString(R.string.introduction2), Html.FROM_HTML_MODE_LEGACY))
+            append("\n\n")
+
+            // Settings Controls
+            append(getString(R.string.help_settings_controls_title))
+            append("\n\n")
+            append(getString(R.string.help_range_info))
+            append("\n\n")
+            append(getString(R.string.help_speed_info))
+            append("\n\n")
+            append(getString(R.string.help_power_saver_info))
+            append("\n\n")
+            append(getString(R.string.help_slideshow_info))
+            append("\n\n")
+            append(getString(R.string.help_double_tap_info))
+            append("\n\n")
+
+            // Calibration Modes
+            append(getString(R.string.help_calibration_modes_title))
+            append("\n\n")
+            append(getString(R.string.help_default_calibration))
+            append("\n\n")
+            append(getString(R.string.help_vertical_calibration))
+            append("\n\n")
+            append(getString(R.string.help_dynamic_calibration))
+            append("\n\n")
+            append(getString(R.string.help_cube_helper))
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setIcon(ResourcesCompat.getDrawable(resources, R.drawable.help_24dp, null))
+            .setTitle(getString(R.string.help_dialog_title))
+            .setMessage(helpMessage)
+            .setPositiveButton(getString(R.string.help_got_it)) { dialog, _ -> dialog.dismiss() }
+            .create()
+            .show()
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

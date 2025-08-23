@@ -51,4 +51,21 @@
     <string name="default_calibration">Default</string>
     <string name="vertical_calibration">Vertical</string>
     <string name="dynamic_calibration">Dynamic</string>
+    <string name="active">ACTIVE</string>
+    <string name="back_button">Back Button</string>
+
+    <!-- Help Dialog Strings -->
+    <string name="help_dialog_title">Help &amp; Information</string>
+    <string name="help_settings_controls_title">Settings Controls:</string>
+    <string name="help_range_info">• Range: Controls the intensity of the parallax effect by zooming the image. Higher values create more movement as the image is translated more on sensor movements, but the image becomes more zoomed for greater bias range. The lowest value (0) completely shuts off the parallax animation with no sensor updates, while slideshow will still work normally.</string>
+    <string name="help_speed_info">• Speed: Adjusts how quickly the wallpaper responds to device rotation. Higher values make parallax react faster. For normal movements, smoothing is added as device sensor rotation values are not linear to tackle jittery effects. At maximum speed, there is no smoothing - if your device has a good sensor you may not see jittery effects, otherwise you know the drill.</string>
+    <string name="help_power_saver_info">• Power Saver Mode: Pauses all wallpaper effects when battery saver is enabled to conserve battery life.</string>
+    <string name="help_slideshow_info">• Wallpaper Slideshow: Automatically changes wallpapers from your selected playlist at set intervals. Minimum time interval is 3 seconds for performance reasons and inbuilt Android battery optimizations that freeze update callbacks for animations.</string>
+    <string name="help_double_tap_info">• Double Tap Wallpaper: Allows changing wallpapers by double-tapping the screen for quick wallpaper switching.</string>
+    <string name="help_calibration_modes_title">Calibration Modes:</string>
+    <string name="help_default_calibration">• Default: Sets the parallax face as default wherever your phone is facing at the moment. The wallpaper will animate with respect to that initial position. Simple calibration that works well for basic parallax effects.</string>
+    <string name="help_vertical_calibration">• Vertical: Considers only 2 faces where ground and sky positions are detected. Perfect for users who mainly use their phone facing upwards during normal day usage and facing downwards when lying on the bed. Only recalibrates when switching between upright and upside-down orientations.</string>
+    <string name="help_dynamic_calibration">• Dynamic: Advanced mode that considers all 6 faces of the cube as possibilities. Wherever your phone is facing, the parallax wallpaper origin will update automatically based on the current phone direction (portrait, landscape, flat positions). Provides the most adaptive experience with automatic face detection and recalibration.</string>
+    <string name="help_cube_helper">A helper cube is displayed that shows your current active face position as reference.</string>
+    <string name="help_got_it">Got it</string>
 </resources>

@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -69,23 +70,21 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
 
 
     public class MyViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener {
-        View viewShadow;
-        ImageView thumbIv, selectionImage;
-        TextView count, title, month, day;
+
+        ImageView thumbIv;
+        TextView count, title, creationDate;
         ProgressBar progressIndicator;
+        RelativeLayout activeBadge;
 
         MyViewHolder(View itemView) {
             super(itemView);
             itemView.setOnClickListener(this);
             itemView.setOnLongClickListener(this);
 
-            selectionImage = itemView.findViewById(R.id.image_selection);
-            viewShadow = itemView.findViewById(R.id.view_shadow);
             thumbIv = itemView.findViewById(R.id.mainThumbnailId);
-            count = itemView.findViewById(R.id.collectionCountId);
             title = itemView.findViewById(R.id.collectionTitleId);
-            month = itemView.findViewById(R.id.monthHeaderId);
-            day = itemView.findViewById(R.id.dayHeaderId);
+            creationDate = itemView.findViewById(R.id.creationDateId);
+            activeBadge = itemView.findViewById(R.id.active_badge);
             progressIndicator = itemView.findViewById(R.id.progressView);
             progressIndicator.setIndeterminate(true);
 
@@ -141,27 +140,26 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         String currentPlaylist = prefs.getString("current_playlist", PLAYLIST_NONE);
         int wallpaperType = prefs.getInt("type", TYPE_SINGLE);
 
+        // Handle active playlist selection overlay
         if (wallpaperType == TYPE_SLIDESHOW && currentPlaylist.equals(playlist.playlistId)) {
-            holder.viewShadow.setVisibility(View.VISIBLE);
-            holder.selectionImage.setVisibility(View.VISIBLE);
+            holder.activeBadge.setVisibility(View.VISIBLE);
         } else {
-            holder.viewShadow.setVisibility(View.GONE);
-            holder.selectionImage.setVisibility(View.GONE);
+            holder.activeBadge.setVisibility(View.GONE);
         }
 
+        // Format creation date for display
         Calendar calendar = Calendar.getInstance();
-        calendar.setTime(playlist.createdAt);
-
-        // Get the day of the month and month (in text format)
+        if (playlist.createdAt != null) {
+            calendar.setTime(playlist.createdAt);
+        }
         int day = calendar.get(Calendar.DAY_OF_MONTH);
-        String month = new SimpleDateFormat("MMM", Locale.getDefault()).format(playlist.createdAt);
+        String month = new SimpleDateFormat("MMMM", Locale.getDefault()).format(playlist.createdAt);
+        String formattedDate = "Created on " + day + " " + month;
 
+        // Set text content
         String itemCount = playlist.size + "+ Photos";
-        holder.count.setText(itemCount);
-        holder.title.setText(playlist.name);
-        holder.day.setText(String.valueOf(day));
-        holder.month.setText(month);
-
+        holder.title.setText(itemCount);
+        holder.creationDate.setText(formattedDate);
 
         RequestOptions options = new RequestOptions()
                 .centerInside()
