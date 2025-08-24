@@ -45,6 +45,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var intervalCard: SettingsCardView? = null
     private var doubleTapCard: SettingsCardView? = null
     private var powerSaverCard: SettingsCardView? = null
+    private var scrollCard: SettingsCardView? = null
     private var backButton: CardView? = null
     private var faceText: TextView? = null
     private var seekBarRange: SeekBar? = null
@@ -107,6 +108,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         seekBarDelay = findViewById(R.id.seekBarDelay)
         backButton = findViewById(R.id.backButtonId)
 
+        scrollCard = findViewById(R.id.card1ID)
         powerSaverCard = findViewById(R.id.card5ID)
         slideshowCard = findViewById(R.id.card2ID)
         intervalCard = findViewById(R.id.card3ID)
@@ -135,6 +137,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         slideshowCard?.isSwitchChecked = prefs?.getBoolean("slideshow", false) ?: false
         doubleTapCard?.isSwitchChecked = prefs?.getBoolean("double_tap", false) ?: false
         powerSaverCard?.isSwitchChecked = prefs?.getBoolean("power_saver", true) ?: true
+        scrollCard?.isSwitchChecked = prefs?.getBoolean("scroll", true) ?: true
 
         wallpaperType = prefs?.getInt("type", Constant.TYPE_SINGLE) ?: Constant.TYPE_SINGLE
         val timeInMillis = prefs?.getLong("slideshow_timer",
@@ -168,6 +171,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         powerSaverCard?.setOnCardClickListener(this)
         powerSaverCard?.setOnSwitchChangeListener(this)
+
+        scrollCard?.setOnCardClickListener(this)
+        scrollCard?.setOnSwitchChangeListener(this)
 
         slideshowCard?.setOnCardClickListener(this)
         slideshowCard?.setOnSwitchChangeListener(this)
@@ -240,6 +246,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             }
         } else if (id == R.id.card4ID) {
             editor?.putBoolean("double_tap", isChecked)
+        } else if (id == R.id.card1ID) {
+            editor?.putBoolean("scroll", isChecked)
         }
         editor?.apply()
     }

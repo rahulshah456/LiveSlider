@@ -85,8 +85,6 @@ public class LiveWallpaperService extends GLWallpaperService {
             super.onCreate(surfaceHolder);
             setEGLContextClientVersion(2);
             setEGLConfigChooser(8, 8, 8, 0, 0, 0);
-
-            Log.d(TAG, "onCreate: ");
             
             // initial Setup of LiveWallpaper
             renderer = new LiveWallpaperRenderer(LiveWallpaperService.this.getApplicationContext(), this);
@@ -116,6 +114,10 @@ public class LiveWallpaperService extends GLWallpaperService {
 
             // Set initial calibration mode
             rotationSensor.setCalibrationMode(prefs.getInt("calibration_mode", 0)); // 0 = CALIBRATION_DEFAULT
+
+            // Set initial face switch animation duration (default 400ms, or from prefs if available)
+            int delayPref = prefs.getInt("delay", 10);
+            rotationSensor.setFaceSwitchAnimationDurationFromDelay(delayPref);
 
             // Adding touch listeners for touch feedback
             setTouchEventsEnabled(true);
@@ -223,7 +225,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                     renderer.setBiasRange(sharedPreferences.getInt(key, 10));
                     break;
                 case "delay":
-                    renderer.setDelay(21 - sharedPreferences.getInt(key, 10));
+                    int delay = sharedPreferences.getInt("delay", 10);
+                    renderer.setDelay(21 - delay);
+                    rotationSensor.setFaceSwitchAnimationDurationFromDelay(delay);
                     break;
                 case "scroll":
                     Log.d(TAG, "onSharedPreferenceChanged: " + sharedPreferences.getBoolean(key, true));

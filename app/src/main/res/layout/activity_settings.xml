@@ -256,6 +256,16 @@
                     android:layout_marginBottom="@dimen/divider_vertical_margin"
                     android:background="@color/color_divider" />
 
+                <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/card1ID"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:animateLayoutChanges="true"
+                    app:cardIcon="@drawable/scroll_24dp"
+                    app:cardHeader="@string/scroll"
+                    app:cardSubHeader="@string/enable_to_get_scroll_effect"
+                    app:hasSwitch="true" />
+
 
                 <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card5ID"

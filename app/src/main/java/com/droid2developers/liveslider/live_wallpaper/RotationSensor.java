@@ -47,6 +47,43 @@ public class RotationSensor implements SensorEventListener {
     private final float[] rotationMatrix = new float[9];
     private final float[] orientationValues = new float[3];
 
+    // Animation state for smooth face switching
+    private boolean isFaceSwitchAnimating = false;
+    private float[] animationStartMatrix = null;
+    private float[] animationEndMatrix = null;
+    private long animationStartTime = 0;
+    private long faceSwitchAnimationDurationMs = 400; // Default, can be set dynamically
+    private static final long FACE_SWITCH_ANIMATION_MIN_MS = 200;
+    private static final long FACE_SWITCH_ANIMATION_MAX_MS = 1000;
+    private final android.os.Handler animationHandler = new android.os.Handler();
+    private final Runnable faceSwitchAnimationRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isFaceSwitchAnimating || animationStartMatrix == null || animationEndMatrix == null) return;
+            long elapsed = System.currentTimeMillis() - animationStartTime;
+            float t = Math.min(1f, (float) elapsed / faceSwitchAnimationDurationMs);
+            initialRotationMatrix = lerpMatrix(animationStartMatrix, animationEndMatrix, t);
+            // Update parallax with interpolated matrix
+            calculateParallax();
+            if (t < 1f) {
+                animationHandler.postDelayed(this, 16);
+            } else {
+                // Animation finished
+                isFaceSwitchAnimating = false;
+                initialRotationMatrix = animationEndMatrix.clone();
+            }
+        }
+    };
+
+    // Linear interpolation between two 9-element matrices
+    private float[] lerpMatrix(float[] from, float[] to, float t) {
+        float[] result = new float[9];
+        for (int i = 0; i < 9; i++) {
+            result[i] = from[i] + (to[i] - from[i]) * t;
+        }
+        return result;
+    }
+
     RotationSensor(Context context, Callback callback, int sampleRate) {
         this.sampleRate = sampleRate;
         this.callback = callback;
@@ -266,21 +303,32 @@ public class RotationSensor implements SensorEventListener {
         }
     }
 
-    // Updates to new phone face and establishes new reference matrix
+    // Updates to new phone face and establishes new reference matrix with animation
     private void switchToNewFace(int newFace) {
         Log.i(TAG, "Face changed to: " + getFaceName(newFace));
         currentPhoneFace = newFace;
         candidatePhoneFace = FACE_UNKNOWN;
         candidateStableCount = 0;
-        initialRotationMatrix = rotationMatrix.clone();
+        // Start animation from current initialRotationMatrix to new face's rotationMatrix
+        if (initialRotationMatrix == null) {
+            initialRotationMatrix = rotationMatrix.clone();
+            callback.onFaceChanged(newFace);
+            return;
+        }
+        animationStartMatrix = initialRotationMatrix.clone();
+        animationEndMatrix = rotationMatrix.clone();
+        animationStartTime = System.currentTimeMillis();
+        isFaceSwitchAnimating = true;
+        animationHandler.removeCallbacks(faceSwitchAnimationRunnable);
+        animationHandler.post(faceSwitchAnimationRunnable);
         callback.onFaceChanged(newFace);
     }
 
     // Calculates parallax movement using angle differences from reference orientation
     private void calculateParallax() {
+        if (initialRotationMatrix == null) return;
         float[] angleChange = new float[3];
         SensorManager.getAngleChange(angleChange, rotationMatrix, initialRotationMatrix);
-
         if (isValidAngles(angleChange)) {
             callback.onSensorChanged(angleChange);
         } else {
@@ -335,6 +383,23 @@ public class RotationSensor implements SensorEventListener {
      */
     public int getCalibrationMode() {
         return calibrationMode;
+    }
+
+    private long mapDelayToAnimDuration(int delay) {
+        if (delay < 0) delay = 0;
+        if (delay > 20) delay = 20;
+
+        float fraction = delay / 20f; // 0..1
+        return (long) (FACE_SWITCH_ANIMATION_MAX_MS - fraction *
+                (FACE_SWITCH_ANIMATION_MAX_MS - FACE_SWITCH_ANIMATION_MIN_MS));
+    }
+
+
+    // Sets the animation duration dynamically based on "delay" preference
+    public void setFaceSwitchAnimationDurationFromDelay(int delay) {
+        long duration = mapDelayToAnimDuration(delay);
+        this.faceSwitchAnimationDurationMs = duration;
+        Log.d(TAG, "Face switch animation duration set to " + duration + "ms (delay=" + delay + ")");
     }
 
     public interface Callback {
