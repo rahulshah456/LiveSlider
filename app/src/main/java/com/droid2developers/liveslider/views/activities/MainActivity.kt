@@ -11,7 +11,6 @@ import androidx.core.view.updatePadding
 import com.droid2developers.liveslider.R
 import com.droid2developers.liveslider.views.fragments.ActivateFragment
 import com.droid2developers.liveslider.views.fragments.HomeFragment
-import com.google.gson.Gson
 
 class MainActivity : AppCompatActivity() {
 
