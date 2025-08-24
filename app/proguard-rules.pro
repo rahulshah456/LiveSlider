@@ -51,4 +51,5 @@
 }
 ######----------   Glide  ---------------######
 
-
+# Keep the wallpaper provider that is used by the system wallpaper service
+-keep class com.droid2developers.liveslider.provider.SepWallpaperProvider { *; }

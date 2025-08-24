@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="SettingsCardView">
+        <attr name="cardIcon" format="reference" />
+        <attr name="cardHeader" format="string" />
+        <attr name="cardSubHeader" format="string" />
+        <attr name="hasSwitch" format="boolean" />
+        <attr name="switchChecked" format="boolean" />
+    </declare-styleable>
+</resources>
+

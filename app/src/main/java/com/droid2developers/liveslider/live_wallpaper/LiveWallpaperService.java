@@ -114,6 +114,9 @@ public class LiveWallpaperService extends GLWallpaperService {
             setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
             setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
 
+            // Set initial calibration mode
+            rotationSensor.setCalibrationMode(prefs.getInt("calibration_mode", 0)); // 0 = CALIBRATION_DEFAULT
+
             // Adding touch listeners for touch feedback
             setTouchEventsEnabled(true);
             doubleTapDetector = new GestureDetector(getApplicationContext(),
@@ -197,6 +200,11 @@ public class LiveWallpaperService extends GLWallpaperService {
         }
 
         @Override
+        public void onFaceChanged(int face) {
+            renderer.setNewFaceRotation(face);
+        }
+
+        @Override
         public void onSurfaceDestroyed(SurfaceHolder holder) {
             super.onSurfaceDestroyed(holder);
             handler.removeCallbacks(slideshow);
@@ -218,6 +226,7 @@ public class LiveWallpaperService extends GLWallpaperService {
                     renderer.setDelay(21 - sharedPreferences.getInt(key, 10));
                     break;
                 case "scroll":
+                    Log.d(TAG, "onSharedPreferenceChanged: " + sharedPreferences.getBoolean(key, true));
                     renderer.setScrollMode(sharedPreferences.getBoolean(key, true));
                     break;
                 case "power_saver":
@@ -245,6 +254,11 @@ public class LiveWallpaperService extends GLWallpaperService {
                     break;
                 case "slideshow_timer":
                     setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
+                    break;
+                case "calibration_mode":
+                    int calibrationMode = sharedPreferences.getInt(key, 0); // 0 = DEFAULT
+                    rotationSensor.setCalibrationMode(calibrationMode);
+                    Log.d(TAG, "Calibration mode changed to: " + calibrationMode);
                     break;
             }
         }
@@ -328,19 +342,16 @@ public class LiveWallpaperService extends GLWallpaperService {
             if (!playlistId.equals(PLAYLIST_NONE)) {
 
                 mRepository = new WallpaperRepository(getApplicationContext());
-                mRepository.getPlaylistWallpapers(playlistId).observeForever(new Observer<List<LocalWallpaper>>() {
-                    @Override
-                    public void onChanged(List<LocalWallpaper> wallpaperList) {
-                        Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
-                        mImagesArrayIndex = 0;
-                        currentPlaylistId = playlistId;
-                        playlistWallpapers = wallpaperList;
+                mRepository.getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
+                    Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
+                    mImagesArrayIndex = 0;
+                    currentPlaylistId = playlistId;
+                    playlistWallpapers = wallpaperList;
 
-                        String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
-                        boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                        renderer.refreshWallpaper(localWallpaperPath, isDefault);
-                        //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
-                    }
+                    String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                    boolean isDefault = prefs.getBoolean("default_wallpaper", true);
+                    renderer.refreshWallpaper(localWallpaperPath, isDefault);
+                    //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
                 });
             }
         }

@@ -10,6 +10,9 @@ import android.opengl.Matrix;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import com.droid2developers.liveslider.models.BiasChangeEvent;
+import com.droid2developers.liveslider.models.FaceRotationEvent;
 import com.droid2developers.liveslider.utils.Constant;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 import org.greenrobot.eventbus.EventBus;
@@ -72,44 +75,6 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     private final Handler animationHandler = new Handler(Looper.getMainLooper());
 
-    // Runnable for fade-in animation
-    Runnable fadeInRunnable = new Runnable() {
-        private float alpha = 0.0f;
-        private boolean increasing = true;
-
-        @Override
-        public void run() {
-            // Update the alpha value based on fade-in and fade-out logic
-            if (increasing) {
-                alpha += 0.02f; // Increase alpha
-                if (alpha >= 1.0f) {
-                    alpha = 1.0f;
-                    increasing = false; // Start fading out
-                }
-            } else {
-                alpha -= 0.02f; // Decrease alpha
-                if (alpha <= 0.0f) {
-                    alpha = 0.0f;
-                    increasing = true; // Start fading in
-                }
-            }
-            mutableAlfa.setValue(alpha);
-            mCallbacks.requestRender();
-
-            Log.d(TAG, "run:" + alpha);
-
-            // Check if the animation is complete
-            if ((alpha == 1.0f && !increasing)) {
-                // The animation is complete; you can perform any necessary actions here
-                // For example, you can stop the HandlerThread: alphaUpdateThread.quit();
-
-            } else {
-                // Continue the animation loop
-                animationHandler.postDelayed(this, 8); // Delay for approximately 60 FPS
-            }
-        }
-    };
-
     LiveWallpaperRenderer(Context context, Callbacks callbacks) {
         mContext = context;
         mCallbacks = callbacks;
@@ -145,6 +110,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     }
 
     // Here we do our drawing
+    private boolean hasLoggedNullWallpaper = false;
     @Override
     public void onDrawFrame(GL10 gl) {
         if (needsRefreshWallpaper) {
@@ -153,6 +119,15 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         }
         // Draw background color
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+
+        // Only proceed if preA and preB are valid numbers
+        if (Float.isNaN(preA) || Float.isNaN(preB) || Float.isInfinite(preA) || Float.isInfinite(preB)) {
+            if (!hasLoggedNullWallpaper) {
+                Log.w(TAG, "onDrawFrame: Invalid matrix parameters (preA/preB), skipping draw");
+                hasLoggedNullWallpaper = true;
+            }
+            return;
+        }
 
         // Set the camera position (View matrix)
         float x = preA * (-2 * scrollOffsetX + 1) + currentOrientationOffsetX;
@@ -163,18 +138,35 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
         // Draw square
-        if(mutableAlfa.getValue() == null) {
-            wallpaper.draw(mMVPMatrix, 1.0f);
+        if (wallpaper != null) {
+            hasLoggedNullWallpaper = false;
+            if(mutableAlfa.getValue() == null) {
+                wallpaper.draw(mMVPMatrix, 1.0f);
+            } else {
+                wallpaper.draw(mMVPMatrix, mutableAlfa.getValue());
+            }
         } else {
-            wallpaper.draw(mMVPMatrix, mutableAlfa.getValue());
+            if (!hasLoggedNullWallpaper) {
+                Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
+                hasLoggedNullWallpaper = true;
+            }
         }
-
     }
 
     private void preCalculate() {
+        // Guard against zero or invalid aspect ratios
+        if (screenAspectRatio == 0 || Float.isNaN(screenAspectRatio) || Float.isInfinite(screenAspectRatio)) {
+            preA = Float.NaN;
+            preB = Float.NaN;
+            return;
+        }
+        if (wallpaperAspectRatio == 0 || Float.isNaN(wallpaperAspectRatio) || Float.isInfinite(wallpaperAspectRatio)) {
+            preA = Float.NaN;
+            preB = Float.NaN;
+            return;
+        }
         if (scrollStep > 0) {
-            if (wallpaperAspectRatio > (1 + 1 / (3 * scrollStep))
-                    * screenAspectRatio) {
+            if (wallpaperAspectRatio > (1 + 1 / (3 * scrollStep)) * screenAspectRatio) {
                 scrollRange = 1 + 1 / (3 * scrollStep);
             } else if (wallpaperAspectRatio >= screenAspectRatio) {
                 scrollRange = wallpaperAspectRatio / screenAspectRatio;
@@ -231,10 +223,17 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             preCalculate();
         }
     }
+
     void setOrientationAngle(float roll, float pitch) {
         orientationOffsetX = (float) (biasRange * Math.sin(roll));
         orientationOffsetY = (float) (biasRange * Math.sin(pitch));
     }
+
+    void setNewFaceRotation(int face) {
+        // Fire FaceRotationEvent for UI updates
+        EventBus.getDefault().post(new FaceRotationEvent(face));
+    }
+
     void setBiasRange(int multiples) {
         if (multiples == 0) {
             stopTransition();
@@ -277,14 +276,58 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // refreshes current wallpaper and update canvas
     void refreshWallpaper(String wallpaperPath, boolean isDefault){
-//        Log.d(TAG, "refreshWallpaper: ");
-        animationHandler.post(fadeInRunnable);
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            setLocalWallpaperPath(wallpaperPath);
-            setIsDefaultWallpaper(isDefault);
-            needsRefreshWallpaper = true;
-            mCallbacks.requestRender();
-        }, 400);
+        // Create a fade-out -> change wallpaper -> fade-in sequence
+        Runnable fadeOutThenInRunnable = new Runnable() {
+            private float alpha = 1.0f;
+            private boolean fadeOutComplete = false;
+            private boolean wallpaperChanged = false;
+
+            @Override
+            public void run() {
+                if (!fadeOutComplete) {
+                    // Fade out phase
+                    alpha -= 0.05f; // Fade out speed
+
+                    if (alpha <= 0.0f) {
+                        alpha = 0.0f;
+                        fadeOutComplete = true;
+
+                        // Change wallpaper when screen is completely dark
+                        if (!wallpaperChanged) {
+                            setLocalWallpaperPath(wallpaperPath);
+                            setIsDefaultWallpaper(isDefault);
+                            needsRefreshWallpaper = true;
+                            wallpaperChanged = true;
+
+                            // Small delay to ensure wallpaper is loaded before fade-in
+                            animationHandler.postDelayed(this, 50);
+                            mutableAlfa.setValue(alpha);
+                            mCallbacks.requestRender();
+                            return;
+                        }
+                    }
+                } else {
+                    // Fade in phase - show new wallpaper
+                    alpha += 0.04f; // Fade in speed
+
+                    if (alpha >= 1.0f) {
+                        alpha = 1.0f;
+                        mutableAlfa.setValue(alpha);
+                        mCallbacks.requestRender();
+                        // Animation complete
+                        return;
+                    }
+                }
+
+                mutableAlfa.setValue(alpha);
+                mCallbacks.requestRender();
+
+                // Continue animation
+                animationHandler.postDelayed(this, 16); // 60 FPS
+            }
+        };
+
+        animationHandler.post(fadeOutThenInRunnable);
     }
 
 
@@ -323,60 +366,64 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Create and loads new Wallpaper from the required settings
     private void loadTexture() {
         System.gc();
-//        Log.d(TAG, "loadTexture: default_wallpaper = " + isDefaultWallpaper);
-//        Log.d(TAG, "loadTexture: local_wallpaper_path = " + localWallpaperPath);
-        //InputStream is = null;
         FileInputStream is = null;
-
         if (wallpaperType == TYPE_SINGLE){
             if (!isDefaultWallpaper) {
                 try {
                     is = new FileInputStream(localWallpaperPath);
-                    //is = mContext.openFileInput(localWallpaperPath);
                 } catch (FileNotFoundException e) {
-                    e.fillInStackTrace();
-                    // resetting to default wallpaper
+                    Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
                     refreshWallpaper(DEFAULT_LOCAL_PATH,true);
                 }
             } else {
                 try {
                     AssetFileDescriptor fileDescriptor = mContext.getAssets().openFd(Constant.DEFAULT_WALLPAPER_NAME);
                     is = fileDescriptor.createInputStream();
-                    //is = mContext.getAssets().open(Constant.DEFAULT_WALLPAPER);
                 } catch (IOException e) {
-                    e.fillInStackTrace();
+                    Log.e(TAG, "loadTexture: IOException loading default wallpaper", e);
                 }
             }
         } else {
             try {
                 is = new FileInputStream(localWallpaperPath);
-                //is = mContext.openFileInput(localWallpaperPath);
             } catch (FileNotFoundException e) {
-                e.fillInStackTrace();
-                // resetting to default wallpaper
+                Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
                 refreshWallpaper(DEFAULT_LOCAL_PATH,true);
             }
         }
-
-
-
-        if (is == null) return;
+        if (is == null) {
+            Log.e(TAG, "loadTexture: InputStream is null, cannot load wallpaper");
+            return;
+        }
         if (wallpaper != null)
             wallpaper.destroy();
-        wallpaper = new Wallpaper(cropBitmap(is));
+        Bitmap bmp = cropBitmap(is);
+        if (bmp == null) {
+            Log.e(TAG, "loadTexture: cropBitmap returned null, cannot create wallpaper");
+            return;
+        }
+        wallpaper = new Wallpaper(bmp);
         preCalculate();
         try {
             is.close();
         } catch (IOException e) {
-            e.fillInStackTrace();
+            Log.e(TAG, "loadTexture: IOException closing InputStream", e);
         }
         System.gc();
     }
     private Bitmap cropBitmap(InputStream is) {
         Bitmap src = BitmapFactory.decodeStream(is);
-        if (src == null) return null;
+        if (src == null) {
+            Log.e(TAG, "cropBitmap: BitmapFactory.decodeStream returned null");
+            return null;
+        }
         final float width = src.getWidth();
         final float height = src.getHeight();
+        if (height == 0) {
+            Log.e(TAG, "cropBitmap: height is zero, cannot calculate aspect ratio");
+            src.recycle();
+            return null;
+        }
         wallpaperAspectRatio = width / height;
         if (wallpaperAspectRatio < screenAspectRatio) {
             scrollRange = 1;
@@ -408,26 +455,5 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Internal Callback for refreshing the current canvas
     interface Callbacks {
         void requestRender();
-    }
-    // Change the current rotation parameters
-    public static class BiasChangeEvent {
-        float x, y;
-
-        BiasChangeEvent(float x, float y) {
-            if (x > 1) this.x = 1;
-            else if (x < -1) this.x = -1;
-            else this.x = x;
-            if (y > 1) this.y = 1;
-            else if (y < -1) this.y = -1;
-            else this.y = y;
-        }
-
-        public float getX() {
-            return x;
-        }
-
-        public float getY() {
-            return y;
-        }
     }
 }
