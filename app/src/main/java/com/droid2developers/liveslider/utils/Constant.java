@@ -40,6 +40,16 @@ public class Constant {
     public static final int CALIBRATION_VERTICAL = 1;
     public static final int CALIBRATION_DYNAMIC = 2;
 
+    // Transition Mode Constants
+    public static final int TRANSITION_FADE_TO_BLACK = 0;
+    public static final int TRANSITION_CROSSFADE = 1;
+    
+    // Transition Speed Constants (multipliers)
+    public static final float TRANSITION_SPEED_SLOW = 0.5f;
+    public static final float TRANSITION_SPEED_NORMAL = 1.0f;
+    public static final float TRANSITION_SPEED_FAST = 2.0f;
+    public static final float TRANSITION_SPEED_VERY_FAST = 4.0f;
+
     public static final String PLAYLIST_NONE = "none";
     public static final String WALLPAPER_NONE = "none";
 

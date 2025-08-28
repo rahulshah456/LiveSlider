@@ -74,6 +74,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private int wallpaperType;
 
     private final Handler animationHandler = new Handler(Looper.getMainLooper());
+    
+    // Transition settings
+    private int transitionMode = Constant.TRANSITION_FADE_TO_BLACK;
+    private float transitionSpeed = Constant.TRANSITION_SPEED_NORMAL;
 
     LiveWallpaperRenderer(Context context, Callbacks callbacks) {
         mContext = context;
@@ -271,44 +275,42 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     void setWallpaperType(int wallpaperType){
         this.wallpaperType = wallpaperType;
     }
+    void setTransitionMode(int transitionMode) {
+        this.transitionMode = transitionMode;
+    }
+    void setTransitionSpeed(float transitionSpeed) {
+        this.transitionSpeed = transitionSpeed;
+    }
 
 
 
     // refreshes current wallpaper and update canvas
     void refreshWallpaper(String wallpaperPath, boolean isDefault){
-        // Create a fade-out -> change wallpaper -> fade-in sequence
-        Runnable fadeOutThenInRunnable = new Runnable() {
-            private float alpha = 1.0f;
-            private boolean fadeOutComplete = false;
-            private boolean wallpaperChanged = false;
+        if (transitionMode == Constant.TRANSITION_CROSSFADE) {
+            // Direct crossfade transition - no fade to black
+            Runnable crossfadeRunnable = new Runnable() {
+                private float alpha = 1.0f;
+                private boolean wallpaperChanged = false;
 
-            @Override
-            public void run() {
-                if (!fadeOutComplete) {
-                    // Fade out phase
-                    alpha -= 0.05f; // Fade out speed
-
-                    if (alpha <= 0.0f) {
-                        alpha = 0.0f;
-                        fadeOutComplete = true;
-
-                        // Change wallpaper when screen is completely dark
-                        if (!wallpaperChanged) {
-                            setLocalWallpaperPath(wallpaperPath);
-                            setIsDefaultWallpaper(isDefault);
-                            needsRefreshWallpaper = true;
-                            wallpaperChanged = true;
-
-                            // Small delay to ensure wallpaper is loaded before fade-in
-                            animationHandler.postDelayed(this, 50);
-                            mutableAlfa.setValue(alpha);
-                            mCallbacks.requestRender();
-                            return;
-                        }
+                @Override
+                public void run() {
+                    if (!wallpaperChanged) {
+                        // Change wallpaper immediately, then fade in
+                        setLocalWallpaperPath(wallpaperPath);
+                        setIsDefaultWallpaper(isDefault);
+                        needsRefreshWallpaper = true;
+                        wallpaperChanged = true;
+                        alpha = 0.0f; // Start from transparent
+                        
+                        // Small delay to ensure wallpaper is loaded
+                        animationHandler.postDelayed(this, 50);
+                        mutableAlfa.setValue(alpha);
+                        mCallbacks.requestRender();
+                        return;
                     }
-                } else {
-                    // Fade in phase - show new wallpaper
-                    alpha += 0.04f; // Fade in speed
+
+                    // Fade in the new wallpaper
+                    alpha += 0.04f * transitionSpeed; // Apply speed multiplier
 
                     if (alpha >= 1.0f) {
                         alpha = 1.0f;
@@ -317,17 +319,70 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                         // Animation complete
                         return;
                     }
+
+                    mutableAlfa.setValue(alpha);
+                    mCallbacks.requestRender();
+
+                    // Continue animation
+                    animationHandler.postDelayed(this, 16); // 60 FPS
                 }
+            };
 
-                mutableAlfa.setValue(alpha);
-                mCallbacks.requestRender();
+            animationHandler.post(crossfadeRunnable);
+        } else {
+            // Original fade-to-black transition with configurable speed
+            Runnable fadeOutThenInRunnable = new Runnable() {
+                private float alpha = 1.0f;
+                private boolean fadeOutComplete = false;
+                private boolean wallpaperChanged = false;
 
-                // Continue animation
-                animationHandler.postDelayed(this, 16); // 60 FPS
-            }
-        };
+                @Override
+                public void run() {
+                    if (!fadeOutComplete) {
+                        // Fade out phase
+                        alpha -= 0.05f * transitionSpeed; // Apply speed multiplier
 
-        animationHandler.post(fadeOutThenInRunnable);
+                        if (alpha <= 0.0f) {
+                            alpha = 0.0f;
+                            fadeOutComplete = true;
+
+                            // Change wallpaper when screen is completely dark
+                            if (!wallpaperChanged) {
+                                setLocalWallpaperPath(wallpaperPath);
+                                setIsDefaultWallpaper(isDefault);
+                                needsRefreshWallpaper = true;
+                                wallpaperChanged = true;
+
+                                // Small delay to ensure wallpaper is loaded before fade-in
+                                animationHandler.postDelayed(this, 50);
+                                mutableAlfa.setValue(alpha);
+                                mCallbacks.requestRender();
+                                return;
+                            }
+                        }
+                    } else {
+                        // Fade in phase - show new wallpaper
+                        alpha += 0.04f * transitionSpeed; // Apply speed multiplier
+
+                        if (alpha >= 1.0f) {
+                            alpha = 1.0f;
+                            mutableAlfa.setValue(alpha);
+                            mCallbacks.requestRender();
+                            // Animation complete
+                            return;
+                        }
+                    }
+
+                    mutableAlfa.setValue(alpha);
+                    mCallbacks.requestRender();
+
+                    // Continue animation
+                    animationHandler.postDelayed(this, 16); // 60 FPS
+                }
+            };
+
+            animationHandler.post(fadeOutThenInRunnable);
+        }
     }
 
 
