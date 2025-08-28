@@ -406,6 +406,12 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             append("\n\n")
             append(getString(R.string.help_double_tap_info))
             append("\n\n")
+            
+            // Transition Settings
+            append("• Transition Effect: Choose between 'Fade to Black' (classic mode that fades out completely before showing new wallpaper) or 'Crossfade' (instantly loads new wallpaper and fades it in for faster transitions).")
+            append("\n\n")
+            append("• Transition Speed: Controls how fast wallpaper transitions occur. Slow (2x duration), Normal (default), Fast (half duration), or Very Fast (quarter duration). Crossfade mode is always faster than fade-to-black mode.")
+            append("\n\n")
 
             // Calibration Modes
             append(getString(R.string.help_calibration_modes_title))
