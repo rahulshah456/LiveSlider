@@ -298,6 +298,82 @@
                     app:cardSubHeader="@string/change_current_wallpaper"
                     app:hasSwitch="true" />
 
+                <!--View Separator-->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="@dimen/divider_vertical_margin"
+                    android:layout_marginBottom="@dimen/divider_vertical_margin"
+                    android:background="@color/color_divider" />
+
+                <!-- Transition Settings Section -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/transition_effect"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="@dimen/settings_item_horizontal_margin"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/transitionModeGroup"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    app:singleSelection="true"
+                    app:checkedButton="@+id/fadeToBlackTransition"
+                    android:layout_marginBottom="18dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+                    <Button
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:id="@+id/fadeToBlackTransition"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/transition_mode_fade_to_black"
+                        />
+                    <Button
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:id="@+id/crossfadeTransition"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/transition_mode_crossfade"
+                        />
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                <TableLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginLeft="@dimen/settings_item_horizontal_margin"
+                    android:layout_marginRight="@dimen/settings_item_horizontal_margin"
+                    android:stretchColumns="1">
+
+                    <TableRow>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="@dimen/settings_item_height"
+                            android:layout_gravity="end"
+                            android:gravity="center_vertical"
+                            android:text="@string/transition_speed"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/seekBarTransitionSpeed"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:max="3"
+                            android:maxHeight="@dimen/settings_item_height"
+                            android:minHeight="@dimen/settings_item_height"
+                            android:progress="1" />
+
+                    </TableRow>
+
+                </TableLayout>
+
                 <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card3ID"
                     android:layout_width="match_parent"

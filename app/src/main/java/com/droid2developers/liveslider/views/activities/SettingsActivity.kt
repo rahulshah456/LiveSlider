@@ -50,6 +50,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var faceText: TextView? = null
     private var seekBarRange: SeekBar? = null
     private var seekBarDelay: SeekBar? = null
+    private var seekBarTransitionSpeed: SeekBar? = null
     private var cube: Cube? = null
 
     // Calibration controls
@@ -57,6 +58,11 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var defaultCalibrationButton: Button? = null
     private var verticalCalibrationButton: Button? = null
     private var dynamicCalibrationButton: Button? = null
+
+    // Transition controls
+    private var transitionModeGroup: MaterialButtonToggleGroup? = null
+    private var fadeToBlackTransitionButton: Button? = null
+    private var crossfadeTransitionButton: Button? = null
 
     @SuppressLint("CommitPrefEdits")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,6 +112,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         cube = findViewById(R.id.cube)
         seekBarRange = findViewById(R.id.seekBarRange)
         seekBarDelay = findViewById(R.id.seekBarDelay)
+        seekBarTransitionSpeed = findViewById(R.id.seekBarTransitionSpeed)
         backButton = findViewById(R.id.backButtonId)
 
         scrollCard = findViewById(R.id.card1ID)
@@ -122,6 +129,11 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         verticalCalibrationButton = findViewById(R.id.button2)
         dynamicCalibrationButton = findViewById(R.id.dynamicCalibration)
 
+        // Transition controls
+        transitionModeGroup = findViewById(R.id.transitionModeGroup)
+        fadeToBlackTransitionButton = findViewById(R.id.fadeToBlackTransition)
+        crossfadeTransitionButton = findViewById(R.id.crossfadeTransition)
+
         // Help button
         val helpButton = findViewById<CardView>(R.id.helpButtonId)
         helpButton?.setOnClickListener { showHelpDialog() }
@@ -130,9 +142,11 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private fun setupInitialState() {
         val rangeProgress = prefs?.getInt("range", 10) ?: 10
         val delayProgress = prefs?.getInt("delay", 10) ?: 10
+        val transitionSpeedProgress = prefs?.getInt("transition_speed_index", 1) ?: 1
 
         seekBarRange?.progress = rangeProgress
         seekBarDelay?.progress = delayProgress
+        seekBarTransitionSpeed?.progress = transitionSpeedProgress
 
         slideshowCard?.isSwitchChecked = prefs?.getBoolean("slideshow", false) ?: false
         doubleTapCard?.isSwitchChecked = prefs?.getBoolean("double_tap", false) ?: false
@@ -147,6 +161,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         // Setup initial calibration mode
         setupInitialCalibrationMode()
+        
+        // Setup initial transition mode
+        setupInitialTransitionMode()
     }
 
     private fun setupInitialCalibrationMode() {
@@ -163,6 +180,29 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             Constant.CALIBRATION_DYNAMIC -> {
                 calibrationGroup?.check(R.id.dynamicCalibration)
             }
+        }
+    }
+
+    private fun setupInitialTransitionMode() {
+        val currentTransitionMode = prefs?.getInt("transition_mode", Constant.TRANSITION_FADE_TO_BLACK) ?: Constant.TRANSITION_FADE_TO_BLACK
+
+        when (currentTransitionMode) {
+            Constant.TRANSITION_FADE_TO_BLACK -> {
+                transitionModeGroup?.check(R.id.fadeToBlackTransition)
+            }
+            Constant.TRANSITION_CROSSFADE -> {
+                transitionModeGroup?.check(R.id.crossfadeTransition)
+            }
+        }
+    }
+
+    private fun transitionSpeedIndexToFloat(index: Int): Float {
+        return when (index) {
+            0 -> Constant.TRANSITION_SPEED_SLOW
+            1 -> Constant.TRANSITION_SPEED_NORMAL
+            2 -> Constant.TRANSITION_SPEED_FAST
+            3 -> Constant.TRANSITION_SPEED_VERY_FAST
+            else -> Constant.TRANSITION_SPEED_NORMAL
         }
     }
 
@@ -185,6 +225,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         seekBarRange?.let { setupSeekBarListener(it, "range") }
         seekBarDelay?.let { setupSeekBarListener(it, "delay") }
+        seekBarTransitionSpeed?.let { setupTransitionSpeedSeekBarListener(it) }
 
         // Calibration controls
         calibrationGroup?.addOnButtonCheckedListener { group, checkedId, isChecked ->
@@ -205,6 +246,22 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
                 }
             }
         }
+
+        // Transition controls
+        transitionModeGroup?.addOnButtonCheckedListener { group, checkedId, isChecked ->
+            if (isChecked) {
+                when (checkedId) {
+                    R.id.fadeToBlackTransition -> {
+                        editor?.putInt("transition_mode", Constant.TRANSITION_FADE_TO_BLACK)
+                        editor?.apply()
+                    }
+                    R.id.crossfadeTransition -> {
+                        editor?.putInt("transition_mode", Constant.TRANSITION_CROSSFADE)
+                        editor?.apply()
+                    }
+                }
+            }
+        }
     }
 
     private fun setupSeekBarListener(seekBar: SeekBar, key: String?) {
@@ -212,6 +269,21 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     editor?.putInt(key, progress)?.apply()
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+    }
+
+    private fun setupTransitionSpeedSeekBarListener(seekBar: SeekBar) {
+        seekBar.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    val speedValue = transitionSpeedIndexToFloat(progress)
+                    editor?.putInt("transition_speed_index", progress)?.apply()
+                    editor?.putFloat("transition_speed", speedValue)?.apply()
                 }
             }
 

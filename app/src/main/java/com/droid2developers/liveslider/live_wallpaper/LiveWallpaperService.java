@@ -112,6 +112,10 @@ public class LiveWallpaperService extends GLWallpaperService {
             setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
             setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
 
+            // Set transition settings
+            renderer.setTransitionMode(prefs.getInt("transition_mode", 0)); // 0 = TRANSITION_FADE_TO_BLACK
+            renderer.setTransitionSpeed(prefs.getFloat("transition_speed", 1.0f)); // 1.0f = normal speed
+
             // Set initial calibration mode
             rotationSensor.setCalibrationMode(prefs.getInt("calibration_mode", 0)); // 0 = CALIBRATION_DEFAULT
 
@@ -263,6 +267,12 @@ public class LiveWallpaperService extends GLWallpaperService {
                     int calibrationMode = sharedPreferences.getInt(key, 0); // 0 = DEFAULT
                     rotationSensor.setCalibrationMode(calibrationMode);
                     Log.d(TAG, "Calibration mode changed to: " + calibrationMode);
+                    break;
+                case "transition_mode":
+                    renderer.setTransitionMode(sharedPreferences.getInt(key, 0)); // 0 = TRANSITION_FADE_TO_BLACK
+                    break;
+                case "transition_speed":
+                    renderer.setTransitionSpeed(sharedPreferences.getFloat(key, 1.0f)); // 1.0f = normal speed
                     break;
             }
         }
