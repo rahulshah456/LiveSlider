@@ -33,6 +33,7 @@ import static com.droid2developers.liveslider.utils.Constant.DEFAULT_SLIDESHOW_T
 import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 import static com.droid2developers.liveslider.utils.Constant.TRANSITION_FADE;
+import com.droid2developers.liveslider.utils.Constant;
 
 public class LiveWallpaperService extends GLWallpaperService {
 
@@ -113,6 +114,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
             setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
             renderer.setTransitionEffect(prefs.getInt("transition_effect", TRANSITION_FADE));
+            renderer.setAnimationSpeed(prefs.getInt("animation_speed", Constant.ANIMATION_SPEED_NORMAL));
 
             // Set initial calibration mode
             rotationSensor.setCalibrationMode(prefs.getInt("calibration_mode", 0)); // 0 = CALIBRATION_DEFAULT
@@ -268,6 +270,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                     break;
                 case "transition_effect":
                     renderer.setTransitionEffect(sharedPreferences.getInt(key, TRANSITION_FADE));
+                    break;
+                case "animation_speed":
+                    renderer.setAnimationSpeed(sharedPreferences.getInt(key, Constant.ANIMATION_SPEED_NORMAL));
                     break;
             }
         }

@@ -41,9 +41,17 @@ public class Constant {
     public static final int CALIBRATION_DYNAMIC = 2;
 
     // Transition Effect Constants  (stored in prefs as "transition_effect")
-    public static final int TRANSITION_FADE     = 0; // plain alpha fade (default)
-    public static final int TRANSITION_DISSOLVE = 1; // procedural noise dissolve
-    public static final int TRANSITION_PIXELATE = 2; // pixelate out / in
+    public static final int TRANSITION_FADE     = 0;
+    public static final int TRANSITION_DISSOLVE = 1;
+    public static final int TRANSITION_PIXELATE = 2;
+
+    // Animation Speed Constants (stored in prefs as "animation_speed")
+    public static final int ANIMATION_SPEED_QUARTER = 4; // 0.25x — 2.4s
+    public static final int ANIMATION_SPEED_HALF    = 0; // 0.5x  — 1.2s
+    public static final int ANIMATION_SPEED_NORMAL  = 1; // 1x    — 0.6s (default)
+    public static final int ANIMATION_SPEED_DOUBLE  = 2; // 2x    — 0.3s
+    public static final int ANIMATION_SPEED_TRIPLE  = 3; // 3x    — 0.15s
+    public static final int ANIMATION_SPEED_STUPID  = 5; // 4x    — 0.05s
 
     public static final String PLAYLIST_NONE = "none";
     public static final String WALLPAPER_NONE = "none";

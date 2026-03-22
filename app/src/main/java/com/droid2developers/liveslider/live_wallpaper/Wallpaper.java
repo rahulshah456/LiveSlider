@@ -67,24 +67,23 @@ class Wallpaper {
             + "    gl_FragColor.a = edge;"
 
             // Effect 2 — pixelate phase 2 (incoming / new wallpaper)
-            // uProgress 0→1: blockSize grows MIN_BLOCK→MAX_BLOCK = blocky→sharp.
-            // Starts at MIN_BLOCK (matching where phase 1 ended) so midpoint is seamless.
+            // Sample from block CENTRE (+0.5) not block corner — symmetric at all block
+            // sizes, no UV drift at screen edges, no vertical shift artefact.
             + "  } else if (uEffect == 2){"
             + "    const float MIN_BLOCK = 32.0;"
             + "    const float MAX_BLOCK = 256.0;"
             + "    float blockSize = mix(MIN_BLOCK, MAX_BLOCK, uProgress);"
-            + "    vec2 pixUV = floor(vTexCoords * blockSize) / blockSize;"
+            + "    vec2 pixUV = (floor(vTexCoords * blockSize) + 0.5) / blockSize;"
             + "    gl_FragColor   = texture2D(uTexture, pixUV);"
             + "    gl_FragColor.a = 1.0;"
 
             // Effect 3 — pixelate phase 1 (outgoing / previous wallpaper)
-            // uProgress 0→1: blockSize shrinks MAX_BLOCK→MIN_BLOCK = sharp→blocky.
-            // Ends at MIN_BLOCK so the midpoint swap is seamless with phase 2 start.
+            // Same centre-sample fix — both phases are symmetric.
             + "  } else if (uEffect == 3){"
             + "    const float MIN_BLOCK = 32.0;"
             + "    const float MAX_BLOCK = 256.0;"
             + "    float blockSize = mix(MAX_BLOCK, MIN_BLOCK, uProgress);"
-            + "    vec2 pixUV = floor(vTexCoords * blockSize) / blockSize;"
+            + "    vec2 pixUV = (floor(vTexCoords * blockSize) + 0.5) / blockSize;"
             + "    gl_FragColor   = texture2D(uTexture, pixUV);"
             + "    gl_FragColor.a = 1.0;"
 

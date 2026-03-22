@@ -74,6 +74,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private ScheduledFuture<?> transitionHandle;
     private float preA;
     private float preB;
+    // Cached matrix values for previousWallpaper during pixelate — prevents position
+    // shift when loadTexture() calls preCalculate() mid-animation for the new texture.
+    private float prevPreA;
+    private float prevPreB;
 
     // Important mutable parameters for live wallpaper
     private Wallpaper wallpaper;
@@ -134,7 +138,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             if (currentEffect == 0) {
                 // ---- Effect 0: two-phase alpha fade ----
                 if (!transitionFadeOutDone) {
-                    transitionAlpha -= 0.1f; // 0.1x debug speed (was 0.05f)
+                    transitionAlpha -= stepSize(0.05f);
                     if (transitionAlpha <= 0.0f) {
                         transitionAlpha       = 0.0f;
                         transitionFadeOutDone = true;
@@ -151,7 +155,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     }
                     mCallbacks.requestRender();
                 } else {
-                    transitionAlpha += 0.1f; // 0.1x debug speed (was 0.04f)
+                    transitionAlpha += stepSize(0.04f);
                     if (transitionAlpha >= 1.0f) {
                         transitionAlpha  = 1.0f;
                         transitionActive = false;
@@ -165,7 +169,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 // ---- Effect 1: dissolve crossfade ----
                 // previousWallpaper = static opaque backdrop
                 // wallpaper (new)   = dissolves in, progress 0→1
-                transitionProgress += 0.1f; // 0.1x debug speed (was 0.04f)
+                transitionProgress += stepSize(0.04f);
                 if (transitionProgress >= 1.0f) {
                     transitionProgress = 1.0f;
                     transitionActive   = false;
@@ -188,7 +192,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 //   Only wallpaper drawn with effect 2 (blocky → sharp).
                 //   localProgress = (transitionProgress - 0.5) / 0.5  (0→1)
 
-                transitionProgress += 0.1f; // 0.1x debug speed (was 0.04f)
+                transitionProgress += stepSize(0.04f);
 
                 if (!transitionMidpointReached && transitionProgress >= 0.5f) {
                     // Clamp so phase-2 localProgress starts cleanly at 0
@@ -242,13 +246,18 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         if (currentEffect == 2) {
             // Pixelate — draw only ONE texture per phase, never both simultaneously
             if (!transitionMidpointReached && previousWallpaper != null) {
-                // Phase 1: previousWallpaper pixelates OUT
-                // Map transitionProgress (0→0.5) to localProgress (0→1)
+                // Phase 1: previousWallpaper pixelates OUT using its own cached matrix
+                // so preCalculate() updating preA/preB for the new texture does not shift it.
                 float localProgress = transitionProgress / 0.5f;
-                previousWallpaper.draw(mMVPMatrix, 1.0f, localProgress, 3);
+                float px = prevPreA * (-2 * scrollOffsetX + 1) + currentOrientationOffsetX;
+                float py = currentOrientationOffsetY;
+                float[] prevViewMatrix = new float[16];
+                float[] prevMVPMatrix  = new float[16];
+                Matrix.setLookAtM(prevViewMatrix, 0, px, py, prevPreB, px, py, 0f, 0f, 1.0f, 0.0f);
+                Matrix.multiplyMM(prevMVPMatrix, 0, mProjectionMatrix, 0, prevViewMatrix, 0);
+                previousWallpaper.draw(prevMVPMatrix, 1.0f, localProgress, 3);
             } else if (transitionMidpointReached && wallpaper != null) {
-                // Phase 2: new wallpaper pixelates IN
-                // Map transitionProgress (0.5→1.0) to localProgress (0→1)
+                // Phase 2: new wallpaper uses the normal current MVP matrix
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
                 wallpaper.draw(mMVPMatrix, 1.0f, localProgress, 2);
             }
@@ -398,6 +407,32 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         chosenEffect = effect;
     }
 
+    // Animation speed multiplier — maps Constant.ANIMATION_SPEED_* to a float factor
+    private int animationSpeed = 1; // default = ANIMATION_SPEED_NORMAL
+
+    void setAnimationSpeed(int speed) {
+        animationSpeed = speed;
+    }
+
+    /** Returns the per-frame progress step for the chosen animation speed.
+     *  step = 1 / (duration_seconds × 60fps)
+     *  0.25x = 2.4s   → 1/144   ≈ 0.00694
+     *  0.5x  = 1.2s   → 1/72    ≈ 0.01389
+     *  1x    = 0.6s   → 1/36    ≈ 0.02778  (default)
+     *  2x    = 0.3s   → 1/18    ≈ 0.05556
+     *  3x    = 0.15s  → 1/9     ≈ 0.11111
+     *  4x    = 0.075s → 1/4.5   ≈ 0.22222  (Stupid Fast) */
+    private float stepSize(float base) {
+        switch (animationSpeed) {
+            case 4: return 1.0f / 144.0f; // 0.25x — 2.4s   (ANIMATION_SPEED_QUARTER)
+            case 0: return 1.0f / 72.0f;  // 0.5x  — 1.2s   (ANIMATION_SPEED_HALF)
+            case 2: return 1.0f / 18.0f;  // 2x    — 0.3s   (ANIMATION_SPEED_DOUBLE)
+            case 3: return 1.0f / 9.0f;   // 3x    — 0.15s  (ANIMATION_SPEED_TRIPLE)
+            case 5: return 1.0f / 4.5f;   // 4x    — 0.075s (ANIMATION_SPEED_STUPID)
+            default: return 1.0f / 36.0f; // 1x    — 0.6s   (ANIMATION_SPEED_NORMAL)
+        }
+    }
+
 
 
     // refreshes current wallpaper and update canvas
@@ -443,8 +478,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
         } else if (currentEffect == 2) {
             // Pixelate: two-phase midpoint swap.
-            // Phase 1 (progress 0.0→0.5): previousWallpaper pixelates OUT — no new load yet.
-            // Phase 2 (progress 0.5→1.0): wallpaper pixelates IN  — new texture loaded at 0.5.
+            // Snapshot old matrix BEFORE loadTexture() overwrites preA/preB.
+            prevPreA = preA;
+            prevPreB = preB;
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;  // old texture drives phase 1
             wallpaper                = null;        // will be loaded at midpoint

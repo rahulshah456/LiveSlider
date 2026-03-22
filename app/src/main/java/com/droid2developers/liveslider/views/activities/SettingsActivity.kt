@@ -61,6 +61,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     // Transition effect card (selection via dialog)
     private var transitionEffectCard: SettingsCardView? = null
 
+    // Animation speed card (selection via dialog)
+    private var animationSpeedCard: SettingsCardView? = null
+
     @SuppressLint("CommitPrefEdits")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,6 +131,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         // Transition effect controls
         transitionEffectCard = findViewById(R.id.transitionEffectCard)
 
+        // Animation speed controls
+        animationSpeedCard = findViewById(R.id.animationSpeedCard)
+
         // Help button
         val helpButton = findViewById<CardView>(R.id.helpButtonId)
         helpButton?.setOnClickListener { showHelpDialog() }
@@ -156,6 +162,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         // Setup initial transition effect
         setupInitialTransitionEffect()
+
+        // Setup initial animation speed
+        setupInitialAnimationSpeed()
     }
 
     private fun setupInitialCalibrationMode() {
@@ -188,6 +197,55 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         else                         -> getString(R.string.transition_fade)
     }
 
+    private fun setupInitialAnimationSpeed() {
+        val savedSpeed = prefs?.getInt("animation_speed", Constant.ANIMATION_SPEED_NORMAL)
+            ?: Constant.ANIMATION_SPEED_NORMAL
+        animationSpeedCard?.setSubHeaderText(speedName(savedSpeed))
+    }
+
+    /** Returns the display name for a given speed constant. */
+    private fun speedName(speed: Int): String = when (speed) {
+        Constant.ANIMATION_SPEED_QUARTER -> getString(R.string.animation_speed_quarter)
+        Constant.ANIMATION_SPEED_HALF    -> getString(R.string.animation_speed_half)
+        Constant.ANIMATION_SPEED_DOUBLE  -> getString(R.string.animation_speed_double)
+        Constant.ANIMATION_SPEED_TRIPLE  -> getString(R.string.animation_speed_triple)
+        Constant.ANIMATION_SPEED_STUPID  -> getString(R.string.animation_speed_stupid)
+        else                             -> getString(R.string.animation_speed_normal)
+    }
+
+    private fun showAnimationSpeedDialog() {
+        val speedLabels = arrayOf(
+            getString(R.string.animation_speed_quarter),
+            getString(R.string.animation_speed_half),
+            getString(R.string.animation_speed_normal),
+            getString(R.string.animation_speed_double),
+            getString(R.string.animation_speed_triple),
+            getString(R.string.animation_speed_stupid)
+        )
+        val speedValues = intArrayOf(
+            Constant.ANIMATION_SPEED_QUARTER,
+            Constant.ANIMATION_SPEED_HALF,
+            Constant.ANIMATION_SPEED_NORMAL,
+            Constant.ANIMATION_SPEED_DOUBLE,
+            Constant.ANIMATION_SPEED_TRIPLE,
+            Constant.ANIMATION_SPEED_STUPID
+        )
+        val currentSpeed = prefs?.getInt("animation_speed", Constant.ANIMATION_SPEED_NORMAL)
+            ?: Constant.ANIMATION_SPEED_NORMAL
+        val checkedItem = speedValues.indexOf(currentSpeed).coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.animation_speed))
+            .setSingleChoiceItems(speedLabels, checkedItem) { dialog, which ->
+                val chosen = speedValues[which]
+                editor?.putInt("animation_speed", chosen)?.apply()
+                animationSpeedCard?.setSubHeaderText(speedName(chosen))
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel) { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+
     private fun setupListeners() {
         backButton?.setOnClickListener { v: View? -> onBackPressedDispatcher.onBackPressed() }
 
@@ -206,6 +264,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         doubleTapCard?.setOnSwitchChangeListener(this)
 
         transitionEffectCard?.setOnCardClickListener(this)
+
+        animationSpeedCard?.setOnCardClickListener(this)
 
         seekBarRange?.let { setupSeekBarListener(it, "range") }
         seekBarDelay?.let { setupSeekBarListener(it, "delay") }
@@ -252,6 +312,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             showIntervalDialog()
         } else if (id == R.id.transitionEffectCard) {
             showTransitionEffectDialog()
+        } else if (id == R.id.animationSpeedCard) {
+            showAnimationSpeedDialog()
         }
     }
 

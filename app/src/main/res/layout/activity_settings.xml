@@ -319,6 +319,16 @@
                     app:cardSubHeader="@string/transition_fade"
                     app:hasSwitch="false" />
 
+                <!-- Animation Speed selector — tapping opens a choice dialog -->
+                <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/animationSpeedCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    app:cardIcon="@drawable/clock_icon"
+                    app:cardHeader="@string/animation_speed"
+                    app:cardSubHeader="@string/animation_speed_normal"
+                    app:hasSwitch="false" />
+
             </LinearLayout>
 
 

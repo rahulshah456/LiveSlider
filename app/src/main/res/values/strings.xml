@@ -76,4 +76,14 @@
     <string name="transition_dissolve">Dissolve</string>
     <string name="transition_pixelate">Pixelate</string>
     <string name="help_transition_info">• Transition Animation: Choose the visual effect used when the wallpaper changes. Fade is a simple crossfade, Dissolve crumbles pixels away organically, Pixelate blocks and sharpens the image.</string>
+
+    <!-- Animation Speed -->
+    <string name="animation_speed">Animation Speed</string>
+    <string name="animation_speed_subheader">Controls transition duration</string>
+    <string name="animation_speed_quarter">0.25x (Very Slow)</string>
+    <string name="animation_speed_half">0.5x (Slow)</string>
+    <string name="animation_speed_normal">1x (Default)</string>
+    <string name="animation_speed_double">2x (Fast)</string>
+    <string name="animation_speed_triple">3x (Very Fast)</string>
+    <string name="animation_speed_stupid">4x (Stupid Fast)</string>
 </resources>
