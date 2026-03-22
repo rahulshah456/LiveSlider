@@ -41,6 +41,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean transitionFadeOutDone = false;
     private boolean transitionPendingLoad = false;
     private long transitionLoadAfter = 0L;
+    private boolean transitionMidpointReached = false; // pixelate: has phase-2 started?
     private int chosenEffect = 0;   // user's saved preference — written from any thread
     private int currentEffect = 0;  // active shader effect — only touched on GL thread
 
@@ -131,9 +132,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // --- Transition tick (runs entirely on GL thread) ---
         if (transitionActive) {
             if (currentEffect == 0) {
-                // ---- Effect 0: two-phase alpha fade (fade-out → swap → fade-in) ----
+                // ---- Effect 0: two-phase alpha fade ----
                 if (!transitionFadeOutDone) {
-                    transitionAlpha -= 0.005f; // 0.1x debug speed (was 0.05f)
+                    transitionAlpha -= 0.1f; // 0.1x debug speed (was 0.05f)
                     if (transitionAlpha <= 0.0f) {
                         transitionAlpha       = 0.0f;
                         transitionFadeOutDone = true;
@@ -150,7 +151,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     }
                     mCallbacks.requestRender();
                 } else {
-                    transitionAlpha += 0.004f; // 0.1x debug speed (was 0.04f)
+                    transitionAlpha += 0.1f; // 0.1x debug speed (was 0.04f)
                     if (transitionAlpha >= 1.0f) {
                         transitionAlpha  = 1.0f;
                         transitionActive = false;
@@ -160,27 +161,55 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 }
                 transitionProgress = transitionAlpha;
 
-            } else {
-                // ---- Effects 1 & 2: true crossfade — new texture dissolves/pixelates in
-                //      over the old one. previousWallpaper drawn at full alpha underneath,
-                //      wallpaper drawn on top with progress 0→1.
-                transitionProgress += 0.004f; // 0.1x debug speed (was 0.04f)
+            } else if (currentEffect == 1) {
+                // ---- Effect 1: dissolve crossfade ----
+                // previousWallpaper = static opaque backdrop
+                // wallpaper (new)   = dissolves in, progress 0→1
+                transitionProgress += 0.1f; // 0.1x debug speed (was 0.04f)
                 if (transitionProgress >= 1.0f) {
                     transitionProgress = 1.0f;
-                    transitionAlpha    = 1.0f;
                     transitionActive   = false;
-                    // New texture fully revealed — discard the old one
                     if (previousWallpaper != null) {
                         previousWallpaper.destroy();
                         previousWallpaper = null;
                     }
-                    // Reset to plain effect so subsequent draws don't run the
-                    // dissolve/pixelate shader on a fully-revealed static wallpaper
-                    currentEffect = 0;
+                    currentEffect = 0; // reset so static wallpaper renders plain
                 } else {
                     mCallbacks.requestRender();
                 }
-                transitionAlpha = 1.0f; // new texture always present; shader controls visibility
+
+            } else if (currentEffect == 2) {
+                // ---- Effect 2: pixelate — strict two-phase midpoint swap ----
+                // Phase 1 (transitionProgress 0.0 → 0.5):
+                //   Only previousWallpaper drawn with effect 3 (blocky → sharp).
+                //   localProgress = transitionProgress / 0.5  (0→1)
+                // At 0.5: destroy previousWallpaper, load new texture.
+                // Phase 2 (transitionProgress 0.5 → 1.0):
+                //   Only wallpaper drawn with effect 2 (blocky → sharp).
+                //   localProgress = (transitionProgress - 0.5) / 0.5  (0→1)
+
+                transitionProgress += 0.1f; // 0.1x debug speed (was 0.04f)
+
+                if (!transitionMidpointReached && transitionProgress >= 0.5f) {
+                    // Clamp so phase-2 localProgress starts cleanly at 0
+                    transitionProgress        = 0.5f;
+                    transitionMidpointReached = true;
+                    if (previousWallpaper != null) {
+                        previousWallpaper.destroy();
+                        previousWallpaper = null;
+                    }
+                    localWallpaperPath    = pendingWallpaperPath;
+                    isDefaultWallpaper    = pendingIsDefault;
+                    needsRefreshWallpaper = true;
+                    // Do not check completion this frame — let phase 2 start next frame
+                    mCallbacks.requestRender();
+                } else if (transitionMidpointReached && transitionProgress >= 1.0f) {
+                    transitionProgress = 1.0f;
+                    transitionActive   = false;
+                    currentEffect      = 0;
+                } else {
+                    mCallbacks.requestRender();
+                }
             }
         }
         // --- End transition tick ---
@@ -210,19 +239,37 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
-        // Draw previous wallpaper first (full alpha, no effect) during effects 1 & 2
-        if (previousWallpaper != null && currentEffect != 0) {
-            previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0); // always plain, always opaque
-        }
-
-        // Draw current (incoming) wallpaper on top
-        if (wallpaper != null) {
-            hasLoggedNullWallpaper = false;
-            wallpaper.draw(mMVPMatrix, transitionAlpha, transitionProgress, currentEffect);
+        if (currentEffect == 2) {
+            // Pixelate — draw only ONE texture per phase, never both simultaneously
+            if (!transitionMidpointReached && previousWallpaper != null) {
+                // Phase 1: previousWallpaper pixelates OUT
+                // Map transitionProgress (0→0.5) to localProgress (0→1)
+                float localProgress = transitionProgress / 0.5f;
+                previousWallpaper.draw(mMVPMatrix, 1.0f, localProgress, 3);
+            } else if (transitionMidpointReached && wallpaper != null) {
+                // Phase 2: new wallpaper pixelates IN
+                // Map transitionProgress (0.5→1.0) to localProgress (0→1)
+                float localProgress = (transitionProgress - 0.5f) / 0.5f;
+                wallpaper.draw(mMVPMatrix, 1.0f, localProgress, 2);
+            }
+        } else if (currentEffect == 1) {
+            // Dissolve — previousWallpaper static backdrop, new wallpaper dissolves in on top
+            if (previousWallpaper != null) {
+                previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0);
+            }
+            if (wallpaper != null) {
+                wallpaper.draw(mMVPMatrix, 1.0f, transitionProgress, 1);
+            }
         } else {
-            if (!hasLoggedNullWallpaper) {
-                Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
-                hasLoggedNullWallpaper = true;
+            // Effect 0 (fade) or post-transition static draw
+            if (wallpaper != null) {
+                hasLoggedNullWallpaper = false;
+                wallpaper.draw(mMVPMatrix, transitionAlpha, transitionProgress, 0);
+            } else {
+                if (!hasLoggedNullWallpaper) {
+                    Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
+                    hasLoggedNullWallpaper = true;
+                }
             }
         }
     }
@@ -366,32 +413,47 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Must be called at the very top of onDrawFrame before any tick or draw logic.
     private void consumePendingRefresh() {
         if (!hasPendingRefresh) return;
-        hasPendingRefresh = false;  // clear flag first — GL thread owns state from here
+        hasPendingRefresh = false;
 
         // Snapshot chosen effect for this transition
         currentEffect = chosenEffect;
 
         if (currentEffect == 0) {
             // Fade: two-phase — fade out current, load new, fade in
-            transitionAlpha       = 1.0f;
-            transitionProgress    = 0.0f;
-            transitionFadeOutDone = false;
-            transitionPendingLoad = false;
-        } else {
-            // Dissolve / Pixelate: keep old texture alive as previousWallpaper,
-            // load new texture immediately, animate progress 0→1.
-            if (previousWallpaper != null) {
-                previousWallpaper.destroy();
-            }
-            previousWallpaper     = wallpaper;       // old texture is the backdrop
-            wallpaper             = null;             // cleared; loadTexture() repopulates
-            localWallpaperPath    = pendingWallpaperPath;
-            isDefaultWallpaper    = pendingIsDefault;
-            needsRefreshWallpaper = true;
-            transitionProgress    = 0.0f;
-            transitionAlpha       = 1.0f;
-            transitionFadeOutDone = true;
-            transitionPendingLoad = false;
+            transitionAlpha          = 1.0f;
+            transitionProgress       = 0.0f;
+            transitionFadeOutDone    = false;
+            transitionPendingLoad    = false;
+            transitionMidpointReached = false;
+
+        } else if (currentEffect == 1) {
+            // Dissolve: keep old texture as static backdrop, load new immediately,
+            // animate progress 0→1 (new texture reveals through noise pattern).
+            if (previousWallpaper != null) previousWallpaper.destroy();
+            previousWallpaper        = wallpaper;
+            wallpaper                = null;
+            localWallpaperPath       = pendingWallpaperPath;
+            isDefaultWallpaper       = pendingIsDefault;
+            needsRefreshWallpaper    = true;   // load new texture on next frame
+            transitionProgress       = 0.0f;
+            transitionAlpha          = 1.0f;
+            transitionFadeOutDone    = true;
+            transitionPendingLoad    = false;
+            transitionMidpointReached = false;
+
+        } else if (currentEffect == 2) {
+            // Pixelate: two-phase midpoint swap.
+            // Phase 1 (progress 0.0→0.5): previousWallpaper pixelates OUT — no new load yet.
+            // Phase 2 (progress 0.5→1.0): wallpaper pixelates IN  — new texture loaded at 0.5.
+            if (previousWallpaper != null) previousWallpaper.destroy();
+            previousWallpaper        = wallpaper;  // old texture drives phase 1
+            wallpaper                = null;        // will be loaded at midpoint
+            // Do NOT set needsRefreshWallpaper here — load happens at progress=0.5
+            transitionProgress       = 0.0f;
+            transitionAlpha          = 1.0f;
+            transitionFadeOutDone    = true;
+            transitionPendingLoad    = false;
+            transitionMidpointReached = false;
         }
 
         transitionActive = true;

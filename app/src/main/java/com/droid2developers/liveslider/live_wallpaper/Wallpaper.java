@@ -66,16 +66,27 @@ class Wallpaper {
             + "    gl_FragColor   = texture2D(uTexture, vTexCoords);"
             + "    gl_FragColor.a = edge;"
 
-            // Effect 2 — pixelate in (incoming texture)
-            // uProgress 0→1: starts maximally pixelated AND transparent, then
-            // simultaneously sharpens and becomes opaque over the previousWallpaper.
-            // At uProgress=0: blockSize=64, alpha=0 → old wallpaper fully visible beneath.
-            // At uProgress=1: blockSize=1 (sharp), alpha=1 → new wallpaper fully covers.
+            // Effect 2 — pixelate phase 2 (incoming / new wallpaper)
+            // uProgress 0→1: blockSize grows MIN_BLOCK→MAX_BLOCK = blocky→sharp.
+            // Starts at MIN_BLOCK (matching where phase 1 ended) so midpoint is seamless.
             + "  } else if (uEffect == 2){"
-            + "    float blockSize = max(1.0, floor((1.0 - uProgress) * 63.0) + 1.0);"
+            + "    const float MIN_BLOCK = 32.0;"
+            + "    const float MAX_BLOCK = 256.0;"
+            + "    float blockSize = mix(MIN_BLOCK, MAX_BLOCK, uProgress);"
             + "    vec2 pixUV = floor(vTexCoords * blockSize) / blockSize;"
             + "    gl_FragColor   = texture2D(uTexture, pixUV);"
-            + "    gl_FragColor.a = uProgress;"
+            + "    gl_FragColor.a = 1.0;"
+
+            // Effect 3 — pixelate phase 1 (outgoing / previous wallpaper)
+            // uProgress 0→1: blockSize shrinks MAX_BLOCK→MIN_BLOCK = sharp→blocky.
+            // Ends at MIN_BLOCK so the midpoint swap is seamless with phase 2 start.
+            + "  } else if (uEffect == 3){"
+            + "    const float MIN_BLOCK = 32.0;"
+            + "    const float MAX_BLOCK = 256.0;"
+            + "    float blockSize = mix(MAX_BLOCK, MIN_BLOCK, uProgress);"
+            + "    vec2 pixUV = floor(vTexCoords * blockSize) / blockSize;"
+            + "    gl_FragColor   = texture2D(uTexture, pixUV);"
+            + "    gl_FragColor.a = 1.0;"
 
             + "  }"
             + "}";
