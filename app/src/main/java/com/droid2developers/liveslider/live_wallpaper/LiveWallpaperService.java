@@ -32,6 +32,7 @@ import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_SLIDESHOW_TIME;
 import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
+import static com.droid2developers.liveslider.utils.Constant.TRANSITION_FADE;
 
 public class LiveWallpaperService extends GLWallpaperService {
 
@@ -111,6 +112,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             setAllowClickToChange(prefs.getBoolean("double_tap",false));
             setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
             setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
+            renderer.setTransitionEffect(prefs.getInt("transition_effect", TRANSITION_FADE));
 
             // Set initial calibration mode
             rotationSensor.setCalibrationMode(prefs.getInt("calibration_mode", 0)); // 0 = CALIBRATION_DEFAULT
@@ -263,6 +265,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                     int calibrationMode = sharedPreferences.getInt(key, 0); // 0 = DEFAULT
                     rotationSensor.setCalibrationMode(calibrationMode);
                     Log.d(TAG, "Calibration mode changed to: " + calibrationMode);
+                    break;
+                case "transition_effect":
+                    renderer.setTransitionEffect(sharedPreferences.getInt(key, TRANSITION_FADE));
                     break;
             }
         }

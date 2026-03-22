@@ -35,11 +35,49 @@ class Wallpaper {
             + "  gl_Position = uMVPMatrix * aPosition;" + "}";
 
     private static final String FRAGMENT_SHADER_CODE = ""
-            + "precision mediump float;" + "uniform sampler2D uTexture;"
-            + "uniform float uAlpha;"
-            + "varying vec2 vTexCoords;" + "void main(){"
-            + "  gl_FragColor = texture2D(uTexture, vTexCoords);"
-            + "  gl_FragColor.a = uAlpha;"
+            + "precision mediump float;"
+            + "uniform sampler2D uTexture;"
+            + "uniform float uAlpha;"      // used only by effect 0 (plain fade)
+            + "uniform float uProgress;"   // 0.0→1.0: incoming texture revealing itself
+            + "uniform int uEffect;"       // 0=fade  1=dissolve  2=pixelate
+            + "varying vec2 vTexCoords;"
+
+            // deterministic per-fragment pseudo-random from UV position
+            + "float hash(vec2 p){"
+            + "  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);"
+            + "}"
+
+            + "void main(){"
+
+            // Effect 0 — plain alpha fade (original behaviour, unchanged)
+            + "  if (uEffect == 0){"
+            + "    gl_FragColor   = texture2D(uTexture, vTexCoords);"
+            + "    gl_FragColor.a = uAlpha;"
+
+            // Effect 1 — procedural noise dissolve (incoming texture)
+            // Each fragment has a unique threshold = hash(uv).
+            // When uProgress sweeps 0→1, fragments unlock in random order.
+            // smoothstep(threshold-band, threshold+band, uProgress):
+            //   uProgress < noise-0.04  → edge=0 (invisible)
+            //   uProgress > noise+0.04  → edge=1 (fully visible)
+            + "  } else if (uEffect == 1){"
+            + "    float noise = hash(vTexCoords);"
+            + "    float edge  = smoothstep(noise - 0.04, noise + 0.04, uProgress);"
+            + "    gl_FragColor   = texture2D(uTexture, vTexCoords);"
+            + "    gl_FragColor.a = edge;"
+
+            // Effect 2 — pixelate in (incoming texture)
+            // uProgress 0→1: starts maximally pixelated AND transparent, then
+            // simultaneously sharpens and becomes opaque over the previousWallpaper.
+            // At uProgress=0: blockSize=64, alpha=0 → old wallpaper fully visible beneath.
+            // At uProgress=1: blockSize=1 (sharp), alpha=1 → new wallpaper fully covers.
+            + "  } else if (uEffect == 2){"
+            + "    float blockSize = max(1.0, floor((1.0 - uProgress) * 63.0) + 1.0);"
+            + "    vec2 pixUV = floor(vTexCoords * blockSize) / blockSize;"
+            + "    gl_FragColor   = texture2D(uTexture, pixUV);"
+            + "    gl_FragColor.a = uProgress;"
+
+            + "  }"
             + "}";
 
     // number of coordinates per vertex in this array
@@ -65,6 +103,8 @@ class Wallpaper {
     private static int sProgramHandle;
     private static int sAttribPositionHandle;
     private static int sAlphaUniformHandle;
+    private static int sProgressUniformHandle;
+    private static int sEffectUniformHandle;
     private static int sAttribTextureCoordsHandle;
     private static int sUniformTextureHandle;
     private static int sUniformMVPMatrixHandle;
@@ -137,6 +177,10 @@ class Wallpaper {
                 fragShaderHandle, null);
         sAlphaUniformHandle = GLES20.glGetUniformLocation(sProgramHandle,
                 "uAlpha");
+        sProgressUniformHandle = GLES20.glGetUniformLocation(sProgramHandle,
+                "uProgress");
+        sEffectUniformHandle = GLES20.glGetUniformLocation(sProgramHandle,
+                "uEffect");
         sAttribPositionHandle = GLES20.glGetAttribLocation(sProgramHandle,
                 "aPosition");
         sAttribTextureCoordsHandle = GLES20.glGetAttribLocation(sProgramHandle,
@@ -152,7 +196,7 @@ class Wallpaper {
         sMaxTextureSize = maxTextureSize[0];
     }
 
-    void draw(float[] mvpMatrix, float alpha) {
+    void draw(float[] mvpMatrix, float alpha, float progress, int effect) {
         if (!mHasContent) {
             return;
         }
@@ -167,6 +211,8 @@ class Wallpaper {
 
         // Set up vertex buffer
         GLES20.glUniform1f(sAlphaUniformHandle, alpha);
+        GLES20.glUniform1f(sProgressUniformHandle, progress);
+        GLES20.glUniform1i(sEffectUniformHandle, effect);
         GLES20.glEnableVertexAttribArray(sAttribPositionHandle);
         GLES20.glVertexAttribPointer(sAttribPositionHandle, COORDS_PER_VERTEX,
                 GLES20.GL_FLOAT, false, VERTEX_STRIDE_BYTES, mVertexBuffer);

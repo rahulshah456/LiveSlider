@@ -309,6 +309,16 @@
                     app:cardSubHeader="15 Minutes (Default)"
                     app:hasSwitch="false" />
 
+                <!-- Transition Animation selector — tapping opens a choice dialog -->
+                <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/transitionEffectCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    app:cardIcon="@drawable/slideshow_24dp"
+                    app:cardHeader="@string/transition_effect"
+                    app:cardSubHeader="@string/transition_fade"
+                    app:hasSwitch="false" />
+
             </LinearLayout>
 
 

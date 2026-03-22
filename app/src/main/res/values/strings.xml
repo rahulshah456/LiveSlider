@@ -68,4 +68,12 @@
     <string name="help_dynamic_calibration">• Dynamic: Advanced mode that considers all 6 faces of the cube as possibilities. Wherever your phone is facing, the parallax wallpaper origin will update automatically based on the current phone direction (portrait, landscape, flat positions). Provides the most adaptive experience with automatic face detection and recalibration.</string>
     <string name="help_cube_helper">A helper cube is displayed that shows your current active face position as reference.</string>
     <string name="help_got_it">Got it</string>
+
+    <!-- Transition Animation -->
+    <string name="transition_effect">Transition Animation</string>
+    <string name="transition_effect_subheader">Style when wallpaper changes</string>
+    <string name="transition_fade">Fade</string>
+    <string name="transition_dissolve">Dissolve</string>
+    <string name="transition_pixelate">Pixelate</string>
+    <string name="help_transition_info">• Transition Animation: Choose the visual effect used when the wallpaper changes. Fade is a simple crossfade, Dissolve crumbles pixels away organically, Pixelate blocks and sharpens the image.</string>
 </resources>

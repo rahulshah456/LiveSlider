@@ -7,8 +7,7 @@ import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
-import android.os.Handler;
-import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 
 import com.droid2developers.liveslider.models.BiasChangeEvent;
@@ -29,14 +28,27 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
-import androidx.lifecycle.MutableLiveData;
 
 public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private final static int REFRESH_RATE = 60;
     private final static float MAX_BIAS_RANGE = 0.006f;
     private final static String TAG = LiveWallpaperRenderer.class.getSimpleName();
 
-    private MutableLiveData<Float> mutableAlfa = null;  // Initial alpha value
+    // Transition state — all animation runs on the GL thread inside onDrawFrame()
+    private float transitionAlpha = 1.0f;
+    private float transitionProgress = 0f;
+    private boolean transitionActive = false;
+    private boolean transitionFadeOutDone = false;
+    private boolean transitionPendingLoad = false;
+    private long transitionLoadAfter = 0L;
+    private int chosenEffect = 0;   // user's saved preference — written from any thread
+    private int currentEffect = 0;  // active shader effect — only touched on GL thread
+
+    // Pending wallpaper-change request — written from service thread, consumed on GL thread
+    private volatile boolean hasPendingRefresh = false;
+    private volatile String pendingWallpaperPath = null;
+    private volatile boolean pendingIsDefault = false;
+
     private final float[] mMVPMatrix = new float[16];
     private final float[] mProjectionMatrix = new float[16];
     private final float[] mViewMatrix = new float[16];
@@ -64,6 +76,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // Important mutable parameters for live wallpaper
     private Wallpaper wallpaper;
+    private Wallpaper previousWallpaper; // held alive during effects 1 & 2 crossfade
     private String localWallpaperPath = null;
     private int delay = 1;
     private float biasRange;
@@ -73,18 +86,15 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean isDefaultWallpaper;
     private int wallpaperType;
 
-    private final Handler animationHandler = new Handler(Looper.getMainLooper());
 
     LiveWallpaperRenderer(Context context, Callbacks callbacks) {
         mContext = context;
         mCallbacks = callbacks;
-        mutableAlfa = new MutableLiveData<>(1.0f);
     }
 
     void release() {
-        // TODO stuff to release
-        if (wallpaper != null)
-            wallpaper.destroy();
+        if (wallpaper != null) wallpaper.destroy();
+        if (previousWallpaper != null) { previousWallpaper.destroy(); previousWallpaper = null; }
         stopTransition();
         scheduler.shutdown();
     }
@@ -113,10 +123,73 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean hasLoggedNullWallpaper = false;
     @Override
     public void onDrawFrame(GL10 gl) {
+
+        // Consume any pending wallpaper-change request first — sets up transition
+        // state atomically on the GL thread before the tick or draw logic reads it.
+        consumePendingRefresh();
+
+        // --- Transition tick (runs entirely on GL thread) ---
+        if (transitionActive) {
+            if (currentEffect == 0) {
+                // ---- Effect 0: two-phase alpha fade (fade-out → swap → fade-in) ----
+                if (!transitionFadeOutDone) {
+                    transitionAlpha -= 0.005f; // 0.1x debug speed (was 0.05f)
+                    if (transitionAlpha <= 0.0f) {
+                        transitionAlpha       = 0.0f;
+                        transitionFadeOutDone = true;
+                        localWallpaperPath    = pendingWallpaperPath;
+                        isDefaultWallpaper    = pendingIsDefault;
+                        needsRefreshWallpaper = true;
+                        transitionPendingLoad = true;
+                        transitionLoadAfter   = SystemClock.elapsedRealtime() + 50;
+                    }
+                    mCallbacks.requestRender();
+                } else if (transitionPendingLoad) {
+                    if (SystemClock.elapsedRealtime() >= transitionLoadAfter) {
+                        transitionPendingLoad = false;
+                    }
+                    mCallbacks.requestRender();
+                } else {
+                    transitionAlpha += 0.004f; // 0.1x debug speed (was 0.04f)
+                    if (transitionAlpha >= 1.0f) {
+                        transitionAlpha  = 1.0f;
+                        transitionActive = false;
+                    } else {
+                        mCallbacks.requestRender();
+                    }
+                }
+                transitionProgress = transitionAlpha;
+
+            } else {
+                // ---- Effects 1 & 2: true crossfade — new texture dissolves/pixelates in
+                //      over the old one. previousWallpaper drawn at full alpha underneath,
+                //      wallpaper drawn on top with progress 0→1.
+                transitionProgress += 0.004f; // 0.1x debug speed (was 0.04f)
+                if (transitionProgress >= 1.0f) {
+                    transitionProgress = 1.0f;
+                    transitionAlpha    = 1.0f;
+                    transitionActive   = false;
+                    // New texture fully revealed — discard the old one
+                    if (previousWallpaper != null) {
+                        previousWallpaper.destroy();
+                        previousWallpaper = null;
+                    }
+                    // Reset to plain effect so subsequent draws don't run the
+                    // dissolve/pixelate shader on a fully-revealed static wallpaper
+                    currentEffect = 0;
+                } else {
+                    mCallbacks.requestRender();
+                }
+                transitionAlpha = 1.0f; // new texture always present; shader controls visibility
+            }
+        }
+        // --- End transition tick ---
+
         if (needsRefreshWallpaper) {
             loadTexture();
             needsRefreshWallpaper = false;
         }
+
         // Draw background color
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
@@ -137,14 +210,15 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
-        // Draw square
+        // Draw previous wallpaper first (full alpha, no effect) during effects 1 & 2
+        if (previousWallpaper != null && currentEffect != 0) {
+            previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0); // always plain, always opaque
+        }
+
+        // Draw current (incoming) wallpaper on top
         if (wallpaper != null) {
             hasLoggedNullWallpaper = false;
-            if(mutableAlfa.getValue() == null) {
-                wallpaper.draw(mMVPMatrix, 1.0f);
-            } else {
-                wallpaper.draw(mMVPMatrix, mutableAlfa.getValue());
-            }
+            wallpaper.draw(mMVPMatrix, transitionAlpha, transitionProgress, currentEffect);
         } else {
             if (!hasLoggedNullWallpaper) {
                 Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
@@ -272,62 +346,55 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         this.wallpaperType = wallpaperType;
     }
 
+    // Effect 0 = fade (default), 1 = dissolve, 2 = pixelate
+    void setTransitionEffect(int effect) {
+        chosenEffect = effect;
+    }
+
 
 
     // refreshes current wallpaper and update canvas
-    void refreshWallpaper(String wallpaperPath, boolean isDefault){
-        // Create a fade-out -> change wallpaper -> fade-in sequence
-        Runnable fadeOutThenInRunnable = new Runnable() {
-            private float alpha = 1.0f;
-            private boolean fadeOutComplete = false;
-            private boolean wallpaperChanged = false;
+    // Called from service/main thread — only writes volatile fields, no GL state.
+    void refreshWallpaper(String wallpaperPath, boolean isDefault) {
+        pendingWallpaperPath = wallpaperPath;
+        pendingIsDefault     = isDefault;
+        hasPendingRefresh    = true;   // GL thread picks this up at top of next frame
+        mCallbacks.requestRender();
+    }
 
-            @Override
-            public void run() {
-                if (!fadeOutComplete) {
-                    // Fade out phase
-                    alpha -= 0.05f; // Fade out speed
+    // Consumes a pending refresh request atomically on the GL thread.
+    // Must be called at the very top of onDrawFrame before any tick or draw logic.
+    private void consumePendingRefresh() {
+        if (!hasPendingRefresh) return;
+        hasPendingRefresh = false;  // clear flag first — GL thread owns state from here
 
-                    if (alpha <= 0.0f) {
-                        alpha = 0.0f;
-                        fadeOutComplete = true;
+        // Snapshot chosen effect for this transition
+        currentEffect = chosenEffect;
 
-                        // Change wallpaper when screen is completely dark
-                        if (!wallpaperChanged) {
-                            setLocalWallpaperPath(wallpaperPath);
-                            setIsDefaultWallpaper(isDefault);
-                            needsRefreshWallpaper = true;
-                            wallpaperChanged = true;
-
-                            // Small delay to ensure wallpaper is loaded before fade-in
-                            animationHandler.postDelayed(this, 50);
-                            mutableAlfa.setValue(alpha);
-                            mCallbacks.requestRender();
-                            return;
-                        }
-                    }
-                } else {
-                    // Fade in phase - show new wallpaper
-                    alpha += 0.04f; // Fade in speed
-
-                    if (alpha >= 1.0f) {
-                        alpha = 1.0f;
-                        mutableAlfa.setValue(alpha);
-                        mCallbacks.requestRender();
-                        // Animation complete
-                        return;
-                    }
-                }
-
-                mutableAlfa.setValue(alpha);
-                mCallbacks.requestRender();
-
-                // Continue animation
-                animationHandler.postDelayed(this, 16); // 60 FPS
+        if (currentEffect == 0) {
+            // Fade: two-phase — fade out current, load new, fade in
+            transitionAlpha       = 1.0f;
+            transitionProgress    = 0.0f;
+            transitionFadeOutDone = false;
+            transitionPendingLoad = false;
+        } else {
+            // Dissolve / Pixelate: keep old texture alive as previousWallpaper,
+            // load new texture immediately, animate progress 0→1.
+            if (previousWallpaper != null) {
+                previousWallpaper.destroy();
             }
-        };
+            previousWallpaper     = wallpaper;       // old texture is the backdrop
+            wallpaper             = null;             // cleared; loadTexture() repopulates
+            localWallpaperPath    = pendingWallpaperPath;
+            isDefaultWallpaper    = pendingIsDefault;
+            needsRefreshWallpaper = true;
+            transitionProgress    = 0.0f;
+            transitionAlpha       = 1.0f;
+            transitionFadeOutDone = true;
+            transitionPendingLoad = false;
+        }
 
-        animationHandler.post(fadeOutThenInRunnable);
+        transitionActive = true;
     }
 
 

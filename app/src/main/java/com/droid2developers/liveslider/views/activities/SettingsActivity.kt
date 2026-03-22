@@ -58,6 +58,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var verticalCalibrationButton: Button? = null
     private var dynamicCalibrationButton: Button? = null
 
+    // Transition effect card (selection via dialog)
+    private var transitionEffectCard: SettingsCardView? = null
+
     @SuppressLint("CommitPrefEdits")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -122,6 +125,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         verticalCalibrationButton = findViewById(R.id.button2)
         dynamicCalibrationButton = findViewById(R.id.dynamicCalibration)
 
+        // Transition effect controls
+        transitionEffectCard = findViewById(R.id.transitionEffectCard)
+
         // Help button
         val helpButton = findViewById<CardView>(R.id.helpButtonId)
         helpButton?.setOnClickListener { showHelpDialog() }
@@ -147,6 +153,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         // Setup initial calibration mode
         setupInitialCalibrationMode()
+
+        // Setup initial transition effect
+        setupInitialTransitionEffect()
     }
 
     private fun setupInitialCalibrationMode() {
@@ -166,6 +175,19 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         }
     }
 
+    private fun setupInitialTransitionEffect() {
+        val savedEffect = prefs?.getInt("transition_effect", Constant.TRANSITION_FADE)
+            ?: Constant.TRANSITION_FADE
+        transitionEffectCard?.setSubHeaderText(effectName(savedEffect))
+    }
+
+    /** Returns the display name for a given effect constant. */
+    private fun effectName(effect: Int): String = when (effect) {
+        Constant.TRANSITION_DISSOLVE -> getString(R.string.transition_dissolve)
+        Constant.TRANSITION_PIXELATE -> getString(R.string.transition_pixelate)
+        else                         -> getString(R.string.transition_fade)
+    }
+
     private fun setupListeners() {
         backButton?.setOnClickListener { v: View? -> onBackPressedDispatcher.onBackPressed() }
 
@@ -183,11 +205,13 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         doubleTapCard?.setOnCardClickListener(this)
         doubleTapCard?.setOnSwitchChangeListener(this)
 
+        transitionEffectCard?.setOnCardClickListener(this)
+
         seekBarRange?.let { setupSeekBarListener(it, "range") }
         seekBarDelay?.let { setupSeekBarListener(it, "delay") }
 
         // Calibration controls
-        calibrationGroup?.addOnButtonCheckedListener { group, checkedId, isChecked ->
+        calibrationGroup?.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 when (checkedId) {
                     R.id.defaultCalibration -> {
@@ -226,7 +250,36 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             handleSlideshowClick()
         } else if (id == R.id.card3ID) {
             showIntervalDialog()
+        } else if (id == R.id.transitionEffectCard) {
+            showTransitionEffectDialog()
         }
+    }
+
+    private fun showTransitionEffectDialog() {
+        val effectLabels = arrayOf(
+            getString(R.string.transition_fade),
+            getString(R.string.transition_dissolve),
+            getString(R.string.transition_pixelate)
+        )
+        val effectValues = intArrayOf(
+            Constant.TRANSITION_FADE,
+            Constant.TRANSITION_DISSOLVE,
+            Constant.TRANSITION_PIXELATE
+        )
+        val currentEffect = prefs?.getInt("transition_effect", Constant.TRANSITION_FADE)
+            ?: Constant.TRANSITION_FADE
+        val checkedItem = effectValues.indexOf(currentEffect).coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.transition_effect))
+            .setSingleChoiceItems(effectLabels, checkedItem) { dialog, which ->
+                val chosen = effectValues[which]
+                editor?.putInt("transition_effect", chosen)?.apply()
+                transitionEffectCard?.setSubHeaderText(effectName(chosen))
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel) { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
     override fun onSwitchChanged(

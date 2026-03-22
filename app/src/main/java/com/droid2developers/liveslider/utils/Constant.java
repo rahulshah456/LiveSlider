@@ -40,6 +40,11 @@ public class Constant {
     public static final int CALIBRATION_VERTICAL = 1;
     public static final int CALIBRATION_DYNAMIC = 2;
 
+    // Transition Effect Constants  (stored in prefs as "transition_effect")
+    public static final int TRANSITION_FADE     = 0; // plain alpha fade (default)
+    public static final int TRANSITION_DISSOLVE = 1; // procedural noise dissolve
+    public static final int TRANSITION_PIXELATE = 2; // pixelate out / in
+
     public static final String PLAYLIST_NONE = "none";
     public static final String WALLPAPER_NONE = "none";
 
