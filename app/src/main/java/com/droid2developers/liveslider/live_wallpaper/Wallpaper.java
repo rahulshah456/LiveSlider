@@ -42,9 +42,14 @@ class Wallpaper {
             + "uniform int uEffect;"       // 0=fade  1=dissolve  2=pixelate
             + "varying vec2 vTexCoords;"
 
-            // deterministic per-fragment pseudo-random from UV position
+            // Mobile-safe hash — avoids sin() which overflows mediump on real devices
+            // (Mali/Adreno/PowerVR) and produces INF/NaN → diagonal line artefacts.
+            // Uses highp for intermediate arithmetic, pure multiply+fract only.
             + "float hash(vec2 p){"
-            + "  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);"
+            + "  highp vec2 q = p;"
+            + "  q = fract(q * vec2(443.897, 441.423));"
+            + "  q += dot(q, q.yx + 19.19);"
+            + "  return fract((q.x + q.y) * q.x);"
             + "}"
 
             + "void main(){"
