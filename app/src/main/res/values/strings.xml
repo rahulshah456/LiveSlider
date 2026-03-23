@@ -89,4 +89,8 @@
     <string name="animation_speed_double">2x (Fast)</string>
     <string name="animation_speed_triple">3x (Very Fast)</string>
     <string name="animation_speed_stupid">4x (Stupid Fast)</string>
+
+    <!-- Change on screen wake -->
+    <string name="change_on_screen_on_header">Change On Screen Wake</string>
+    <string name="change_on_screen_on_subheader">Advance slideshow each time screen turns on</string>
 </resources>

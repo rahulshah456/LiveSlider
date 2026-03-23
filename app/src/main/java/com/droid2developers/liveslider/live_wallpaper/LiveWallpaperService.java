@@ -54,8 +54,10 @@ public class LiveWallpaperService extends GLWallpaperService {
         private LiveWallpaperRenderer renderer;
         private RotationSensor rotationSensor;
         private BroadcastReceiver powerSaverChangeReceiver;
+        private BroadcastReceiver screenOnReceiver;
 
         private boolean pauseInSavePowerMode = false;
+        private boolean changeOnUnlock = false;
         private boolean savePowerMode = false;
         private boolean allowClickToChange = false;
         private boolean isSlideShowEnabled = false;
@@ -135,7 +137,22 @@ public class LiveWallpaperService extends GLWallpaperService {
             doubleTapDetector = new GestureDetector(getApplicationContext(),
                     new DoubleTapGestureListener(this));
 
+            // Change on screen wake — register ACTION_SCREEN_ON receiver
+            changeOnUnlock = prefs.getBoolean(Constant.PREF_CHANGE_ON_UNLOCK, false);
+            screenOnReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (isSlideShowEnabled && changeOnUnlock) {
+                        Log.d(TAG, "screenOnReceiver: screen on — advancing slideshow");
+                        incrementWallpaper();
+                        changeWallpaper();
+                    }
+                }
+            };
 
+            // Register screen on receiver
+            // registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_USER_PRESENT));
+            registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
         }
 
         @Override
@@ -146,6 +163,9 @@ public class LiveWallpaperService extends GLWallpaperService {
             handler.removeCallbacks(slideshow);
             if(powerSaverChangeReceiver != null) {
                 unregisterReceiver(powerSaverChangeReceiver);
+            }
+            if (screenOnReceiver != null) {
+                unregisterReceiver(screenOnReceiver);
             }
             prefs.unregisterOnSharedPreferenceChangeListener(this);
             // Kill renderer
@@ -280,6 +300,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                     break;
                 case "animation_speed":
                     renderer.setAnimationSpeed(sharedPreferences.getInt(key, Constant.ANIMATION_SPEED_NORMAL));
+                    break;
+                case "change_on_unlock":
+                    changeOnUnlock = sharedPreferences.getBoolean(key, false);
                     break;
             }
         }

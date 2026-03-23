@@ -44,6 +44,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var slideshowCard: SettingsCardView? = null
     private var intervalCard: SettingsCardView? = null
     private var doubleTapCard: SettingsCardView? = null
+    private var changeOnUnlockCard: SettingsCardView? = null
     private var powerSaverCard: SettingsCardView? = null
     private var scrollCard: SettingsCardView? = null
     private var backButton: CardView? = null
@@ -119,6 +120,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         slideshowCard = findViewById(R.id.card2ID)
         intervalCard = findViewById(R.id.card3ID)
         doubleTapCard = findViewById(R.id.card4ID)
+        changeOnUnlockCard = findViewById(R.id.changeOnUnlockCard)
 
         faceText = findViewById<TextView>(R.id.face)
 
@@ -148,6 +150,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         slideshowCard?.isSwitchChecked = prefs?.getBoolean("slideshow", false) ?: false
         doubleTapCard?.isSwitchChecked = prefs?.getBoolean("double_tap", false) ?: false
+        changeOnUnlockCard?.isSwitchChecked = prefs?.getBoolean("change_on_unlock", false) ?: false
         powerSaverCard?.isSwitchChecked = prefs?.getBoolean("power_saver", true) ?: true
         scrollCard?.isSwitchChecked = prefs?.getBoolean("scroll", true) ?: true
 
@@ -266,6 +269,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         doubleTapCard?.setOnCardClickListener(this)
         doubleTapCard?.setOnSwitchChangeListener(this)
 
+        changeOnUnlockCard?.setOnSwitchChangeListener(this)
+
         transitionEffectCard?.setOnCardClickListener(this)
 
         animationSpeedCard?.setOnCardClickListener(this)
@@ -370,6 +375,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             }
         } else if (id == R.id.card4ID) {
             editor?.putBoolean("double_tap", isChecked)
+        } else if (id == R.id.changeOnUnlockCard) {
+            editor?.putBoolean("change_on_unlock", isChecked)
         } else if (id == R.id.card1ID) {
             editor?.putBoolean("scroll", isChecked)
         }
@@ -388,6 +395,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         val visibility = if (slideshowCard?.isSwitchChecked == true) View.VISIBLE else View.GONE
         intervalCard?.visibility = visibility
         doubleTapCard?.visibility = visibility
+        changeOnUnlockCard?.visibility = visibility
     }
 
     private fun updateIntervalText(timeInMillis: Long) {
