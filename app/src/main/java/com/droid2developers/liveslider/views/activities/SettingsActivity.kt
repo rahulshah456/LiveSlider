@@ -194,6 +194,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private fun effectName(effect: Int): String = when (effect) {
         Constant.TRANSITION_DISSOLVE -> getString(R.string.transition_dissolve)
         Constant.TRANSITION_PIXELATE -> getString(R.string.transition_pixelate)
+        Constant.TRANSITION_WIPE     -> getString(R.string.transition_wipe)
+        Constant.TRANSITION_BLUR     -> getString(R.string.transition_blur)
+        Constant.TRANSITION_ZOOM     -> getString(R.string.transition_zoom)
         else                         -> getString(R.string.transition_fade)
     }
 
@@ -321,12 +324,18 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         val effectLabels = arrayOf(
             getString(R.string.transition_fade),
             getString(R.string.transition_dissolve),
-            getString(R.string.transition_pixelate)
+            getString(R.string.transition_pixelate),
+            getString(R.string.transition_wipe),
+            getString(R.string.transition_blur),
+            getString(R.string.transition_zoom)
         )
         val effectValues = intArrayOf(
             Constant.TRANSITION_FADE,
             Constant.TRANSITION_DISSOLVE,
-            Constant.TRANSITION_PIXELATE
+            Constant.TRANSITION_PIXELATE,
+            Constant.TRANSITION_WIPE,
+            Constant.TRANSITION_BLUR,
+            Constant.TRANSITION_ZOOM
         )
         val currentEffect = prefs?.getInt("transition_effect", Constant.TRANSITION_FADE)
             ?: Constant.TRANSITION_FADE

@@ -92,6 +92,97 @@ class Wallpaper {
             + "    gl_FragColor   = texture2D(uTexture, pixUV);"
             + "    gl_FragColor.a = 1.0;"
 
+            // Effect 4 — wipe (incoming texture)
+            // A feathered vertical edge sweeps left→right as uProgress goes 0→1.
+            // Pixels left of the edge (x < uProgress) are fully visible; pixels right
+            // are still transparent so the static old backdrop shows through.
+            // smoothstep band ±0.015 (~1.5 % of screen width) softens the hard line.
+            + "  } else if (uEffect == 4){"
+            + "    float edge = 1.0 - smoothstep(uProgress - 0.015, uProgress + 0.015, vTexCoords.x);"
+            + "    gl_FragColor   = texture2D(uTexture, vTexCoords);"
+            + "    gl_FragColor.a = edge;"
+
+            // Effect 5 — blur OUT (outgoing texture, phase 1 of blur transition)
+            // uProgress (localProgress) runs 0→1; blur radius grows 0 → MAX_R.
+            //
+            // Kernel: 17-tap circular 2-ring Gaussian.
+            // Samples are placed at 8 equally-spaced angles (0°,45°,…,315°) on two
+            // rings of radius r and 2r.  Being circular it is fully isotropic —
+            // no cross-shaped ghost-image artefact that cardinal-only kernels produce.
+            // No sin/cos at runtime: the 45° factor 0.7071 is a compile-time constant.
+            //
+            // Gaussian weights G(dist/r), normalised to sum = 1.0:
+            //   centre         ×1 : 0.1442   (G(0)   = 1.0  / 6.934)
+            //   ring-1 (r )   ×8 : 0.08747  (G(1.0) = 0.607 / 6.934)
+            //   ring-2 (2r)   ×8 : 0.01951  (G(2.0) = 0.135 / 6.934)
+            //   total             = 0.1442 + 8×0.08747 + 8×0.01951 = 1.000  ✓
+            //
+            // MAX_R = 0.02 UV → ring-1 ≈ 22 px, ring-2 ≈ 43 px on a 1080 p texture.
+            + "  } else if (uEffect == 5){"
+            + "    float r  = uProgress * 0.02;"
+            + "    float r2 = r  * 2.0;"
+            + "    float d  = r  * 0.7071;"
+            + "    float d2 = r2 * 0.7071;"
+            + "    vec4  c  = texture2D(uTexture, vTexCoords) * 0.1442;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( r,   0.0)) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d,   d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0, r  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d,   d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-r,   0.0)) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d,  -d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0,-r  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d,  -d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( r2,  0.0)) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d2,  d2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0, r2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d2,  d2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-r2,  0.0)) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d2, -d2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0,-r2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d2, -d2 )) * 0.01951;"
+            + "    gl_FragColor   = c;"
+            + "    gl_FragColor.a = 1.0;"
+
+            // Effect 6 — blur IN (incoming texture, phase 2 of blur transition)
+            // Exact mirror of effect 5: radius shrinks MAX_R → 0 so the new wallpaper
+            // starts at peak blur and sharpens in.  Same circular kernel, same weights.
+            + "  } else if (uEffect == 6){"
+            + "    float r  = (1.0 - uProgress) * 0.02;"
+            + "    float r2 = r  * 2.0;"
+            + "    float d  = r  * 0.7071;"
+            + "    float d2 = r2 * 0.7071;"
+            + "    vec4  c  = texture2D(uTexture, vTexCoords) * 0.1442;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( r,   0.0)) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d,   d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0, r  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d,   d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-r,   0.0)) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d,  -d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0,-r  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d,  -d  )) * 0.08747;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( r2,  0.0)) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d2,  d2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0, r2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d2,  d2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-r2,  0.0)) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2(-d2, -d2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( 0.0,-r2 )) * 0.01951;"
+            + "    c += texture2D(uTexture, vTexCoords + vec2( d2, -d2 )) * 0.01951;"
+            + "    gl_FragColor   = c;"
+            + "    gl_FragColor.a = 1.0;"
+
+            // Effect 7 — zoom in (incoming texture)
+            // Re-maps UVs so the image scales up from the screen centre.
+            // scale = progress (0→1). UV outside [0,1] → transparent, revealing old backdrop.
+            // step() replaces any conditional discard for better mobile GPU performance.
+            + "  } else if (uEffect == 7){"
+            + "    float scale  = max(uProgress, 0.001);"
+            + "    vec2  uv     = (vTexCoords - 0.5) / scale + 0.5;"
+            + "    float inBounds = step(0.0, uv.x) * step(uv.x, 1.0)"
+            + "                   * step(0.0, uv.y) * step(uv.y, 1.0);"
+            + "    gl_FragColor   = texture2D(uTexture, clamp(uv, 0.0, 1.0));"
+            + "    gl_FragColor.a = inBounds;"
+
             + "  }"
             + "}";
 

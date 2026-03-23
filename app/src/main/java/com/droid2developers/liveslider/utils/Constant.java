@@ -44,6 +44,9 @@ public class Constant {
     public static final int TRANSITION_FADE     = 0;
     public static final int TRANSITION_DISSOLVE = 1;
     public static final int TRANSITION_PIXELATE = 2;
+    public static final int TRANSITION_WIPE     = 3; // horizontal left→right sweep
+    public static final int TRANSITION_BLUR     = 4; // Gaussian blur crossfade
+    public static final int TRANSITION_ZOOM     = 5; // grow from screen centre
 
     // Animation Speed Constants (stored in prefs as "animation_speed")
     public static final int ANIMATION_SPEED_QUARTER = 4; // 0.25x — 2.4s

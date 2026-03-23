@@ -220,6 +220,65 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 } else {
                     mCallbacks.requestRender();
                 }
+
+            } else if (currentEffect == 3) {
+                // ---- Effect 3: wipe ----
+                // previousWallpaper = static opaque backdrop
+                // wallpaper (new)   = wipes in left→right, progress 0→1
+                transitionProgress += stepSize(0.04f);
+                if (transitionProgress >= 1.0f) {
+                    transitionProgress = 1.0f;
+                    transitionActive   = false;
+                    if (previousWallpaper != null) {
+                        previousWallpaper.destroy();
+                        previousWallpaper = null;
+                    }
+                    currentEffect = 0;
+                } else {
+                    mCallbacks.requestRender();
+                }
+
+            } else if (currentEffect == 4) {
+                // ---- Effect 4: blur — two-phase midpoint swap ----
+                // Phase 1 (0.0 → 0.5): previousWallpaper blurs out to peak softness (effect 5).
+                // Phase 2 (0.5 → 1.0): new wallpaper sharpens in from peak blur (effect 6).
+                transitionProgress += stepSize(0.04f);
+
+                if (!transitionMidpointReached && transitionProgress >= 0.5f) {
+                    transitionProgress        = 0.5f;
+                    transitionMidpointReached = true;
+                    if (previousWallpaper != null) {
+                        previousWallpaper.destroy();
+                        previousWallpaper = null;
+                    }
+                    localWallpaperPath    = pendingWallpaperPath;
+                    isDefaultWallpaper    = pendingIsDefault;
+                    needsRefreshWallpaper = true;
+                    mCallbacks.requestRender();
+                } else if (transitionMidpointReached && transitionProgress >= 1.0f) {
+                    transitionProgress = 1.0f;
+                    transitionActive   = false;
+                    currentEffect      = 0;
+                } else {
+                    mCallbacks.requestRender();
+                }
+
+            } else if (currentEffect == 5) {
+                // ---- Effect 5: zoom ----
+                // previousWallpaper = static opaque backdrop
+                // wallpaper (new)   = zooms in from screen centre, progress 0→1
+                transitionProgress += stepSize(0.04f);
+                if (transitionProgress >= 1.0f) {
+                    transitionProgress = 1.0f;
+                    transitionActive   = false;
+                    if (previousWallpaper != null) {
+                        previousWallpaper.destroy();
+                        previousWallpaper = null;
+                    }
+                    currentEffect = 0;
+                } else {
+                    mCallbacks.requestRender();
+                }
             }
         }
         // --- End transition tick ---
@@ -274,6 +333,37 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             }
             if (wallpaper != null) {
                 wallpaper.draw(mMVPMatrix, 1.0f, transitionProgress, 1);
+            }
+        } else if (currentEffect == 3) {
+            // Wipe — previousWallpaper static backdrop, new wallpaper wipes in left→right
+            if (previousWallpaper != null) {
+                previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0);
+            }
+            if (wallpaper != null) {
+                wallpaper.draw(mMVPMatrix, 1.0f, transitionProgress, 4);
+            }
+        } else if (currentEffect == 4) {
+            // Blur — phase 1: old blurs out to peak softness (effect 5), phase 2: new sharpens in (effect 6)
+            if (!transitionMidpointReached && previousWallpaper != null) {
+                float localProgress = transitionProgress / 0.5f;
+                float px = prevPreA * (-2 * scrollOffsetX + 1) + currentOrientationOffsetX;
+                float py = currentOrientationOffsetY;
+                float[] prevViewMatrix = new float[16];
+                float[] prevMVPMatrix  = new float[16];
+                Matrix.setLookAtM(prevViewMatrix, 0, px, py, prevPreB, px, py, 0f, 0f, 1.0f, 0.0f);
+                Matrix.multiplyMM(prevMVPMatrix, 0, mProjectionMatrix, 0, prevViewMatrix, 0);
+                previousWallpaper.draw(prevMVPMatrix, 1.0f, localProgress, 5);
+            } else if (transitionMidpointReached && wallpaper != null) {
+                float localProgress = (transitionProgress - 0.5f) / 0.5f;
+                wallpaper.draw(mMVPMatrix, 1.0f, localProgress, 6);
+            }
+        } else if (currentEffect == 5) {
+            // Zoom — previousWallpaper static backdrop, new wallpaper grows from centre
+            if (previousWallpaper != null) {
+                previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0);
+            }
+            if (wallpaper != null) {
+                wallpaper.draw(mMVPMatrix, 1.0f, transitionProgress, 7);
             }
         } else {
             // Effect 0 (fade) or post-transition static draw
@@ -408,7 +498,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         this.wallpaperType = wallpaperType;
     }
 
-    // Effect 0 = fade (default), 1 = dissolve, 2 = pixelate
+    // Effect 0 = fade (default), 1 = dissolve, 2 = pixelate, 3 = wipe, 4 = blur, 5 = zoom
     void setTransitionEffect(int effect) {
         chosenEffect = effect;
     }
@@ -498,6 +588,50 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             previousWallpaper        = wallpaper;  // old texture drives phase 1
             wallpaper                = null;        // will be loaded at midpoint
             // Do NOT set needsRefreshWallpaper here — load happens at progress=0.5
+            transitionProgress       = 0.0f;
+            transitionAlpha          = 1.0f;
+            transitionFadeOutDone    = true;
+            transitionPendingLoad    = false;
+            transitionMidpointReached = false;
+
+        } else if (currentEffect == 3) {
+            // Wipe: keep old texture as static backdrop, load new immediately,
+            // animate progress 0→1 (new texture sweeps in left→right).
+            if (previousWallpaper != null) previousWallpaper.destroy();
+            previousWallpaper        = wallpaper;
+            wallpaper                = null;
+            localWallpaperPath       = pendingWallpaperPath;
+            isDefaultWallpaper       = pendingIsDefault;
+            needsRefreshWallpaper    = true;
+            transitionProgress       = 0.0f;
+            transitionAlpha          = 1.0f;
+            transitionFadeOutDone    = true;
+            transitionPendingLoad    = false;
+            transitionMidpointReached = false;
+
+        } else if (currentEffect == 4) {
+            // Blur: two-phase midpoint swap (same pattern as pixelate).
+            // Snapshot old matrix so the blur-out phase uses the correct camera position.
+            prevPreA = preA;
+            prevPreB = preB;
+            if (previousWallpaper != null) previousWallpaper.destroy();
+            previousWallpaper        = wallpaper;  // old texture drives phase 1 (blur out)
+            wallpaper                = null;        // will be loaded at midpoint
+            transitionProgress       = 0.0f;
+            transitionAlpha          = 1.0f;
+            transitionFadeOutDone    = true;
+            transitionPendingLoad    = false;
+            transitionMidpointReached = false;
+
+        } else if (currentEffect == 5) {
+            // Zoom: keep old texture as static backdrop, load new immediately,
+            // animate progress 0→1 (new texture grows from screen centre).
+            if (previousWallpaper != null) previousWallpaper.destroy();
+            previousWallpaper        = wallpaper;
+            wallpaper                = null;
+            localWallpaperPath       = pendingWallpaperPath;
+            isDefaultWallpaper       = pendingIsDefault;
+            needsRefreshWallpaper    = true;
             transitionProgress       = 0.0f;
             transitionAlpha          = 1.0f;
             transitionFadeOutDone    = true;

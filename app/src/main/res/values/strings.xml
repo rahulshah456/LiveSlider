@@ -75,7 +75,10 @@
     <string name="transition_fade">Fade</string>
     <string name="transition_dissolve">Dissolve</string>
     <string name="transition_pixelate">Pixelate</string>
-    <string name="help_transition_info">• Transition Animation: Choose the visual effect used when the wallpaper changes. Fade is a simple crossfade, Dissolve crumbles pixels away organically, Pixelate blocks and sharpens the image.</string>
+    <string name="transition_wipe">Wipe</string>
+    <string name="transition_blur">Blur</string>
+    <string name="transition_zoom">Zoom</string>
+    <string name="help_transition_info">• Transition Animation: Choose the visual effect used when the wallpaper changes. Fade is a simple crossfade, Dissolve crumbles pixels away organically, Pixelate blocks and sharpens the image, Wipe sweeps the new image in from the left, Blur softens the old image out then sharpens the new one in, and Zoom grows the new image outward from the screen centre.</string>
 
     <!-- Animation Speed -->
     <string name="animation_speed">Animation Speed</string>
