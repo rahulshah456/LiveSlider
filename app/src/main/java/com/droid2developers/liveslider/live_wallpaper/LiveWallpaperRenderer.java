@@ -50,6 +50,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private volatile String pendingWallpaperPath = null;
     private volatile boolean pendingIsDefault = false;
 
+    // Retry state — when external storage is not yet available on boot, we retry
+    // loading the user's wallpaper a few times before falling back to default.
+    private static final int MAX_LOAD_RETRIES = 5;
+    private static final long RETRY_DELAY_MS  = 3000L; // 3 s between retries
+    private int loadRetryCount = 0;
+
     private final float[] mMVPMatrix = new float[16];
     private final float[] mProjectionMatrix = new float[16];
     private final float[] mViewMatrix = new float[16];
@@ -444,6 +450,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         mCallbacks.requestRender();
     }
 
+    // External (user-initiated) wallpaper change — resets the boot-retry counter so the
+    // new path gets its full quota of retries independent of any previous attempt.
+    void refreshWallpaperFresh(String wallpaperPath, boolean isDefault) {
+        loadRetryCount = 0;
+        refreshWallpaper(wallpaperPath, isDefault);
+    }
+
     // Consumes a pending refresh request atomically on the GL thread.
     // Must be called at the very top of onDrawFrame before any tick or draw logic.
     private void consumePendingRefresh() {
@@ -536,9 +549,25 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             if (!isDefaultWallpaper) {
                 try {
                     is = new FileInputStream(localWallpaperPath);
+                    loadRetryCount = 0; // successful open — reset retry counter
                 } catch (FileNotFoundException e) {
                     Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
-                    refreshWallpaper(DEFAULT_LOCAL_PATH,true);
+                    if (loadRetryCount < MAX_LOAD_RETRIES) {
+                        // External storage may not be mounted yet (post-boot). Retry after a delay
+                        // using the original path so the user's wallpaper is not lost.
+                        loadRetryCount++;
+                        final String retryPath   = localWallpaperPath;
+                        final boolean retryDef   = isDefaultWallpaper;
+                        Log.w(TAG, "loadTexture: scheduling retry " + loadRetryCount + "/" + MAX_LOAD_RETRIES
+                                + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
+                        scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef),
+                                RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+                    } else {
+                        Log.e(TAG, "loadTexture: giving up after " + MAX_LOAD_RETRIES
+                                + " retries, falling back to default wallpaper");
+                        loadRetryCount = 0;
+                        refreshWallpaper(DEFAULT_LOCAL_PATH, true);
+                    }
                 }
             } else {
                 try {
@@ -551,9 +580,21 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else {
             try {
                 is = new FileInputStream(localWallpaperPath);
+                loadRetryCount = 0;
             } catch (FileNotFoundException e) {
                 Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
-                refreshWallpaper(DEFAULT_LOCAL_PATH,true);
+                if (loadRetryCount < MAX_LOAD_RETRIES) {
+                    loadRetryCount++;
+                    final String retryPath = localWallpaperPath;
+                    final boolean retryDef = isDefaultWallpaper;
+                    Log.w(TAG, "loadTexture: scheduling retry " + loadRetryCount + "/" + MAX_LOAD_RETRIES
+                            + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
+                    scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef),
+                            RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+                } else {
+                    loadRetryCount = 0;
+                    refreshWallpaper(DEFAULT_LOCAL_PATH, true);
+                }
             }
         }
         if (is == null) {

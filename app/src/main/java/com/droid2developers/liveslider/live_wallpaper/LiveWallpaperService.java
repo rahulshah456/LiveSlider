@@ -88,25 +88,32 @@ public class LiveWallpaperService extends GLWallpaperService {
             setEGLContextClientVersion(2);
             setEGLConfigChooser(8, 8, 8, 0, 0, 0);
             
+            // Shared Preferences initialization (must happen BEFORE setRenderer so that
+            // onSurfaceChanged / onDrawFrame sees the correct path and isDefault flag)
+            prefs = PreferenceManager.getDefaultSharedPreferences(LiveWallpaperService.this);
+            prefs.registerOnSharedPreferenceChangeListener(this);
+            editor = prefs.edit();
+
             // initial Setup of LiveWallpaper
             renderer = new LiveWallpaperRenderer(LiveWallpaperService.this.getApplicationContext(), this);
+
+            // Pre-populate renderer fields BEFORE setRenderer() triggers the GL thread,
+            // otherwise onSurfaceChanged fires with localWallpaperPath==null and
+            // isDefaultWallpaper==false, causing a failed load that falls back to the
+            // built-in default wallpaper and ignores the user's saved selection.
+            renderer.setIsDefaultWallpaper(prefs.getBoolean("default_wallpaper", true));
+            renderer.setLocalWallpaperPath(prefs.getString("local_wallpaper_path", DEFAULT_LOCAL_PATH));
+            renderer.setWallpaperType(prefs.getInt("type", TYPE_SINGLE));
+
             setRenderer(renderer);
             setRenderMode(RENDERMODE_WHEN_DIRTY);
             rotationSensor = new RotationSensor(LiveWallpaperService.this.getApplicationContext(),
                     this, SENSOR_RATE);
 
-
-            // Shared Preferences initialization
-            prefs = PreferenceManager.getDefaultSharedPreferences(LiveWallpaperService.this);
-            prefs.registerOnSharedPreferenceChangeListener(this);
-            editor = prefs.edit();
-
-            // Setting initial parameters
+            // Setting remaining initial parameters
             renderer.setBiasRange(prefs.getInt("range", 10));
             renderer.setDelay(21 - prefs.getInt("delay", 10));
             renderer.setScrollMode(prefs.getBoolean("scroll", true));
-            renderer.setIsDefaultWallpaper(prefs.getBoolean("default_wallpaper", true));
-            renderer.setLocalWallpaperPath(prefs.getString("local_wallpaper_path", DEFAULT_LOCAL_PATH));
             setPowerSaverEnabled(prefs.getBoolean("power_saver", true));
             setSlideShowEnabled(prefs.getBoolean("slideshow",false));
             renderer.setWallpaperType(prefs.getInt("type",TYPE_SINGLE));
@@ -243,7 +250,7 @@ public class LiveWallpaperService extends GLWallpaperService {
                 case "refresh_wallpaper":
                     String localWallpaperPath = sharedPreferences.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH);
                     boolean isDefault = sharedPreferences.getBoolean("default_wallpaper", true);
-                    renderer.refreshWallpaper(localWallpaperPath,isDefault);
+                    renderer.refreshWallpaperFresh(localWallpaperPath,isDefault);
                     break;
                 case "type":
                     renderer.setWallpaperType(sharedPreferences.getInt(key, TYPE_SINGLE));
@@ -364,7 +371,7 @@ public class LiveWallpaperService extends GLWallpaperService {
 
                     String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
                     boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                    renderer.refreshWallpaper(localWallpaperPath, isDefault);
+                    renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
                     //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
                 });
             }
@@ -385,7 +392,7 @@ public class LiveWallpaperService extends GLWallpaperService {
                 String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
                 editor.putString("local_wallpaper_path", localWallpaperPath).apply();
                 boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                renderer.refreshWallpaper(localWallpaperPath, isDefault);
+                renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
 
                 handler.removeCallbacks(slideshow);
                 if (isVisible()){
