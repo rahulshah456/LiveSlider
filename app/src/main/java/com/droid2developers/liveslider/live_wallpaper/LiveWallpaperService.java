@@ -1,7 +1,6 @@
 package com.droid2developers.liveslider.live_wallpaper;
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -11,28 +10,24 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.PowerManager;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
-
-import androidx.lifecycle.Observer;
 import androidx.preference.PreferenceManager;
-
 import com.droid2developers.liveslider.database.models.LocalWallpaper;
 import com.droid2developers.liveslider.database.repository.WallpaperRepository;
-
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_SLIDESHOW_TIME;
 import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 import static com.droid2developers.liveslider.utils.Constant.TRANSITION_FADE;
+import static com.droid2developers.liveslider.utils.Constant.PREF_CHANGE_ON_UNLOCK;
+import static com.droid2developers.liveslider.utils.Constant.PREF_DUAL_PLAYLIST_ENABLED;
+import static com.droid2developers.liveslider.utils.Constant.PREF_LOCK_PLAYLIST;
 import com.droid2developers.liveslider.utils.Constant;
 
 public class LiveWallpaperService extends GLWallpaperService {
@@ -55,6 +50,7 @@ public class LiveWallpaperService extends GLWallpaperService {
         private RotationSensor rotationSensor;
         private BroadcastReceiver powerSaverChangeReceiver;
         private BroadcastReceiver screenOnReceiver;
+        private BroadcastReceiver userPresentReceiver;
 
         private boolean pauseInSavePowerMode = false;
         private boolean changeOnUnlock = false;
@@ -62,6 +58,13 @@ public class LiveWallpaperService extends GLWallpaperService {
         private boolean allowClickToChange = false;
         private boolean isSlideShowEnabled = false;
         private String currentPlaylistId = PLAYLIST_NONE;
+
+        // Dual-playlist (Feature 2): separate playlists for home and lock screen
+        private boolean isDualPlaylistEnabled = false;
+        private String lockPlaylistId = PLAYLIST_NONE;
+        private int lockImagesArrayIndex = 0;
+        private List<LocalWallpaper> lockPlaylistWallpapers = new ArrayList<>();
+        private WallpaperRepository lockRepository;
 
         // TODO - time related parameters
         private long timer = DEFAULT_SLIDESHOW_TIME;
@@ -142,21 +145,40 @@ public class LiveWallpaperService extends GLWallpaperService {
             screenOnReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    if (isSlideShowEnabled && changeOnUnlock) {
+                    // Check keyguard state first: if device has no lock screen the device
+                    if (isDualPlaylistEnabled && !lockPlaylistWallpapers.isEmpty()) {
+                        // Feature 2: advance lock playlist and display it on screen wake
+                        boolean isDefault = prefs.getBoolean("default_wallpaper", true);
+                        renderer.refreshWallpaperFresh(path, isDefault);
+                        Log.d(TAG, "screenOnReceiver: dual mode — lock image " + lockImagesArrayIndex);
+                    } else if (!isDualPlaylistEnabled && isSlideShowEnabled && changeOnUnlock
+                            && isSetAsHomeLiveWallpaper()) {
+                        // Feature 1: advance main slideshow on screen wake.
                         Log.d(TAG, "screenOnReceiver: screen on — advancing slideshow");
                         incrementWallpaper();
                         changeWallpaper();
                     }
                 }
             };
-
-            // Register screen on receiver
-            // registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_USER_PRESENT));
             registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
-        }
 
-        @Override
-        public void onDestroy() {
+            // Dual-playlist: when user unlocks, restore home playlist image
+            userPresentReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    } else if (isSlideShowEnabled && changeOnUnlock) {
+                        // Feature 1: advance main slideshow on screen wake
+                        String path = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                        boolean isDefault = prefs.getBoolean("default_wallpaper", true);
+                        renderer.refreshWallpaperFresh(path, isDefault);
+                        Log.d(TAG, "userPresentReceiver: dual mode — home image " + mImagesArrayIndex);
+                    }
+                }
+            };
+            registerReceiver(userPresentReceiver, new IntentFilter(Intent.ACTION_USER_PRESENT));
+
+            // Feature 2 — initialise dual playlist from saved prefs
+                    if (isDualPlaylistEnabled && !playlistWallpapers.isEmpty()) {
             // Unregister this as listener
             Log.d(TAG, "onDestroy: ");
             rotationSensor.unregister();
@@ -166,6 +188,9 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
             if (screenOnReceiver != null) {
                 unregisterReceiver(screenOnReceiver);
+            }
+            if (userPresentReceiver != null) {
+                unregisterReceiver(userPresentReceiver);
             }
             prefs.unregisterOnSharedPreferenceChangeListener(this);
             // Kill renderer
@@ -304,6 +329,12 @@ public class LiveWallpaperService extends GLWallpaperService {
                 case "change_on_unlock":
                     changeOnUnlock = sharedPreferences.getBoolean(key, false);
                     break;
+                case PREF_DUAL_PLAYLIST_ENABLED:
+                    isDualPlaylistEnabled = sharedPreferences.getBoolean(key, false);
+                    break;
+                case PREF_LOCK_PLAYLIST:
+                    setLockPlaylist(sharedPreferences.getString(key, PLAYLIST_NONE));
+                    break;
             }
         }
 
@@ -397,6 +428,31 @@ public class LiveWallpaperService extends GLWallpaperService {
                     renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
                     //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
                 });
+            }
+        }
+
+        /**
+         * Returns true if this live wallpaper is currently set as the active wallpaper
+         * on the HOME (FLAG_SYSTEM) screen slot.
+         * Uses {@link WallpaperManager#getWallpaperInfo()} — public API since level 5.
+         */
+        private boolean isSetAsHomeLiveWallpaper() {
+            WallpaperManager wm = WallpaperManager.getInstance(getApplicationContext());
+            WallpaperInfo info = wm.getWallpaperInfo();
+            return info != null && info.getPackageName().equals(getPackageName());
+        }
+
+        /**
+         * Returns true if this live wallpaper is currently displayed on the LOCK screen.
+         *
+         * API 34+ : {@link WallpaperManager#getWallpaperInfo(int)} with {@link WallpaperManager#FLAG_LOCK}
+         *           is a public method in API 36 (confirmed from SDK source).  We guard with
+         *           {@code >= UPSIDE_DOWN_CAKE} and wrap in try-catch in case the method is not
+         *           yet present on an API 34/35 device's firmware build.
+                    });
+                }
+            } else {
+                lockPlaylistWallpapers = new ArrayList<>();
             }
         }
 

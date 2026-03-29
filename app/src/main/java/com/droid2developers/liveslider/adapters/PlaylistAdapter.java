@@ -38,6 +38,8 @@ import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SLIDESHOW;
 import static com.droid2developers.liveslider.utils.Constant.WALLPAPER_NONE;
+import static com.droid2developers.liveslider.utils.Constant.PREF_DUAL_PLAYLIST_ENABLED;
+import static com.droid2developers.liveslider.utils.Constant.PREF_LOCK_PLAYLIST;
 
 public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyViewHolder> {
 
@@ -75,6 +77,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         TextView count, title, creationDate;
         ProgressBar progressIndicator;
         RelativeLayout activeBadge;
+        RelativeLayout lockBadge;
 
         MyViewHolder(View itemView) {
             super(itemView);
@@ -85,35 +88,49 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
             title = itemView.findViewById(R.id.collectionTitleId);
             creationDate = itemView.findViewById(R.id.creationDateId);
             activeBadge = itemView.findViewById(R.id.active_badge);
+            lockBadge = itemView.findViewById(R.id.lock_badge);
             progressIndicator = itemView.findViewById(R.id.progressView);
             progressIndicator.setIndeterminate(true);
-
         }
 
         @Override
         public void onClick(View view) {
             Playlist playlist = getItemList().get(getLayoutPosition());
+            boolean isDualEnabled = prefs.getBoolean(PREF_DUAL_PLAYLIST_ENABLED, false);
 
-            new MaterialAlertDialogBuilder(mContext)
-                    .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
-                    .setTitle("Activate Playlist?")
-                    .setMessage(R.string.playlist_activation)
-                    .setCancelable(false)
-                    .setPositiveButton("Activate", (dialog, which) -> {
-                        // Continue with operation
-                        updateSelection(playlist);
-                        dialog.dismiss();
-                    })
-//                    .setNeutralButton("Edit", (dialog, which) -> {
-//                        Toast.makeText(mContext, "Work in progress!", Toast.LENGTH_SHORT).show();
-//                        dialog.dismiss();
-//                    })
-                    .setNegativeButton("Cancel", (dialog, which) -> {
-                        Log.d(TAG, "onClick: Cancelled Delete!");
-                        dialog.dismiss();
-                    })
-                    .create()
-                    .show();
+            if (isDualEnabled) {
+                // Dual mode: let user choose Home or Lock assignment
+                new MaterialAlertDialogBuilder(mContext)
+                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
+                        .setTitle(R.string.dual_playlist_assign_title)
+                        .setMessage(R.string.dual_playlist_assign_message)
+                        .setCancelable(false)
+                        .setPositiveButton(R.string.dual_playlist_home, (dialog, which) -> {
+                            updateHomeSelection(playlist);
+                            dialog.dismiss();
+                        })
+                        .setNeutralButton(R.string.dual_playlist_lock, (dialog, which) -> {
+                            updateLockSelection(playlist);
+                            dialog.dismiss();
+                        })
+                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.dismiss())
+                        .create()
+                        .show();
+            } else {
+                // Single mode: existing flow
+                new MaterialAlertDialogBuilder(mContext)
+                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
+                        .setTitle("Activate Playlist?")
+                        .setMessage(R.string.playlist_activation)
+                        .setCancelable(false)
+                        .setPositiveButton("Activate", (dialog, which) -> {
+                            updateSelection(playlist);
+                            dialog.dismiss();
+                        })
+                        .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                        .create()
+                        .show();
+            }
         }
 
         @Override
@@ -138,13 +155,23 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         String coverImage = playlist.coverImage;
 
         String currentPlaylist = prefs.getString("current_playlist", PLAYLIST_NONE);
+        String currentLockPlaylist = prefs.getString(PREF_LOCK_PLAYLIST, PLAYLIST_NONE);
+        boolean isDualEnabled = prefs.getBoolean(PREF_DUAL_PLAYLIST_ENABLED, false);
         int wallpaperType = prefs.getInt("type", TYPE_SINGLE);
 
-        // Handle active playlist selection overlay
+        // Home active badge
         if (wallpaperType == TYPE_SLIDESHOW && currentPlaylist.equals(playlist.playlistId)) {
             holder.activeBadge.setVisibility(View.VISIBLE);
         } else {
             holder.activeBadge.setVisibility(View.GONE);
+        }
+
+        // Lock badge — only shown when dual mode is enabled
+        if (isDualEnabled && !currentLockPlaylist.equals(PLAYLIST_NONE)
+                && currentLockPlaylist.equals(playlist.playlistId)) {
+            holder.lockBadge.setVisibility(View.VISIBLE);
+        } else {
+            holder.lockBadge.setVisibility(View.GONE);
         }
 
         // Format creation date for display
@@ -167,7 +194,6 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
                 .priority(Priority.HIGH);
 
         if (coverImage != null) {
-            // Load Thumbnail from Local Storage
             holder.progressIndicator.setVisibility(View.INVISIBLE);
             holder.thumbIv.setVisibility(View.VISIBLE);
             Glide.with(holder.thumbIv.getContext())
@@ -194,9 +220,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
 
 
     private void updateSelection(Playlist playlist) {
-
         if (!playlistId.equals(playlist.playlistId)) {
-
             editor.putInt("type", TYPE_SLIDESHOW);
             editor.putString("local_wallpaper_path", WALLPAPER_NONE);
             editor.putBoolean("double_tap", true);
@@ -209,9 +233,25 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         } else {
             Toast.makeText(mContext, "Playlist already activated!", Toast.LENGTH_SHORT).show();
         }
-
     }
 
+    /** Dual-mode: assign playlist to Home screen slideshow (same as updateSelection). */
+    private void updateHomeSelection(Playlist playlist) {
+        updateSelection(playlist);
+    }
+
+    /** Dual-mode: assign playlist to Lock screen slideshow. */
+    private void updateLockSelection(Playlist playlist) {
+        String currentLock = prefs.getString(PREF_LOCK_PLAYLIST, PLAYLIST_NONE);
+        if (!currentLock.equals(playlist.playlistId)) {
+            editor.putString(PREF_LOCK_PLAYLIST, playlist.playlistId);
+            if (editor.commit()) {
+                notifyDataSetChanged();
+            }
+        } else {
+            Toast.makeText(mContext, mContext.getString(R.string.dual_playlist_already_lock), Toast.LENGTH_SHORT).show();
+        }
+    }
 
     public void addPlaylists(List<Playlist> list) {
         mAllPlaylist.addAll(list);

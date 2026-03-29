@@ -93,4 +93,23 @@
     <!-- Change on screen wake -->
     <string name="change_on_screen_on_header">Change On Screen Wake</string>
     <string name="change_on_screen_on_subheader">Advance slideshow each time screen turns on</string>
+
+    <!-- Dual Playlist (separate home / lock screen playlists) -->
+    <string name="dual_playlist_header">Dual Playlist Mode</string>
+    <string name="dual_playlist_subheader">Use separate playlists for Home and Lock screen</string>
+    <string name="dual_playlist_assign_title">Assign Playlist</string>
+    <string name="dual_playlist_assign_message">Assign this playlist to the Home screen slideshow or the Lock screen slideshow?</string>
+    <string name="dual_playlist_home">Home Screen</string>
+    <string name="dual_playlist_lock">Lock Screen</string>
+    <string name="dual_playlist_already_home">Already set as Home screen playlist!</string>
+    <string name="dual_playlist_already_lock">Already set as Lock screen playlist!</string>
+    <string name="active_home">HOME</string>
+    <string name="active_lock">LOCK</string>
+    <!-- Wallpaper assignment status (shown in ActivateFragment) -->
+    <string name="wallpaper_status_title">CURRENT ASSIGNMENT</string>
+    <string name="wallpaper_status_home_active">🏠 Home  ✓</string>
+    <string name="wallpaper_status_home_inactive">🏠 Home  ✗</string>
+    <string name="wallpaper_status_lock_active">🔒 Lock  ✓</string>
+    <string name="wallpaper_status_lock_inactive">🔒 Lock  ✗</string>
+    <string name="wallpaper_status_lock_same_as_home">🔒 Lock  (same as home)</string>
 </resources>

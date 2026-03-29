@@ -310,6 +310,17 @@
                     app:hasSwitch="true" />
 
                 <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/dualPlaylistCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:animateLayoutChanges="true"
+                    android:visibility="gone"
+                    app:cardIcon="@drawable/slideshow_24dp"
+                    app:cardHeader="@string/dual_playlist_header"
+                    app:cardSubHeader="@string/dual_playlist_subheader"
+                    app:hasSwitch="true" />
+
+                <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card3ID"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"

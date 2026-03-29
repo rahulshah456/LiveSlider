@@ -45,6 +45,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var intervalCard: SettingsCardView? = null
     private var doubleTapCard: SettingsCardView? = null
     private var changeOnUnlockCard: SettingsCardView? = null
+    private var dualPlaylistCard: SettingsCardView? = null
     private var powerSaverCard: SettingsCardView? = null
     private var scrollCard: SettingsCardView? = null
     private var backButton: CardView? = null
@@ -121,6 +122,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         intervalCard = findViewById(R.id.card3ID)
         doubleTapCard = findViewById(R.id.card4ID)
         changeOnUnlockCard = findViewById(R.id.changeOnUnlockCard)
+        dualPlaylistCard = findViewById(R.id.dualPlaylistCard)
 
         faceText = findViewById<TextView>(R.id.face)
 
@@ -151,6 +153,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         slideshowCard?.isSwitchChecked = prefs?.getBoolean("slideshow", false) ?: false
         doubleTapCard?.isSwitchChecked = prefs?.getBoolean("double_tap", false) ?: false
         changeOnUnlockCard?.isSwitchChecked = prefs?.getBoolean("change_on_unlock", false) ?: false
+        dualPlaylistCard?.isSwitchChecked = prefs?.getBoolean(Constant.PREF_DUAL_PLAYLIST_ENABLED, false) ?: false
         powerSaverCard?.isSwitchChecked = prefs?.getBoolean("power_saver", true) ?: true
         scrollCard?.isSwitchChecked = prefs?.getBoolean("scroll", true) ?: true
 
@@ -271,6 +274,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         changeOnUnlockCard?.setOnSwitchChangeListener(this)
 
+        dualPlaylistCard?.setOnSwitchChangeListener(this)
+
         transitionEffectCard?.setOnCardClickListener(this)
 
         animationSpeedCard?.setOnCardClickListener(this)
@@ -377,6 +382,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             editor?.putBoolean("double_tap", isChecked)
         } else if (id == R.id.changeOnUnlockCard) {
             editor?.putBoolean("change_on_unlock", isChecked)
+        } else if (id == R.id.dualPlaylistCard) {
+            editor?.putBoolean(Constant.PREF_DUAL_PLAYLIST_ENABLED, isChecked)
         } else if (id == R.id.card1ID) {
             editor?.putBoolean("scroll", isChecked)
         }
@@ -396,6 +403,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         intervalCard?.visibility = visibility
         doubleTapCard?.visibility = visibility
         changeOnUnlockCard?.visibility = visibility
+        dualPlaylistCard?.visibility = visibility
     }
 
     private fun updateIntervalText(timeInMillis: Long) {

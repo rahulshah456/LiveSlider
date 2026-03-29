@@ -62,6 +62,10 @@ public class Constant {
     public static final String WORKER_KEY_PLAYLIST_ID = "playlist_id";
     public static final String PREF_CHANGE_ON_UNLOCK  = "change_on_unlock";
 
+    // Dual playlist (separate home / lock screen playlists)
+    public static final String PREF_DUAL_PLAYLIST_ENABLED = "dual_playlist_enabled";
+    public static final String PREF_LOCK_PLAYLIST          = "lock_playlist";
+
 
 
     public enum StorageState {NOT_AVAILABLE, WRITEABLE, READ_ONLY}
