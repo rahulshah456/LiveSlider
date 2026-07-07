@@ -5,11 +5,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-
     <LinearLayout
+        android:id="@+id/active_controls"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -21,7 +22,6 @@
             android:layout_height="@dimen/activate_button_size"
             android:layout_marginTop="@dimen/activate_button_margin_top"
             app:cardBackgroundColor="@color/white_mod"
-            android:text="@string/activate"
             app:strokeWidth="5dp"
             app:strokeColor="#AAA"
             app:cardCornerRadius="@dimen/activate_button_size">
@@ -70,6 +70,80 @@
 
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/inactive_controls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
+        <TextView
+            android:id="@+id/activate_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/montserrat"
+            android:text="@string/introduction1"
+            android:textColor="@android:color/white"
+            android:textSize="36sp" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/activate_button"
+            android:layout_width="@dimen/activate_button_size"
+            android:layout_height="@dimen/activate_button_size"
+            android:layout_marginTop="@dimen/activate_button_margin_top"
+            app:cardBackgroundColor="@color/white_mod"
+            app:strokeWidth="5dp"
+            app:strokeColor="#AAAAAA"
+            app:cardCornerRadius="@dimen/activate_button_size"
+            app:cardElevation="6dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:id="@+id/activateButtonIcon"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:src="@drawable/ic_nav_activate"
+                    app:tint="#222222"
+                    android:contentDescription="@string/activate" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/activateButtonLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/activate"
+                    android:textAlignment="center"
+                    android:fontFamily="@font/montserrat"
+                    android:textColor="#000"
+                    android:textSize="13sp" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/activateHintText"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:fontFamily="@font/montserrat"
+            android:text="@string/activate_hint_default"
+            android:textAlignment="center"
+            android:textColor="@android:color/white"
+            android:textSize="11sp"
+            android:alpha="0.65"
+            android:lineSpacingMultiplier="1.3" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

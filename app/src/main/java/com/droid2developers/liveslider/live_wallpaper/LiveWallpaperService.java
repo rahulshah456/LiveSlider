@@ -1,6 +1,8 @@
 package com.droid2developers.liveslider.live_wallpaper;
 
 import android.annotation.SuppressLint;
+import android.app.WallpaperInfo;
+import android.app.WallpaperManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +12,7 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -39,6 +42,30 @@ public class LiveWallpaperService extends GLWallpaperService {
     @Override
     public Engine onCreateEngine() {
         return new ParallaxEngine();
+    }
+
+    /**
+     * Override in subclasses to use a different SharedPreferences file.
+     */
+    protected SharedPreferences getEnginePrefs() {
+        return PreferenceManager.getDefaultSharedPreferences(this);
+    }
+
+    /**
+     * Override in subclasses to provide a different fallback wallpaper asset path.
+     */
+    protected String getDefaultWallpaperPath() {
+        return DEFAULT_LOCAL_PATH;
+    }
+
+    /**
+     * Returns true when this service is running as the lock-screen wallpaper.
+     * Overridden in {@link LockLiveWallpaperService}.
+     * Used to route screen-wake advances correctly: lock advances on ACTION_SCREEN_ON,
+     * home advances on ACTION_USER_PRESENT so it fires only when home is visible.
+     */
+    protected boolean isLockScreenService() {
+        return false;
     }
 
     class ParallaxEngine extends GLEngine implements LiveWallpaperRenderer.Callbacks,
@@ -95,7 +122,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             
             // Shared Preferences initialization (must happen BEFORE setRenderer so that
             // onSurfaceChanged / onDrawFrame sees the correct path and isDefault flag)
-            prefs = PreferenceManager.getDefaultSharedPreferences(LiveWallpaperService.this);
+            prefs = getEnginePrefs();
             prefs.registerOnSharedPreferenceChangeListener(this);
             editor = prefs.edit();
 
@@ -107,7 +134,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             // isDefaultWallpaper==false, causing a failed load that falls back to the
             // built-in default wallpaper and ignores the user's saved selection.
             renderer.setIsDefaultWallpaper(prefs.getBoolean("default_wallpaper", true));
-            renderer.setLocalWallpaperPath(prefs.getString("local_wallpaper_path", DEFAULT_LOCAL_PATH));
+            renderer.setLocalWallpaperPath(prefs.getString("local_wallpaper_path", getDefaultWallpaperPath()));
             renderer.setWallpaperType(prefs.getInt("type", TYPE_SINGLE));
 
             setRenderer(renderer);
@@ -145,19 +172,17 @@ public class LiveWallpaperService extends GLWallpaperService {
             screenOnReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    // Check keyguard state first: if device has no lock screen the device
-                    if (isDualPlaylistEnabled && !lockPlaylistWallpapers.isEmpty()) {
-                        // Feature 2: advance lock playlist and display it on screen wake
-                        boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                        renderer.refreshWallpaperFresh(path, isDefault);
-                        Log.d(TAG, "screenOnReceiver: dual mode — lock image " + lockImagesArrayIndex);
-                    } else if (!isDualPlaylistEnabled && isSlideShowEnabled && changeOnUnlock
-                            && isSetAsHomeLiveWallpaper()) {
-                        // Feature 1: advance main slideshow on screen wake.
-                        Log.d(TAG, "screenOnReceiver: screen on — advancing slideshow");
-                        incrementWallpaper();
-                        changeWallpaper();
+                    if (isLockScreenService()) {
+                        // Lock service: screen turning ON = lock screen appears = advance now.
+                        if (isSlideShowEnabled && !playlistWallpapers.isEmpty()) {
+                            incrementWallpaper();
+                            changeWallpaper();
+                            Log.d(TAG, "screenOnReceiver: lock service — advanced to " + mImagesArrayIndex);
+                        }
                     }
+                    // Home service: do NOT advance here. ACTION_SCREEN_ON fires before the home
+                    // screen is even visible (lock screen may still be showing). We advance in
+                    // userPresentReceiver (ACTION_USER_PRESENT) which fires only when home is live.
                 }
             };
             registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
@@ -166,19 +191,29 @@ public class LiveWallpaperService extends GLWallpaperService {
             userPresentReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    } else if (isSlideShowEnabled && changeOnUnlock) {
-                        // Feature 1: advance main slideshow on screen wake
-                        String path = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
-                        boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                        renderer.refreshWallpaperFresh(path, isDefault);
-                        Log.d(TAG, "userPresentReceiver: dual mode — home image " + mImagesArrayIndex);
+                    if (isLockScreenService()) {
+                        // Home screen is now live — lock service has nothing to do.
+                        return;
+                    }
+                    // Home service: user just unlocked → home screen is now visible.
+                    // Advance the slideshow here (not in screenOnReceiver) so the change
+                    // is always seen by the user and is never double-counted.
+                    if (isSlideShowEnabled && changeOnUnlock && !playlistWallpapers.isEmpty()) {
+                        incrementWallpaper();
+                        changeWallpaper();
+                        Log.d(TAG, "userPresentReceiver: home service — advanced to " + mImagesArrayIndex);
                     }
                 }
             };
             registerReceiver(userPresentReceiver, new IntentFilter(Intent.ACTION_USER_PRESENT));
 
             // Feature 2 — initialise dual playlist from saved prefs
-                    if (isDualPlaylistEnabled && !playlistWallpapers.isEmpty()) {
+            isDualPlaylistEnabled = prefs.getBoolean(PREF_DUAL_PLAYLIST_ENABLED, false);
+            setLockPlaylist(prefs.getString(PREF_LOCK_PLAYLIST, PLAYLIST_NONE));
+        }
+
+        @Override
+        public void onDestroy() {
             // Unregister this as listener
             Log.d(TAG, "onDestroy: ");
             rotationSensor.unregister();
@@ -207,17 +242,23 @@ public class LiveWallpaperService extends GLWallpaperService {
                 if (visible) {
                     rotationSensor.register();
                     renderer.startTransition();
-                    if (isSlideShowEnabled){
-                        if (systemTime() - timeStarted + 100 < timer) {
-                            // left over timer
+                    if (isSlideShowEnabled) {
+                        if (changeOnUnlock || isLockScreenService()) {
+                            // Advances are driven by screen-on / user-present receivers.
+                            // Here we only (re)start the periodic slideshow timer so that
+                            // timed changes still work normally while the screen is on.
+                            handler.removeCallbacks(slideshow);
+                            handler.postDelayed(slideshow, timer);
+                            timeStarted = systemTime();
+                        } else if (systemTime() - timeStarted + 100 < timer) {
+                            // Resume with whatever time was left before screen went off.
                             handler.postDelayed(slideshow, timer - (systemTime() - timeStarted));
                         } else {
-                            // otherwise draw a new one since it's time for a new one
+                            // Timer already expired while screen was off — advance now.
                             incrementWallpaper();
                             changeWallpaper();
                         }
                     }
-
                 } else {
                     rotationSensor.unregister();
                     handler.removeCallbacks(slideshow);
@@ -293,9 +334,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                     setPowerSaverEnabled(sharedPreferences.getBoolean(key, true));
                     break;
                 case "refresh_wallpaper":
-                    String localWallpaperPath = sharedPreferences.getString("local_wallpaper_path",DEFAULT_LOCAL_PATH);
+                    String localWallpaperPath = sharedPreferences.getString("local_wallpaper_path", getDefaultWallpaperPath());
                     boolean isDefault = sharedPreferences.getBoolean("default_wallpaper", true);
-                    renderer.refreshWallpaperFresh(localWallpaperPath,isDefault);
+                    renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
                     break;
                 case "type":
                     renderer.setWallpaperType(sharedPreferences.getInt(key, TYPE_SINGLE));
@@ -444,13 +485,32 @@ public class LiveWallpaperService extends GLWallpaperService {
 
         /**
          * Returns true if this live wallpaper is currently displayed on the LOCK screen.
-         *
-         * API 34+ : {@link WallpaperManager#getWallpaperInfo(int)} with {@link WallpaperManager#FLAG_LOCK}
-         *           is a public method in API 36 (confirmed from SDK source).  We guard with
-         *           {@code >= UPSIDE_DOWN_CAKE} and wrap in try-catch in case the method is not
-         *           yet present on an API 34/35 device's firmware build.
-                    });
+         * API 34+: uses WallpaperManager#getWallpaperInfo(FLAG_LOCK) if available.
+         */
+        private boolean isSetAsLockLiveWallpaper() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                try {
+                    WallpaperInfo lockInfo = WallpaperManager.getInstance(getApplicationContext())
+                            .getWallpaperInfo(WallpaperManager.FLAG_LOCK);
+                    if (lockInfo != null && lockInfo.getPackageName().equals(getPackageName())) return true;
+                    return lockInfo == null && isSetAsHomeLiveWallpaper();
+                } catch (Throwable t) {
+                    return isSetAsHomeLiveWallpaper();
                 }
+            }
+            return isSetAsHomeLiveWallpaper();
+        }
+
+        void setLockPlaylist(String playlistId) {
+            if (lockPlaylistId.equals(playlistId)) return;
+            this.lockPlaylistId = playlistId;
+            if (!playlistId.equals(PLAYLIST_NONE)) {
+                lockRepository = new WallpaperRepository(getApplicationContext());
+                lockRepository.getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
+                    Log.d(TAG, "setLockPlaylist: " + wallpaperList.size());
+                    lockImagesArrayIndex = 0;
+                    lockPlaylistWallpapers = wallpaperList;
+                });
             } else {
                 lockPlaylistWallpapers = new ArrayList<>();
             }
@@ -477,12 +537,12 @@ public class LiveWallpaperService extends GLWallpaperService {
                 if (isVisible()){
                     handler.postDelayed(slideshow, timer);
                     timeStarted = systemTime();
-                } 
+                }
             } else {
                 Log.d(TAG, "changeWallpaper: empty playlistWallpapers!");
             }
-            
-            
+
+
         }
         private long systemTime() {
             return System.nanoTime() / 1000000;

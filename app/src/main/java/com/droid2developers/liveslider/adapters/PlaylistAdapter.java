@@ -1,7 +1,10 @@
 package com.droid2developers.liveslider.adapters;
 
 import android.annotation.SuppressLint;
+import android.app.WallpaperInfo;
+import android.app.WallpaperManager;
 import android.content.Context;
+import android.os.Build;
 import android.content.SharedPreferences;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -39,7 +42,7 @@ import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SLIDESHOW;
 import static com.droid2developers.liveslider.utils.Constant.WALLPAPER_NONE;
 import static com.droid2developers.liveslider.utils.Constant.PREF_DUAL_PLAYLIST_ENABLED;
-import static com.droid2developers.liveslider.utils.Constant.PREF_LOCK_PLAYLIST;
+import static com.droid2developers.liveslider.utils.Constant.PREFS_LOCK;
 
 public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyViewHolder> {
 
@@ -49,15 +52,24 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     private String playlistId;
     private final SharedPreferences prefs;
     private final SharedPreferences.Editor editor;
+    /** Isolated prefs for LockLiveWallpaperService — written here, read by the lock engine. */
+    private final SharedPreferences lockPrefs;
     private final Context mContext;
+    private boolean isLockMode;
 
 
     @SuppressLint("CommitPrefEdits")
-    public PlaylistAdapter(Context mContext, String playlistId) {
+    public PlaylistAdapter(Context mContext, String playlistId, boolean isLockMode) {
         this.mContext = mContext;
         this.playlistId = playlistId;
-        prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-        editor = prefs.edit();
+        this.isLockMode = isLockMode;
+        if (isLockMode) {
+            prefs = mContext.getSharedPreferences(PREFS_LOCK, Context.MODE_PRIVATE);
+        } else {
+            prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
+        }
+        editor    = prefs.edit();
+        lockPrefs = mContext.getSharedPreferences(PREFS_LOCK, Context.MODE_PRIVATE);
     }
 
 
@@ -96,41 +108,47 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         @Override
         public void onClick(View view) {
             Playlist playlist = getItemList().get(getLayoutPosition());
-            boolean isDualEnabled = prefs.getBoolean(PREF_DUAL_PLAYLIST_ENABLED, false);
 
-            if (isDualEnabled) {
-                // Dual mode: let user choose Home or Lock assignment
-                new MaterialAlertDialogBuilder(mContext)
-                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
-                        .setTitle(R.string.dual_playlist_assign_title)
-                        .setMessage(R.string.dual_playlist_assign_message)
-                        .setCancelable(false)
-                        .setPositiveButton(R.string.dual_playlist_home, (dialog, which) -> {
-                            updateHomeSelection(playlist);
-                            dialog.dismiss();
-                        })
-                        .setNeutralButton(R.string.dual_playlist_lock, (dialog, which) -> {
-                            updateLockSelection(playlist);
-                            dialog.dismiss();
-                        })
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.dismiss())
-                        .create()
-                        .show();
+            WallpaperManager wm = WallpaperManager.getInstance(mContext);
+            String pkg = mContext.getPackageName();
+
+            if (isLockMode) {
+                boolean isActiveOnLock;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    try {
+                        WallpaperInfo lockInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK);
+                        isActiveOnLock = lockInfo != null && lockInfo.getPackageName().equals(pkg);
+                    } catch (Throwable t) {
+                        isActiveOnLock = false;
+                    }
+                } else {
+                    isActiveOnLock = wm.getWallpaperInfo() != null && wm.getWallpaperInfo().getPackageName().equals(pkg);
+                }
+
+                if (!isActiveOnLock) {
+                    showActivationDialog();
+                    return;
+                }
+                updateLockSelection(playlist);
+
             } else {
-                // Single mode: existing flow
-                new MaterialAlertDialogBuilder(mContext)
-                        .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
-                        .setTitle("Activate Playlist?")
-                        .setMessage(R.string.playlist_activation)
-                        .setCancelable(false)
-                        .setPositiveButton("Activate", (dialog, which) -> {
-                            updateSelection(playlist);
-                            dialog.dismiss();
-                        })
-                        .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
-                        .create()
-                        .show();
+                WallpaperInfo homeInfo = wm.getWallpaperInfo();
+                boolean isActiveOnHome = homeInfo != null && homeInfo.getPackageName().equals(pkg);
+
+                if (!isActiveOnHome) {
+                    showActivationDialog();
+                    return;
+                }
+                updateHomeSelection(playlist);
             }
+        }
+
+        private void showActivationDialog() {
+            new MaterialAlertDialogBuilder(mContext)
+                    .setTitle(R.string.activate_not_live_title)
+                    .setMessage(R.string.activate_not_live_msg)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
         }
 
         @Override
@@ -154,24 +172,31 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         Playlist playlist = mAllPlaylist.get(position);
         String coverImage = playlist.coverImage;
 
-        String currentPlaylist = prefs.getString("current_playlist", PLAYLIST_NONE);
-        String currentLockPlaylist = prefs.getString(PREF_LOCK_PLAYLIST, PLAYLIST_NONE);
-        boolean isDualEnabled = prefs.getBoolean(PREF_DUAL_PLAYLIST_ENABLED, false);
-        int wallpaperType = prefs.getInt("type", TYPE_SINGLE);
+        String currentPlaylist     = prefs.getString("current_playlist", PLAYLIST_NONE);
+        String currentLockPlaylist = lockPrefs.getString("current_playlist", PLAYLIST_NONE);
+        int wallpaperType          = prefs.getInt("type", TYPE_SINGLE);
 
-        // Home active badge
-        if (wallpaperType == TYPE_SLIDESHOW && currentPlaylist.equals(playlist.playlistId)) {
-            holder.activeBadge.setVisibility(View.VISIBLE);
-        } else {
+        if (isLockMode) {
+            // In Lock mode, emphasize the lock badge
             holder.activeBadge.setVisibility(View.GONE);
-        }
-
-        // Lock badge — only shown when dual mode is enabled
-        if (isDualEnabled && !currentLockPlaylist.equals(PLAYLIST_NONE)
-                && currentLockPlaylist.equals(playlist.playlistId)) {
-            holder.lockBadge.setVisibility(View.VISIBLE);
+            if (wallpaperType == TYPE_SLIDESHOW && currentPlaylist.equals(playlist.playlistId)) {
+                holder.lockBadge.setVisibility(View.VISIBLE);
+            } else {
+                holder.lockBadge.setVisibility(View.GONE);
+            }
         } else {
-            holder.lockBadge.setVisibility(View.GONE);
+            // In Home mode, emphasize the home badge
+            if (wallpaperType == TYPE_SLIDESHOW && currentPlaylist.equals(playlist.playlistId)) {
+                holder.activeBadge.setVisibility(View.VISIBLE);
+            } else {
+                holder.activeBadge.setVisibility(View.GONE);
+            }
+            // Still show lock badge if active on lock
+            if (!currentLockPlaylist.equals(PLAYLIST_NONE) && currentLockPlaylist.equals(playlist.playlistId)) {
+                holder.lockBadge.setVisibility(View.VISIBLE);
+            } else {
+                holder.lockBadge.setVisibility(View.GONE);
+            }
         }
 
         // Format creation date for display
@@ -229,6 +254,9 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
             if (editor.commit()) {
                 playlistId = playlist.playlistId;
                 notifyDataSetChanged();
+                if (isLockMode) {
+                    Toast.makeText(mContext, "Lock screen playlist updated!", Toast.LENGTH_SHORT).show();
+                }
             }
         } else {
             Toast.makeText(mContext, "Playlist already activated!", Toast.LENGTH_SHORT).show();
@@ -240,17 +268,11 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         updateSelection(playlist);
     }
 
-    /** Dual-mode: assign playlist to Lock screen slideshow. */
+    /**
+     * Dual-mode: assign playlist to the Lock screen.
+     */
     private void updateLockSelection(Playlist playlist) {
-        String currentLock = prefs.getString(PREF_LOCK_PLAYLIST, PLAYLIST_NONE);
-        if (!currentLock.equals(playlist.playlistId)) {
-            editor.putString(PREF_LOCK_PLAYLIST, playlist.playlistId);
-            if (editor.commit()) {
-                notifyDataSetChanged();
-            }
-        } else {
-            Toast.makeText(mContext, mContext.getString(R.string.dual_playlist_already_lock), Toast.LENGTH_SHORT).show();
-        }
+        updateSelection(playlist);
     }
 
     public void addPlaylists(List<Playlist> list) {

@@ -1,10 +1,13 @@
 package com.droid2developers.liveslider.adapters;
 
 import android.annotation.SuppressLint;
+import android.app.WallpaperInfo;
+import android.app.WallpaperManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Build;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,6 +35,7 @@ import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SLIDESHOW;
+import static com.droid2developers.liveslider.utils.Constant.PREFS_LOCK;
 
 public class WallpapersListAdapter extends RecyclerView.Adapter<WallpapersListAdapter.MyViewHolder> {
 
@@ -42,13 +46,19 @@ public class WallpapersListAdapter extends RecyclerView.Adapter<WallpapersListAd
     private SharedPreferences prefs;
     private SharedPreferences.Editor editor;
     private Context mContext;
+    private boolean isLockMode;
 
 
     @SuppressLint("CommitPrefEdits")
-    public WallpapersListAdapter(Context mContext, String localWallpaperPath) {
+    public WallpapersListAdapter(Context mContext, String localWallpaperPath, boolean isLockMode) {
         this.mContext = mContext;
         this.localWallpaperPath = localWallpaperPath;
-        prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
+        this.isLockMode = isLockMode;
+        if (isLockMode) {
+            prefs = mContext.getSharedPreferences(Constant.PREFS_LOCK, Context.MODE_PRIVATE);
+        } else {
+            prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
+        }
         editor = prefs.edit();
     }
 
@@ -78,37 +88,73 @@ public class WallpapersListAdapter extends RecyclerView.Adapter<WallpapersListAd
 
         @Override
         public void onClick(View view) {
-
             LocalWallpaper wallpaper = getItemList().get(getLayoutPosition());
-            boolean isSlideShow = prefs.getBoolean("slideshow",false);
-            int wallpaperType = prefs.getInt("type",TYPE_SINGLE);
+            boolean isSlideShow = prefs.getBoolean("slideshow", false);
+            int wallpaperType = prefs.getInt("type", TYPE_SINGLE);
 
-            if (isSlideShow || wallpaperType == TYPE_SLIDESHOW){
+            // If currently in slideshow mode, warn before switching to single
+            if (isSlideShow || wallpaperType == TYPE_SLIDESHOW) {
                 new MaterialAlertDialogBuilder(mContext)
                         .setIcon(ResourcesCompat.getDrawable(mContext.getResources(), R.drawable.error_24dp, null))
                         .setTitle("Change Wallpaper?")
                         .setMessage(R.string.single_wallpaper_alert)
                         .setCancelable(false)
-                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                // Continue with operation
-                                updateSelection(wallpaper);
-                                dialog.dismiss();
-                            }
+                        .setPositiveButton("Confirm", (dialog, which) -> {
+                            dispatchActivation(wallpaper);
+                            dialog.dismiss();
                         })
-                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                Log.d(TAG, "onClick: Cancelled Delete!");
-                                dialog.dismiss();
-                            }
-                        })
+                        .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
                         .create()
                         .show();
             } else {
+                dispatchActivation(wallpaper);
+            }
+        }
+
+        /** Checks which surfaces are live, then activates on the correct surface(s). */
+        private void dispatchActivation(LocalWallpaper wallpaper) {
+            WallpaperManager wm = WallpaperManager.getInstance(mContext);
+            String pkg = mContext.getPackageName();
+
+            if (isLockMode) {
+                // If in Lock Mode, only check for Lock Screen service
+                boolean isActiveOnLock;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    try {
+                        WallpaperInfo lockInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK);
+                        isActiveOnLock = lockInfo != null && lockInfo.getPackageName().equals(pkg);
+                    } catch (Throwable t) {
+                        isActiveOnLock = false;
+                    }
+                } else {
+                    isActiveOnLock = wm.getWallpaperInfo() != null && wm.getWallpaperInfo().getPackageName().equals(pkg);
+                }
+
+                if (!isActiveOnLock) {
+                    showActivationDialog();
+                    return;
+                }
+                updateLockSelection(wallpaper);
+
+            } else {
+                // If in Home Mode, only check for Home Screen service
+                WallpaperInfo homeInfo = wm.getWallpaperInfo();
+                boolean isActiveOnHome = homeInfo != null && homeInfo.getPackageName().equals(pkg);
+
+                if (!isActiveOnHome) {
+                    showActivationDialog();
+                    return;
+                }
                 updateSelection(wallpaper);
             }
+        }
+
+        private void showActivationDialog() {
+            new MaterialAlertDialogBuilder(mContext)
+                    .setTitle(R.string.activate_not_live_title)
+                    .setMessage(R.string.activate_not_live_msg)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
         }
 
         @Override
@@ -193,10 +239,20 @@ public class WallpapersListAdapter extends RecyclerView.Adapter<WallpapersListAd
             if (editor.commit()){
                 localWallpaperPath = wallpaper.getLocalPath();
                 notifyDataSetChanged();
+                if (isLockMode) {
+                    Toast.makeText(mContext, "Lock screen wallpaper updated!", Toast.LENGTH_SHORT).show();
+                }
             }
         } else {
             Toast.makeText(mContext, "Wallpaper already selected!", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /** Assigns this single wallpaper to the lock screen slot (LockLiveWallpaperService). */
+    private void updateLockSelection(LocalWallpaper wallpaper) {
+        // This is now redundant if isLockMode is true, as updateSelection will use the correct editor.
+        // But we'll keep it for cases where we might want to update lock from home (though user said remove it).
+        updateSelection(wallpaper);
     }
 
     public void addWallpapers(List<LocalWallpaper> list){

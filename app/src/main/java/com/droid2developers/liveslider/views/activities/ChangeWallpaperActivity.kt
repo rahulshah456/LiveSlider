@@ -16,6 +16,7 @@ import com.droid2developers.liveslider.viewmodel.PlaylistViewModel
 import com.droid2developers.liveslider.viewmodel.WallpaperViewModel
 import com.droid2developers.liveslider.views.fragments.SingleFragment
 import com.droid2developers.liveslider.views.fragments.SlideshowFragment
+import com.droid2developers.liveslider.utils.Constant.EXTRA_IS_LOCK_MODE
 import com.google.android.material.tabs.TabLayout
 
 class ChangeWallpaperActivity : AppCompatActivity() {
@@ -30,6 +31,8 @@ class ChangeWallpaperActivity : AppCompatActivity() {
         // Handle system bars and display cutouts
         setupSystemBarsAndCutouts()
 
+        val isLockMode = intent.getBooleanExtra(EXTRA_IS_LOCK_MODE, false)
+
         // Initializing ViewModels
         val wallpaperViewModel =
             ViewModelProvider(this)[WallpaperViewModel::class.java]
@@ -42,8 +45,8 @@ class ChangeWallpaperActivity : AppCompatActivity() {
         val tabLayout = findViewById<TabLayout>(R.id.tabLayoutId)
 
         // Adding required fragments
-        tabAdapter.addFragment(SingleFragment(), "Single")
-        tabAdapter.addFragment(SlideshowFragment(), "Slideshow")
+        tabAdapter.addFragment(SingleFragment.newInstance(isLockMode), "Single")
+        tabAdapter.addFragment(SlideshowFragment.newInstance(isLockMode), "Slideshow")
 
         // Setting up final preview
         viewPager.adapter = tabAdapter

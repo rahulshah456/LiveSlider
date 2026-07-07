@@ -1,6 +1,7 @@
 package com.droid2developers.liveslider.views.fragments
 
 import android.annotation.SuppressLint
+import android.app.WallpaperManager
 import android.content.Context
 import android.content.DialogInterface
 import android.content.SharedPreferences
@@ -8,11 +9,13 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,8 +48,17 @@ class SingleFragment : Fragment(), OnSharedPreferenceChangeListener {
 
     companion object {
         private val TAG: String = SingleFragment::class.java.simpleName
+
+        fun newInstance(isLockMode: Boolean): SingleFragment {
+            val fragment = SingleFragment()
+            val args = Bundle()
+            args.putBoolean(Constant.EXTRA_IS_LOCK_MODE, isLockMode)
+            fragment.arguments = args
+            return fragment
+        }
     }
 
+    private var isLockMode = false
     private var editor: SharedPreferences.Editor? = null
     private var prefs: SharedPreferences? = null
     private var mRecyclerView: RecyclerView? = null
@@ -65,6 +77,8 @@ class SingleFragment : Fragment(), OnSharedPreferenceChangeListener {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_single, container, false)
+
+        isLockMode = arguments?.getBoolean(Constant.EXTRA_IS_LOCK_MODE) ?: false
 
         // View initializations
         mRecyclerView = view.findViewById(R.id.singleRecyclerId)
@@ -116,7 +130,8 @@ class SingleFragment : Fragment(), OnSharedPreferenceChangeListener {
         mRecyclerView?.layoutManager = GridLayoutManager(requireContext(), gridSize)
         listAdapter = WallpapersListAdapter(
             requireContext(),
-            prefs?.getString("local_wallpaper_path", Constant.DEFAULT_LOCAL_PATH)
+            prefs?.getString("local_wallpaper_path", Constant.DEFAULT_LOCAL_PATH),
+            isLockMode
         )
         mRecyclerView?.adapter = listAdapter
         mRecyclerView?.itemAnimator = DefaultItemAnimator()
@@ -241,11 +256,20 @@ class SingleFragment : Fragment(), OnSharedPreferenceChangeListener {
     }
 
 
+    override fun onResume() {
+        super.onResume()
+    }
+
     @SuppressLint("CommitPrefEdits")
     override fun onAttach(context: Context) {
         super.onAttach(context)
+        isLockMode = arguments?.getBoolean(Constant.EXTRA_IS_LOCK_MODE) ?: false
         if (prefs == null) {
-            prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            prefs = if (isLockMode) {
+                context.getSharedPreferences(Constant.PREFS_LOCK, Context.MODE_PRIVATE)
+            } else {
+                PreferenceManager.getDefaultSharedPreferences(context)
+            }
             editor = prefs?.edit()
         }
         prefs?.registerOnSharedPreferenceChangeListener(this)

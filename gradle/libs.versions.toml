@@ -24,6 +24,7 @@ kotlin = "2.0.20"
 lifecycleViewmodelKtxVersion = "2.8.6"
 work_version = "2.9.1"
 compressor_version="1.6.0"
+viewpager2 = "1.1.0"
 
 [libraries]
 commons-collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "commonsCollections4" }
@@ -52,6 +53,7 @@ room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomRuntime" }
 lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtxVersion" }
 workmanager-ktx = { group = "androidx.work", name="work-runtime-ktx", version.ref = "work_version" }
 compressor = { group="com.github.Shouheng88", name="compressor", version.ref = "compressor_version"}
+viewpager2 = { module = "androidx.viewpager2:viewpager2", version.ref = "viewpager2" }
 
 
 [plugins]

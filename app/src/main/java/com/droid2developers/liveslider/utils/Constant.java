@@ -10,8 +10,15 @@ public class Constant {
 
     public static final String HEADER = "wallpaper_";
     public static final String DEFAULT_WALLPAPER_NAME = "wallpaper_default.jpg";
+    public static final String DEFAULT_LOCK_WALLPAPER_NAME = "wallpaper_default_lock.jpg";
     private static final String ASSETS_PATH = "file:///android_asset/";
     public static final String DEFAULT_LOCAL_PATH = Constant.ASSETS_PATH + Constant.DEFAULT_WALLPAPER_NAME;
+    public static final String DEFAULT_LOCK_LOCAL_PATH = Constant.ASSETS_PATH + Constant.DEFAULT_LOCK_WALLPAPER_NAME;
+
+    // Tracks which surface the user intends to activate (stored briefly before launching chooser)
+    public static final String PREF_ACTIVATE_TARGET = "activate_target";
+    public static final String ACTIVATE_TARGET_HOME = "home";
+    public static final String ACTIVATE_TARGET_LOCK = "lock";
 
     //slideshow timer constants
     public static final long DEFAULT_SLIDESHOW_TIME = 15 * 60 * 1000;
@@ -65,6 +72,11 @@ public class Constant {
     // Dual playlist (separate home / lock screen playlists)
     public static final String PREF_DUAL_PLAYLIST_ENABLED = "dual_playlist_enabled";
     public static final String PREF_LOCK_PLAYLIST          = "lock_playlist";
+
+    /** SharedPreferences file name used exclusively by LockLiveWallpaperService. */
+    public static final String PREFS_LOCK = "prefs_lock";
+
+    public static final String EXTRA_IS_LOCK_MODE = "extra_is_lock_mode";
 
 
 

@@ -49,6 +49,13 @@
         <item name="buttonBarNegativeButtonStyle">@style/Widget.App.Button</item>
     </style>
 
+    <!-- Bottom navigation bar: Montserrat font -->
+    <style name="BottomNavTextAppearance" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:fontFamily">@font/montserrat</item>
+        <item name="fontFamily">@font/montserrat</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
     <style name="CustomMaterialSwitch" parent="Widget.Material3.CompoundButton.MaterialSwitch">
         <item name="trackTint">@color/switch_track_tint</item>
         <item name="trackDecorationTint">@color/material_dark_light</item>

@@ -82,4 +82,5 @@ dependencies {
     implementation libs.hmspickerview
     implementation libs.converter.gson
     implementation libs.compressor
+    implementation libs.viewpager2
 }

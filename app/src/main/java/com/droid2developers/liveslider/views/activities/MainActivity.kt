@@ -3,14 +3,18 @@ package com.droid2developers.liveslider.views.activities
 import android.app.WallpaperManager
 import android.os.Bundle
 import android.util.Log
+import android.view.ViewGroup.MarginLayoutParams
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.viewpager2.widget.ViewPager2
 import com.droid2developers.liveslider.R
-import com.droid2developers.liveslider.views.fragments.ActivateFragment
-import com.droid2developers.liveslider.views.fragments.HomeFragment
+import com.droid2developers.liveslider.views.activities.MainPagerAdapter.Companion.PAGE_HOME
+import com.droid2developers.liveslider.views.activities.MainPagerAdapter.Companion.PAGE_LOCK
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.card.MaterialCardView
 
 class MainActivity : AppCompatActivity() {
 
@@ -18,7 +22,9 @@ class MainActivity : AppCompatActivity() {
         val TAG: String = MainActivity::class.java.simpleName
     }
 
-    private var intro = false
+    private lateinit var viewPager: ViewPager2
+    private lateinit var bottomNav: BottomNavigationView
+    private lateinit var bottomNavCard: MaterialCardView
     private var manager: WallpaperManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,94 +35,92 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        // Handle system bars and display cutouts
-        setupSystemBarsAndCutouts()
-
         manager = WallpaperManager.getInstance(this)
 
+        viewPager    = findViewById(R.id.viewPager)
+        bottomNav    = findViewById(R.id.bottomNav)
+        bottomNavCard = findViewById(R.id.bottomNavCard)
+
+        setupViewPager()
+        setupBottomNav()
+        setupSystemBarsAndCutouts()
+
+        // Navigate to the sensible starting tab
         if (savedInstanceState == null) {
-            setupInitialFragment()
+            viewPager.setCurrentItem(PAGE_HOME, false)
         }
     }
 
-    /**
-     * Sets up proper handling of system bars and display cutouts/notches
-     * Following Android's modern edge-to-edge guidelines
-     */
-    private fun setupSystemBarsAndCutouts() {
-        val container = findViewById<android.widget.FrameLayout>(R.id.container)
+    // ──────────────────────────────────────────────────────────────────────────
+    // ViewPager2 + BottomNavigationView wiring
+    // ──────────────────────────────────────────────────────────────────────────
 
-        ViewCompat.setOnApplyWindowInsetsListener(container) { view, windowInsets ->
+    private fun setupViewPager() {
+        viewPager.adapter = MainPagerAdapter(this)
+        viewPager.offscreenPageLimit = 1          // keep both pages alive
+
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                val itemId = pageToMenuId(position)
+                if (bottomNav.selectedItemId != itemId) {
+                    bottomNav.selectedItemId = itemId
+                }
+            }
+        })
+    }
+
+    private fun setupBottomNav() {
+        bottomNav.setOnItemSelectedListener { item ->
+            val page = menuIdToPage(item.itemId)
+            if (page >= 0 && viewPager.currentItem != page) {
+                viewPager.setCurrentItem(page, true)
+            }
+            true
+        }
+    }
+
+    private fun pageToMenuId(page: Int) = when (page) {
+        PAGE_HOME                              -> R.id.nav_home
+        PAGE_LOCK                              -> R.id.nav_lock
+        else                                   -> R.id.nav_home
+    }
+
+    private fun menuIdToPage(itemId: Int) = when (itemId) {
+        R.id.nav_home     -> PAGE_HOME
+        R.id.nav_lock     -> PAGE_LOCK
+        else              -> -1
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Edge-to-edge inset handling
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private fun setupSystemBarsAndCutouts() {
+        ViewCompat.setOnApplyWindowInsetsListener(viewPager) { view, windowInsets ->
             val insets = windowInsets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or
                         WindowInsetsCompat.Type.displayCutout()
             )
-
-            // Apply padding to avoid system bars and cutouts
             view.updatePadding(
-                left = insets.left,
-                top = insets.top,
-                right = insets.right,
-                bottom = insets.bottom
+                left  = insets.left,
+                top   = insets.top,
+                right = insets.right
             )
+            Log.d(TAG, "Applied insets: l=${insets.left} t=${insets.top} r=${insets.right} b=${insets.bottom}")
+            windowInsets
+        }
 
-            Log.d(TAG, "Applied insets: left=${insets.left}, top=${insets.top}, right=${insets.right}, bottom=${insets.bottom}")
-
-            // Return the insets to continue propagation
+        // Push the floating card above the system navigation bar
+        ViewCompat.setOnApplyWindowInsetsListener(bottomNavCard) { view, windowInsets ->
+            val navBarHeight = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val params = view.layoutParams as MarginLayoutParams
+            // 24 dp base gap + navigation bar height
+            val baseDp = (24 * resources.displayMetrics.density).toInt()
+            params.bottomMargin = baseDp + navBarHeight
+            view.layoutParams = params
             windowInsets
         }
     }
 
-    private fun isWallpaperServiceActive(): Boolean {
-        val wallpaperInfo = manager?.wallpaperInfo
-        return wallpaperInfo != null && wallpaperInfo.packageName == this.packageName
-    }
-
-    private fun setupInitialFragment() {
-        val initialFragment = if (isWallpaperServiceActive()) {
-            intro = false
-            HomeFragment()
-        } else {
-            intro = true
-            ActivateFragment()
-        }
-
-        supportFragmentManager
-            .beginTransaction()
-            .setCustomAnimations(R.anim.fragment_enter, R.anim.fragment_exit)
-            .replace(R.id.container, initialFragment)
-            .commit()
-    }
-
-    public override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putBoolean("intro", intro)
-    }
-
-    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        super.onRestoreInstanceState(savedInstanceState)
-        intro = savedInstanceState.getBoolean("intro")
-    }
-
-    override fun onStart() {
-        super.onStart()
-        val isWallpaperActive = isWallpaperServiceActive()
-
-        if (intro && isWallpaperActive) {
-            supportFragmentManager
-                .beginTransaction()
-                .setCustomAnimations(R.anim.fragment_enter, R.anim.fragment_exit)
-                .replace(R.id.container, HomeFragment())
-                .commit()
-            intro = false
-        } else if (!intro && !isWallpaperActive) {
-            supportFragmentManager
-                .beginTransaction()
-                .setCustomAnimations(R.anim.fragment_enter, R.anim.fragment_exit)
-                .replace(R.id.container, ActivateFragment())
-                .commit()
-            intro = true
-        }
-    }
 
 }

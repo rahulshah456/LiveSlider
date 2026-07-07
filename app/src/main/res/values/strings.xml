@@ -2,6 +2,7 @@
 <resources>
 
     <string name="app_name">Live Slider</string>
+    <string name="app_name_lock">Live Slider — Lock Screen</string>
     <string name="toast_sensor_error">Sorry! This device does not support Rotation Vector Sensor.</string>
     <string name="toast_invalid_pic_path">Invalid picture path!</string>
     <string name="toast_failed_set_picture">Setting failed. Please retry!</string>
@@ -112,4 +113,24 @@
     <string name="wallpaper_status_lock_active">🔒 Lock  ✓</string>
     <string name="wallpaper_status_lock_inactive">🔒 Lock  ✗</string>
     <string name="wallpaper_status_lock_same_as_home">🔒 Lock  (same as home)</string>
+
+    <!-- Bottom navigation labels -->
+    <string name="nav_activate">Activate</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_lock">Lock Screen</string>
+
+    <!-- Two-button activation labels -->
+    <string name="activate_home">Home\nScreen</string>
+    <string name="activate_lock">Lock\nScreen</string>
+    <string name="activate_not_live_title">Live Wallpaper Not Active</string>
+    <string name="activate_not_live_msg">Please activate Live Slider as your live wallpaper first using the Activate tab.</string>
+
+    <!-- Single activate button hint text -->
+    <string name="activate_hint_default">Tap to set Live Slider as your Home Screen live wallpaper</string>
+    <string name="activate_hint_lock">Home screen is set.\nTap to also activate on the Lock Screen</string>
+    <string name="activate_hint_both">Live Slider is active on both Home &amp; Lock Screen ✓</string>
+    <string name="activate_label_lock">Activate\nLock Screen</string>
+    <string name="activate_label_active">Active ✓</string>
+
+    <!-- Profiles fragment placeholder -->
 </resources>

@@ -15,4 +15,8 @@
     <color name="switch_track_color">#80FFFFFF</color> <!-- semi-transparent white -->
     <color name="switch_thumb_color">@color/color_accent</color>
     <color name="switch_thumb_tint_disabled">#B0B0B0</color> <!-- accent color -->
+
+    <!-- Bottom navigation bar -->
+    <color name="bottom_nav_background">#E0232323</color>
+    <color name="bottom_nav_indicator">#3300809D</color>
 </resources>
