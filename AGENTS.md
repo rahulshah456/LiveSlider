@@ -60,6 +60,38 @@ setRenderer(renderer);   // GL thread starts HERE
 2. `PlaylistWorker` loads via Glide, compresses with `me.shouheng.compress` (Compressor strategy), writes to internal storage using `FileUtil`.
 3. `LiveWallpaperService` reads `LocalWallpaper.getLocalPath()` from DB at runtime and passes it to `renderer.refreshWallpaperFresh(path, isDefault)`.
 
+## Build, Verify, Install (Command Line — No Android Studio GUI Needed)
+`JAVA_HOME` is set (User env var) to Android Studio's bundled JBR (`...\Android Studio\jbr`, JDK 21) — required for Gradle 8.7 / AGP 8.6.1. Do not use the system PATH `java` (may be a different major version). All commands run from the repo root via the Gradle wrapper — no standalone Gradle/SDK install step needed.
+
+```powershell
+# Build debug APK
+.\gradlew.bat assembleDebug
+
+# Build release APK (minified/shrunk)
+.\gradlew.bat assembleRelease
+
+# Run unit tests (app/src/test)
+.\gradlew.bat testDebugUnitTest
+
+# Run lint
+.\gradlew.bat lintDebug
+
+# Full verify (compile + unit tests + lint) before calling a change done
+.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+
+# Install on a connected device/emulator (builds first if needed)
+.\gradlew.bat installDebug
+
+# Uninstall
+.\gradlew.bat uninstallDebug
+```
+
+Notes:
+- Use a **real USB-connected device** over an emulator when possible — emulators are RAM-heavy on this machine. Check `adb devices` first; the device must show `device`, not `unauthorized`/`offline`.
+- Launch after install: `adb shell am start -n com.droid2developers.liveslider/.views.activities.MainActivity`
+- Instrumented tests (`app/src/androidTest`) require a connected device/emulator: `.\gradlew.bat connectedDebugAndroidTest`.
+- No internet permission is declared in the manifest — don't add network calls without checking with the user first.
+
 ## Key Files to Read First
 - `live_wallpaper/LiveWallpaperService.java` – engine lifecycle, all pref wiring, dual-playlist logic
 - `live_wallpaper/LiveWallpaperRenderer.java` – OpenGL state machine, transition system, retry logic
