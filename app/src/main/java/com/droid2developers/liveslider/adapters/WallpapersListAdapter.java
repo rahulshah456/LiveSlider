@@ -176,7 +176,6 @@ public class WallpapersListAdapter extends RecyclerView.Adapter<WallpapersListAd
         LocalWallpaper wallpaper = mWallpapersList.get(position);
 
         String imageUrl = wallpaper.getLocalPath();
-        Log.d(TAG, "onBindViewHolder: " + imageUrl);
 
         boolean isSlideShow = prefs.getBoolean("slideshow",false);
         int wallpaperType = prefs.getInt("type",TYPE_SINGLE);

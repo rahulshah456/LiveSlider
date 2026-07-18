@@ -42,6 +42,7 @@ public class HomeFragment extends Fragment {
     private View inactiveControls;
     private TextView activateTitle;
     private TextView activateHint;
+    private TextView activateError;
 
     public static HomeFragment newInstance(boolean isLockMode) {
         HomeFragment fragment = new HomeFragment();
@@ -68,6 +69,7 @@ public class HomeFragment extends Fragment {
         inactiveControls = view.findViewById(R.id.inactive_controls);
         activateTitle = view.findViewById(R.id.activate_title);
         activateHint = view.findViewById(R.id.activateHintText);
+        activateError = view.findViewById(R.id.activateErrorText);
 
         view.findViewById(R.id.change_wallpaper_button).setOnClickListener(v -> {
             Intent intent = new Intent(getContext(), ChangeWallpaperActivity.class);
@@ -96,31 +98,21 @@ public class HomeFragment extends Fragment {
         if (getContext() == null) return;
 
         WallpaperManager wm = WallpaperManager.getInstance(requireContext());
-        String pkg = requireContext().getPackageName();
         boolean isActive;
+        boolean wrongScreenActive;
 
         if (isLockMode) {
             activateTitle.setText(R.string.nav_lock);
             activateHint.setText(R.string.activate_hint_lock);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                try {
-                    WallpaperInfo lockInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK);
-                    isActive = lockInfo != null && lockInfo.getPackageName().equals(pkg)
-                            && LockLiveWallpaperService.class.getName().equals(lockInfo.getServiceName());
-                } catch (Throwable t) {
-                    isActive = false;
-                }
-            } else {
-                // Pre-API 34, if home is active, lock is active too
-                WallpaperInfo homeInfo = wm.getWallpaperInfo();
-                isActive = homeInfo != null && homeInfo.getPackageName().equals(pkg);
-            }
+            isActive = isServiceActiveOnLock(wm, LockLiveWallpaperService.class);
+            // The system picker applies whichever component we launched with (LockLiveWallpaperService)
+            // to whichever slot the user picked — so "wrong screen" means it landed on Home instead.
+            wrongScreenActive = !isActive && isServiceActiveOnHome(wm, LockLiveWallpaperService.class);
         } else {
             activateTitle.setText(R.string.nav_home);
             activateHint.setText(R.string.activate_hint_default);
-            WallpaperInfo homeInfo = wm.getWallpaperInfo();
-            isActive = homeInfo != null && homeInfo.getPackageName().equals(pkg)
-                    && LiveWallpaperService.class.getName().equals(homeInfo.getServiceName());
+            isActive = isServiceActiveOnHome(wm, LiveWallpaperService.class);
+            wrongScreenActive = !isActive && isServiceActiveOnLock(wm, LiveWallpaperService.class);
         }
 
         if (isActive) {
@@ -130,6 +122,40 @@ public class HomeFragment extends Fragment {
             activeControls.setVisibility(View.GONE);
             inactiveControls.setVisibility(View.VISIBLE);
         }
+
+        if (activateError == null) return;
+        if (!isActive && wrongScreenActive) {
+            activateError.setText(isLockMode
+                    ? R.string.activated_wrong_screen_lock
+                    : R.string.activated_wrong_screen_home);
+            activateError.setVisibility(View.VISIBLE);
+        } else {
+            activateError.setVisibility(View.GONE);
+        }
+    }
+
+    private boolean isServiceActiveOnHome(WallpaperManager wm, Class<?> serviceClass) {
+        WallpaperInfo info = wm.getWallpaperInfo();
+        return isService(info, serviceClass);
+    }
+
+    private boolean isServiceActiveOnLock(WallpaperManager wm, Class<?> serviceClass) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                return isService(wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK), serviceClass);
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+        // Pre-API 34 there's no separate lock slot: lock is considered active whenever
+        // ANY of this app's live wallpaper services is the current system wallpaper.
+        WallpaperInfo homeInfo = wm.getWallpaperInfo();
+        return homeInfo != null && homeInfo.getPackageName().equals(requireContext().getPackageName());
+    }
+
+    private boolean isService(@Nullable WallpaperInfo info, Class<?> serviceClass) {
+        return info != null && info.getPackageName().equals(requireContext().getPackageName())
+                && serviceClass.getName().equals(info.getServiceName());
     }
 
     private void onActivateClicked() {

@@ -22,6 +22,7 @@ import com.droid2developers.liveslider.database.models.LocalWallpaper;
 import com.droid2developers.liveslider.database.repository.WallpaperRepository;
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_SLIDESHOW_TIME;
@@ -29,6 +30,7 @@ import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 import static com.droid2developers.liveslider.utils.Constant.TRANSITION_FADE;
 import static com.droid2developers.liveslider.utils.Constant.PREF_CHANGE_ON_UNLOCK;
+import static com.droid2developers.liveslider.utils.Constant.PREF_SHUFFLE_PLAYLIST;
 import static com.droid2developers.liveslider.utils.Constant.PREF_DUAL_PLAYLIST_ENABLED;
 import static com.droid2developers.liveslider.utils.Constant.PREF_LOCK_PLAYLIST;
 import com.droid2developers.liveslider.utils.Constant;
@@ -84,6 +86,7 @@ public class LiveWallpaperService extends GLWallpaperService {
         private boolean savePowerMode = false;
         private boolean allowClickToChange = false;
         private boolean isSlideShowEnabled = false;
+        private boolean shufflePlaylist = false;
         private String currentPlaylistId = PLAYLIST_NONE;
 
         // Dual-playlist (Feature 2): separate playlists for home and lock screen
@@ -150,6 +153,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             setSlideShowEnabled(prefs.getBoolean("slideshow",false));
             renderer.setWallpaperType(prefs.getInt("type",TYPE_SINGLE));
             setAllowClickToChange(prefs.getBoolean("double_tap",false));
+            shufflePlaylist = prefs.getBoolean(PREF_SHUFFLE_PLAYLIST, false);
             setCurrentPlaylist(prefs.getString("current_playlist",PLAYLIST_NONE));
             setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
             renderer.setTransitionEffect(prefs.getInt("transition_effect", TRANSITION_FADE));
@@ -173,8 +177,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (isLockScreenService()) {
-                        // Lock service: screen turning ON = lock screen appears = advance now.
-                        if (isSlideShowEnabled && !playlistWallpapers.isEmpty()) {
+                        // Lock service: screen turning ON = lock screen appears = advance now,
+                        // but only if the user opted into changing on screen wake.
+                        if (isSlideShowEnabled && changeOnUnlock && !playlistWallpapers.isEmpty()) {
                             incrementWallpaper();
                             changeWallpaper();
                             Log.d(TAG, "screenOnReceiver: lock service — advanced to " + mImagesArrayIndex);
@@ -197,8 +202,10 @@ public class LiveWallpaperService extends GLWallpaperService {
                     }
                     // Home service: user just unlocked → home screen is now visible.
                     // Advance the slideshow here (not in screenOnReceiver) so the change
-                    // is always seen by the user and is never double-counted.
-                    if (isSlideShowEnabled && changeOnUnlock && !playlistWallpapers.isEmpty()) {
+                    // is always seen by the user and is never double-counted. Unlike the
+                    // lock screen, this isn't gated by a setting — "Change On Screen Wake"
+                    // is a lock-screen-only control (see updateSlideshowCardsVisibility).
+                    if (isSlideShowEnabled && !playlistWallpapers.isEmpty()) {
                         incrementWallpaper();
                         changeWallpaper();
                         Log.d(TAG, "userPresentReceiver: home service — advanced to " + mImagesArrayIndex);
@@ -243,7 +250,10 @@ public class LiveWallpaperService extends GLWallpaperService {
                     rotationSensor.register();
                     renderer.startTransition();
                     if (isSlideShowEnabled) {
-                        if (changeOnUnlock || isLockScreenService()) {
+                        // Home always advances via userPresentReceiver on unlock; lock only
+                        // does so when "Change On Screen Wake" is enabled (see screenOnReceiver).
+                        boolean advancesOnWake = !isLockScreenService() || changeOnUnlock;
+                        if (advancesOnWake) {
                             // Advances are driven by screen-on / user-present receivers.
                             // Here we only (re)start the periodic slideshow timer so that
                             // timed changes still work normally while the screen is on.
@@ -370,6 +380,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                 case "change_on_unlock":
                     changeOnUnlock = sharedPreferences.getBoolean(key, false);
                     break;
+                case PREF_SHUFFLE_PLAYLIST:
+                    shufflePlaylist = sharedPreferences.getBoolean(key, false);
+                    break;
                 case PREF_DUAL_PLAYLIST_ENABLED:
                     isDualPlaylistEnabled = sharedPreferences.getBoolean(key, false);
                     break;
@@ -460,11 +473,31 @@ public class LiveWallpaperService extends GLWallpaperService {
                 mRepository = new WallpaperRepository(getApplicationContext());
                 mRepository.getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
                     Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
-                    mImagesArrayIndex = 0;
+                    // Room re-runs this query (and re-emits) on ANY write to the localwallpaper
+                    // table, including PlaylistWorker processing an unrelated playlist. Only
+                    // reset position when the playlist itself just changed, and only touch the
+                    // GL surface if the currently-shown path actually changed — otherwise every
+                    // unrelated wallpaper crop resets the slideshow position and flickers here.
+                    boolean isPlaylistSwitch = !playlistId.equals(currentPlaylistId);
+                    String previousPath = !playlistWallpapers.isEmpty()
+                            ? playlistWallpapers.get(mImagesArrayIndex).getLocalPath() : null;
+
                     currentPlaylistId = playlistId;
                     playlistWallpapers = wallpaperList;
+                    if (isPlaylistSwitch) {
+                        mImagesArrayIndex = 0;
+                    } else if (mImagesArrayIndex >= playlistWallpapers.size()) {
+                        mImagesArrayIndex = 0;
+                    }
 
+                    if (playlistWallpapers.isEmpty()) {
+                        // Playlist has no processed wallpapers yet (e.g. still cropping); wait for the next update.
+                        return;
+                    }
                     String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                    if (!isPlaylistSwitch && localWallpaperPath != null && localWallpaperPath.equals(previousPath)) {
+                        return;
+                    }
                     boolean isDefault = prefs.getBoolean("default_wallpaper", true);
                     renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
                     //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
@@ -522,6 +555,9 @@ public class LiveWallpaperService extends GLWallpaperService {
             mImagesArrayIndex++;
             if (mImagesArrayIndex >= playlistWallpapers.size()) {
                 mImagesArrayIndex = 0;
+                if (shufflePlaylist && playlistWallpapers.size() > 1) {
+                    Collections.shuffle(playlistWallpapers);
+                }
             }
             Log.d(TAG, "incrementCounter: " + mImagesArrayIndex);
         }

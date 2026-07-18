@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -91,6 +92,20 @@
             android:text="@string/introduction1"
             android:textColor="@android:color/white"
             android:textSize="36sp" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/activateErrorText"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:fontFamily="@font/montserrat"
+            android:textAlignment="center"
+            android:textColor="@android:color/holo_red_light"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:lineSpacingMultiplier="1.3"
+            android:visibility="gone"
+            tools:text="That set the Lock Screen instead. Please choose &quot;Home screen&quot; when activating from here." />
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/activate_button"

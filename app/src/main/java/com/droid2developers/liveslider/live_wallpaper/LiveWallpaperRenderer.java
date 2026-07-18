@@ -55,6 +55,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private static final int MAX_LOAD_RETRIES = 5;
     private static final long RETRY_DELAY_MS  = 3000L; // 3 s between retries
     private int loadRetryCount = 0;
+    private volatile ScheduledFuture<?> retryHandle;
 
     private final float[] mMVPMatrix = new float[16];
     private final float[] mProjectionMatrix = new float[16];
@@ -549,6 +550,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // External (user-initiated) wallpaper change — resets the boot-retry counter so the
     // new path gets its full quota of retries independent of any previous attempt.
     void refreshWallpaperFresh(String wallpaperPath, boolean isDefault) {
+        // Any pending retry is now stale — cancel it so it can't fire seconds later
+        // and clobber the wallpaper the user just changed to.
+        if (retryHandle != null) retryHandle.cancel(false);
         loadRetryCount = 0;
         refreshWallpaper(wallpaperPath, isDefault);
     }
@@ -684,59 +688,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Create and loads new Wallpaper from the required settings
     private void loadTexture() {
         System.gc();
-        FileInputStream is = null;
-        if (wallpaperType == TYPE_SINGLE){
-            if (!isDefaultWallpaper) {
-                try {
-                    is = new FileInputStream(localWallpaperPath);
-                    loadRetryCount = 0; // successful open — reset retry counter
-                } catch (FileNotFoundException e) {
-                    Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
-                    if (loadRetryCount < MAX_LOAD_RETRIES) {
-                        // External storage may not be mounted yet (post-boot). Retry after a delay
-                        // using the original path so the user's wallpaper is not lost.
-                        loadRetryCount++;
-                        final String retryPath   = localWallpaperPath;
-                        final boolean retryDef   = isDefaultWallpaper;
-                        Log.w(TAG, "loadTexture: scheduling retry " + loadRetryCount + "/" + MAX_LOAD_RETRIES
-                                + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
-                        scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef),
-                                RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
-                    } else {
-                        Log.e(TAG, "loadTexture: giving up after " + MAX_LOAD_RETRIES
-                                + " retries, falling back to default wallpaper");
-                        loadRetryCount = 0;
-                        refreshWallpaper(DEFAULT_LOCAL_PATH, true);
-                    }
-                }
-            } else {
-                try {
-                    AssetFileDescriptor fileDescriptor = mContext.getAssets().openFd(Constant.DEFAULT_WALLPAPER_NAME);
-                    is = fileDescriptor.createInputStream();
-                } catch (IOException e) {
-                    Log.e(TAG, "loadTexture: IOException loading default wallpaper", e);
-                }
-            }
-        } else {
-            try {
-                is = new FileInputStream(localWallpaperPath);
-                loadRetryCount = 0;
-            } catch (FileNotFoundException e) {
-                Log.e(TAG, "loadTexture: FileNotFoundException for path: " + localWallpaperPath, e);
-                if (loadRetryCount < MAX_LOAD_RETRIES) {
-                    loadRetryCount++;
-                    final String retryPath = localWallpaperPath;
-                    final boolean retryDef = isDefaultWallpaper;
-                    Log.w(TAG, "loadTexture: scheduling retry " + loadRetryCount + "/" + MAX_LOAD_RETRIES
-                            + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
-                    scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef),
-                            RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
-                } else {
-                    loadRetryCount = 0;
-                    refreshWallpaper(DEFAULT_LOCAL_PATH, true);
-                }
-            }
-        }
+        InputStream is = openWallpaperStream();
         if (is == null) {
             Log.e(TAG, "loadTexture: InputStream is null, cannot load wallpaper");
             return;
@@ -744,6 +696,11 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // Decode BEFORE destroying the old wallpaper: on a failed decode the old
         // image stays on screen instead of leaving a destroyed (black) reference.
         Bitmap bmp = cropBitmap(is);
+        try {
+            is.close();
+        } catch (IOException e) {
+            Log.e(TAG, "loadTexture: IOException closing InputStream", e);
+        }
         if (bmp == null) {
             Log.e(TAG, "loadTexture: cropBitmap returned null, cannot create wallpaper");
             return;
@@ -752,12 +709,48 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             wallpaper.destroy();
         wallpaper = new Wallpaper(bmp, shader != null ? shader.maxTextureSize : 2048);
         preCalculate();
-        try {
-            is.close();
-        } catch (IOException e) {
-            Log.e(TAG, "loadTexture: IOException closing InputStream", e);
-        }
         System.gc();
+    }
+
+    // Opens the right stream for the current path. The built-in default lives in
+    // assets — a FileInputStream can never open the file:///android_asset/ URI, so
+    // that path must go through AssetManager regardless of wallpaper type.
+    private InputStream openWallpaperStream() {
+        if (DEFAULT_LOCAL_PATH.equals(localWallpaperPath)
+                || (wallpaperType == TYPE_SINGLE && isDefaultWallpaper)) {
+            try {
+                AssetFileDescriptor fileDescriptor = mContext.getAssets().openFd(Constant.DEFAULT_WALLPAPER_NAME);
+                return fileDescriptor.createInputStream();
+            } catch (IOException e) {
+                Log.e(TAG, "openWallpaperStream: IOException loading default wallpaper", e);
+                return null;
+            }
+        }
+        try {
+            InputStream is = new FileInputStream(localWallpaperPath);
+            loadRetryCount = 0; // successful open — reset retry counter
+            return is;
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, "openWallpaperStream: FileNotFoundException for path: " + localWallpaperPath, e);
+            if (loadRetryCount < MAX_LOAD_RETRIES) {
+                // External storage may not be mounted yet (post-boot). Retry after a delay
+                // using the original path so the user's wallpaper is not lost.
+                loadRetryCount++;
+                final String retryPath = localWallpaperPath;
+                final boolean retryDef = isDefaultWallpaper;
+                Log.w(TAG, "openWallpaperStream: scheduling retry " + loadRetryCount + "/" + MAX_LOAD_RETRIES
+                        + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
+                if (retryHandle != null) retryHandle.cancel(false);
+                retryHandle = scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef),
+                        RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+            } else {
+                Log.e(TAG, "openWallpaperStream: giving up after " + MAX_LOAD_RETRIES
+                        + " retries, falling back to default wallpaper");
+                loadRetryCount = 0;
+                refreshWallpaper(DEFAULT_LOCAL_PATH, true);
+            }
+            return null;
+        }
     }
     private Bitmap cropBitmap(InputStream is) {
         Bitmap src = BitmapFactory.decodeStream(is);

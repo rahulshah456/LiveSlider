@@ -33,8 +33,10 @@ import com.google.android.material.progressindicator.CircularProgressIndicator;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
 import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
@@ -56,6 +58,8 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     private final SharedPreferences lockPrefs;
     private final Context mContext;
     private boolean isLockMode;
+    /** playlistId -> "processed/total" text, pushed in by the fragment observing WallpaperViewModel. */
+    private final Map<String, String> processedCounts = new HashMap<>();
 
 
     @SuppressLint("CommitPrefEdits")
@@ -75,6 +79,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
 
     public interface OnItemClickListener {
         void OnItemLongClick(int position);
+        void onItemClick(int position);
     }
 
 
@@ -86,7 +91,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     public class MyViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener, View.OnLongClickListener {
 
         ImageView thumbIv;
-        TextView count, title, creationDate;
+        TextView count, title, creationDate, processStatus;
         ProgressBar progressIndicator;
         RelativeLayout activeBadge;
         RelativeLayout lockBadge;
@@ -99,6 +104,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
             thumbIv = itemView.findViewById(R.id.mainThumbnailId);
             title = itemView.findViewById(R.id.collectionTitleId);
             creationDate = itemView.findViewById(R.id.creationDateId);
+            processStatus = itemView.findViewById(R.id.processStatusId);
             activeBadge = itemView.findViewById(R.id.active_badge);
             lockBadge = itemView.findViewById(R.id.lock_badge);
             progressIndicator = itemView.findViewById(R.id.progressView);
@@ -107,48 +113,7 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
 
         @Override
         public void onClick(View view) {
-            Playlist playlist = getItemList().get(getLayoutPosition());
-
-            WallpaperManager wm = WallpaperManager.getInstance(mContext);
-            String pkg = mContext.getPackageName();
-
-            if (isLockMode) {
-                boolean isActiveOnLock;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    try {
-                        WallpaperInfo lockInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK);
-                        isActiveOnLock = lockInfo != null && lockInfo.getPackageName().equals(pkg);
-                    } catch (Throwable t) {
-                        isActiveOnLock = false;
-                    }
-                } else {
-                    isActiveOnLock = wm.getWallpaperInfo() != null && wm.getWallpaperInfo().getPackageName().equals(pkg);
-                }
-
-                if (!isActiveOnLock) {
-                    showActivationDialog();
-                    return;
-                }
-                updateLockSelection(playlist);
-
-            } else {
-                WallpaperInfo homeInfo = wm.getWallpaperInfo();
-                boolean isActiveOnHome = homeInfo != null && homeInfo.getPackageName().equals(pkg);
-
-                if (!isActiveOnHome) {
-                    showActivationDialog();
-                    return;
-                }
-                updateHomeSelection(playlist);
-            }
-        }
-
-        private void showActivationDialog() {
-            new MaterialAlertDialogBuilder(mContext)
-                    .setTitle(R.string.activate_not_live_title)
-                    .setMessage(R.string.activate_not_live_msg)
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show();
+            onItemClickListener.onItemClick(this.getLayoutPosition());
         }
 
         @Override
@@ -212,6 +177,8 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         String itemCount = playlist.size + "+ Photos";
         holder.title.setText(itemCount);
         holder.creationDate.setText(formattedDate);
+        String processedText = processedCounts.get(playlist.playlistId);
+        holder.processStatus.setText(processedText != null ? processedText : "0/" + playlist.size + " processed");
 
         RequestOptions options = new RequestOptions()
                 .centerInside()
@@ -233,6 +200,17 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         }
     }
 
+    /** Called by the fragment when a playlist's processed count changes; refreshes just that row. */
+    public void setProcessedCount(String playlistId, int processed, int total) {
+        processedCounts.put(playlistId, processed + "/" + total + " processed");
+        for (int i = 0; i < mAllPlaylist.size(); i++) {
+            if (playlistId.equals(mAllPlaylist.get(i).playlistId)) {
+                notifyItemChanged(i);
+                break;
+            }
+        }
+    }
+
     @Override
     public int getItemCount() {
         return mAllPlaylist.size();
@@ -244,7 +222,45 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
     }
 
 
-    private void updateSelection(Playlist playlist) {
+    /**
+     * Activates the given playlist as the current slideshow, if a live wallpaper is
+     * currently set; otherwise prompts the user to set one first. Called by the fragment
+     * after the user taps "Activate" in the playlist actions bottom sheet.
+     */
+    public void activatePlaylist(Playlist playlist) {
+        if (!playlist.isProcessed) {
+            Toast.makeText(mContext, "Still processing wallpapers, please wait...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        WallpaperManager wm = WallpaperManager.getInstance(mContext);
+        String pkg = mContext.getPackageName();
+        boolean isActive;
+        if (isLockMode) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                try {
+                    WallpaperInfo lockInfo = wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK);
+                    isActive = lockInfo != null && lockInfo.getPackageName().equals(pkg);
+                } catch (Throwable t) {
+                    isActive = false;
+                }
+            } else {
+                isActive = wm.getWallpaperInfo() != null && wm.getWallpaperInfo().getPackageName().equals(pkg);
+            }
+        } else {
+            WallpaperInfo homeInfo = wm.getWallpaperInfo();
+            isActive = homeInfo != null && homeInfo.getPackageName().equals(pkg);
+        }
+
+        if (!isActive) {
+            new MaterialAlertDialogBuilder(mContext)
+                    .setTitle(R.string.activate_not_live_title)
+                    .setMessage(R.string.activate_not_live_msg)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+            return;
+        }
+
         if (!playlistId.equals(playlist.playlistId)) {
             editor.putInt("type", TYPE_SLIDESHOW);
             editor.putString("local_wallpaper_path", WALLPAPER_NONE);
@@ -261,18 +277,6 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
         } else {
             Toast.makeText(mContext, "Playlist already activated!", Toast.LENGTH_SHORT).show();
         }
-    }
-
-    /** Dual-mode: assign playlist to Home screen slideshow (same as updateSelection). */
-    private void updateHomeSelection(Playlist playlist) {
-        updateSelection(playlist);
-    }
-
-    /**
-     * Dual-mode: assign playlist to the Lock screen.
-     */
-    private void updateLockSelection(Playlist playlist) {
-        updateSelection(playlist);
     }
 
     public void addPlaylists(List<Playlist> list) {

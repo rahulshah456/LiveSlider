@@ -68,6 +68,7 @@ public class Constant {
 
     public static final String WORKER_KEY_PLAYLIST_ID = "playlist_id";
     public static final String PREF_CHANGE_ON_UNLOCK  = "change_on_unlock";
+    public static final String PREF_SHUFFLE_PLAYLIST  = "shuffle_playlist";
 
     // Dual playlist (separate home / lock screen playlists)
     public static final String PREF_DUAL_PLAYLIST_ENABLED = "dual_playlist_enabled";

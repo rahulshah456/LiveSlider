@@ -45,6 +45,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var intervalCard: SettingsCardView? = null
     private var doubleTapCard: SettingsCardView? = null
     private var changeOnUnlockCard: SettingsCardView? = null
+    private var shufflePlaylistCard: SettingsCardView? = null
     private var powerSaverCard: SettingsCardView? = null
     private var scrollCard: SettingsCardView? = null
     private var backButton: CardView? = null
@@ -131,6 +132,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         intervalCard = findViewById(R.id.card3ID)
         doubleTapCard = findViewById(R.id.card4ID)
         changeOnUnlockCard = findViewById(R.id.changeOnUnlockCard)
+        shufflePlaylistCard = findViewById(R.id.shufflePlaylistCard)
 
         faceText = findViewById<TextView>(R.id.face)
 
@@ -161,6 +163,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         slideshowCard?.isSwitchChecked = prefs?.getBoolean("slideshow", false) ?: false
         doubleTapCard?.isSwitchChecked = prefs?.getBoolean("double_tap", false) ?: false
         changeOnUnlockCard?.isSwitchChecked = prefs?.getBoolean("change_on_unlock", false) ?: false
+        shufflePlaylistCard?.isSwitchChecked = prefs?.getBoolean(Constant.PREF_SHUFFLE_PLAYLIST, false) ?: false
         powerSaverCard?.isSwitchChecked = prefs?.getBoolean("power_saver", true) ?: true
         scrollCard?.isSwitchChecked = prefs?.getBoolean("scroll", true) ?: true
 
@@ -281,6 +284,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         changeOnUnlockCard?.setOnSwitchChangeListener(this)
 
+        shufflePlaylistCard?.setOnSwitchChangeListener(this)
+
         transitionEffectCard?.setOnCardClickListener(this)
 
         animationSpeedCard?.setOnCardClickListener(this)
@@ -387,6 +392,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             editor?.putBoolean("double_tap", isChecked)
         } else if (id == R.id.changeOnUnlockCard) {
             editor?.putBoolean("change_on_unlock", isChecked)
+        } else if (id == R.id.shufflePlaylistCard) {
+            editor?.putBoolean(Constant.PREF_SHUFFLE_PLAYLIST, isChecked)
         } else if (id == R.id.card1ID) {
             editor?.putBoolean("scroll", isChecked)
         }
@@ -404,8 +411,11 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private fun updateSlideshowCardsVisibility() {
         val visibility = if (slideshowCard?.isSwitchChecked == true) View.VISIBLE else View.GONE
         intervalCard?.visibility = visibility
-        doubleTapCard?.visibility = visibility
-        changeOnUnlockCard?.visibility = visibility
+        shufflePlaylistCard?.visibility = visibility
+        // Double tap to change wallpaper doesn't apply to the lock screen (no touch interaction there).
+        doubleTapCard?.visibility = if (isLockMode) View.GONE else visibility
+        // Change-on-screen-wake only makes sense for the lock screen (home screen wake is a no-op there).
+        changeOnUnlockCard?.visibility = if (isLockMode) visibility else View.GONE
     }
 
     private fun updateIntervalText(timeInMillis: Long) {

@@ -103,14 +103,39 @@
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
-            <!-- Subtitle with count and date -->
-            <TextView
-                android:id="@+id/creationDateId"
+            <!-- Subtitle row: creation date | processing status -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/montserrat"
-                android:text="@string/na"
-                android:textSize="12sp" />
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/creationDateId"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/montserrat"
+                    android:text="@string/na"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="@font/montserrat"
+                    android:text="|"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/processStatusId"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/montserrat"
+                    android:text="@string/na"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 

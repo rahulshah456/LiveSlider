@@ -75,6 +75,7 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
     private var workManager: WorkManager? = null
     private var wallpaperViewModel: WallpaperViewModel? = null
     private var playlistViewModel: PlaylistViewModel? = null
+    private var pendingAddImagesPlaylistId: String? = null
 
 
     override fun onCreateView(
@@ -139,6 +140,25 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
             }
         }
 
+    private val pickMoreImages =
+        registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(99)) { uris ->
+            val playlistId = pendingAddImagesPlaylistId
+            pendingAddImagesPlaylistId = null
+            if (uris.isNotEmpty() && playlistId != null) {
+                showProgress.value = true
+                lifecycleScope.launch {
+                    try {
+                        addImagesToPlaylist(playlistId, uris)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error adding images to playlist $playlistId", e)
+                    } finally {
+                        delay(1000)
+                        showProgress.value = false
+                    }
+                }
+            }
+        }
+
 
     private fun initRv() {
         val gridSize =
@@ -157,40 +177,37 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
             )
         mRecyclerView?.adapter = listAdapter
         mRecyclerView?.itemAnimator = DefaultItemAnimator()
-        listAdapter?.setOnItemClickListener { position: Int ->
-            val playlist = listAdapter?.itemList?.get(position)
-            val currentPlaylist = prefs?.getString("current_playlist", Constant.PLAYLIST_NONE)
-            MaterialAlertDialogBuilder(requireContext())
-                .setIcon(
-                    ResourcesCompat.getDrawable(
-                        requireContext().resources,
-                        R.drawable.delete_icon,
-                        null
-                    )
+        listAdapter?.setOnItemClickListener(object : PlaylistAdapter.OnItemClickListener {
+            override fun OnItemLongClick(position: Int) {
+                confirmDeletePlaylist(listAdapter?.itemList?.get(position))
+            }
+
+            override fun onItemClick(position: Int) {
+                val playlist = listAdapter?.itemList?.get(position) ?: return
+                val sheet = PlaylistActionsBottomSheet.newInstance(
+                    playlist.playlistId!!, playlist.name, playlist.isProcessed
                 )
-                .setTitle("Delete?")
-                .setMessage("Are you sure you want to delete this wallpaper...")
-                .setCancelable(false)
-                .setPositiveButton("Confirm") { dialog: DialogInterface, _: Int ->
-                    // Continue with operation
-                    if (playlist?.playlistId == currentPlaylist) {
-                        Toast.makeText(
-                            requireContext(), "You cannot delete current activated playlist!",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
-                        playlistViewModel?.delete(playlist)
-                        wallpaperViewModel?.deletePlaylistWallpapers(playlist?.playlistId)
+                sheet.listener = object : PlaylistActionsBottomSheet.Listener {
+                    override fun onActivate(playlistId: String) {
+                        listAdapter?.activatePlaylist(playlist)
                     }
-                    dialog.dismiss()
+
+                    override fun onReprocess(playlistId: String) {
+                        reprocessPlaylist(playlistId, playlist.name)
+                    }
+
+                    override fun onAddImages(playlistId: String) {
+                        pendingAddImagesPlaylistId = playlistId
+                        pickMoreImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+
+                    override fun onDelete(playlistId: String) {
+                        confirmDeletePlaylist(playlist)
+                    }
                 }
-                .setNegativeButton("Cancel") { dialog: DialogInterface, _: Int ->
-                    Log.d(TAG, "onClick: Cancelled Delete!")
-                    dialog.dismiss()
-                }
-                .create()
-                .show()
-        }
+                sheet.show(childFragmentManager, PlaylistActionsBottomSheet.TAG)
+            }
+        })
 
         playlistViewModel?.allPlaylists?.observe(viewLifecycleOwner) { playlists: List<Playlist?>? ->
             Log.d(TAG, "onChanged: " + playlists?.size)
@@ -198,6 +215,13 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
                 listAdapter?.clearList()
             }
             listAdapter?.addPlaylists(playlists)
+
+            playlists?.forEach { playlist ->
+                val id = playlist?.playlistId ?: return@forEach
+                wallpaperViewModel?.getProcessedCount(id)?.observe(viewLifecycleOwner) { processed ->
+                    listAdapter?.setProcessedCount(id, processed ?: 0, playlist.size)
+                }
+            }
         }
     }
 
@@ -237,6 +261,73 @@ class SlideshowFragment : Fragment(), OnSharedPreferenceChangeListener {
             playlistId,
             ExistingWorkPolicy.REPLACE, processWorkRequest
         )
+    }
+
+    private suspend fun addImagesToPlaylist(playlistId: String, clipData: List<Uri>) {
+        val playlistRepository = PlaylistRepository(requireContext())
+        val wallpaperRepository = WallpaperRepository(requireContext())
+
+        for (contentURI in clipData) {
+            val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            requireContext().contentResolver.takePersistableUriPermission(contentURI, flag)
+
+            val wallpaperName = Constant.HEADER + System.currentTimeMillis() + Constant.PNG
+            val localWallpaper = LocalWallpaper(
+                playlistId,
+                wallpaperName, null, contentURI.toString()
+            )
+            wallpaperRepository.insert(localWallpaper)
+        }
+
+        val playlist = playlistRepository.getPlaylist(playlistId) ?: return
+        playlist.size += clipData.size
+        playlist.isProcessed = false
+        playlistRepository.update(playlist)
+
+        reprocessPlaylist(playlistId, playlist.name)
+    }
+
+    private fun reprocessPlaylist(playlistId: String, name: String?) {
+        val processWorkRequest: OneTimeWorkRequest =
+            processPlaylistWorker(playlistId, name ?: playlistId)
+        workManager?.enqueueUniqueWork(
+            playlistId,
+            ExistingWorkPolicy.REPLACE, processWorkRequest
+        )
+    }
+
+    private fun confirmDeletePlaylist(playlist: Playlist?) {
+        playlist ?: return
+        val currentPlaylist = prefs?.getString("current_playlist", Constant.PLAYLIST_NONE)
+        MaterialAlertDialogBuilder(requireContext())
+            .setIcon(
+                ResourcesCompat.getDrawable(
+                    requireContext().resources,
+                    R.drawable.delete_icon,
+                    null
+                )
+            )
+            .setTitle("Delete?")
+            .setMessage("Are you sure you want to delete this wallpaper...")
+            .setCancelable(false)
+            .setPositiveButton("Confirm") { dialog: DialogInterface, _: Int ->
+                if (playlist.playlistId == currentPlaylist) {
+                    Toast.makeText(
+                        requireContext(), "You cannot delete current activated playlist!",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    playlistViewModel?.delete(playlist)
+                    wallpaperViewModel?.deletePlaylistWallpapers(playlist.playlistId)
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel") { dialog: DialogInterface, _: Int ->
+                Log.d(TAG, "onClick: Cancelled Delete!")
+                dialog.dismiss()
+            }
+            .create()
+            .show()
     }
 
     override fun onResume() {

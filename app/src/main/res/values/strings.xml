@@ -94,6 +94,8 @@
     <!-- Change on screen wake -->
     <string name="change_on_screen_on_header">Change On Screen Wake</string>
     <string name="change_on_screen_on_subheader">Advance slideshow each time screen turns on</string>
+    <string name="shuffle_playlist_header">Shuffle Playlist</string>
+    <string name="shuffle_playlist_subheader">Shuffle wallpaper order after each full cycle</string>
 
     <!-- Dual Playlist (separate home / lock screen playlists) -->
     <string name="dual_playlist_header">Dual Playlist Mode</string>
@@ -128,6 +130,8 @@
     <!-- Single activate button hint text -->
     <string name="activate_hint_default">Tap to set Live Slider as your Home Screen live wallpaper</string>
     <string name="activate_hint_lock">Home screen is set.\nTap to also activate on the Lock Screen</string>
+    <string name="activated_wrong_screen_lock">That set the Home Screen instead. Please choose \"Lock screen\" when activating from here.</string>
+    <string name="activated_wrong_screen_home">That set the Lock Screen instead. Please choose \"Home screen\" when activating from here.</string>
     <string name="activate_hint_both">Live Slider is active on both Home &amp; Lock Screen ✓</string>
     <string name="activate_label_lock">Activate\nLock Screen</string>
     <string name="activate_label_active">Active ✓</string>

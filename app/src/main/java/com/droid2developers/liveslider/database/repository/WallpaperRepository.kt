@@ -34,6 +34,10 @@ class WallpaperRepository(mContext: Context) {
         return mWallpaperDao.getPlaylistWallpapers(playlistId)
     }
 
+    fun getProcessedCount(playlistId: String?): LiveData<Int> {
+        return mWallpaperDao.getProcessedCount(playlistId)
+    }
+
     suspend fun getWallpapers(playlistId: String?): List<LocalWallpaper?>? {
         return mWallpaperDao.getWallpapersByPlaylist(playlistId)
     }

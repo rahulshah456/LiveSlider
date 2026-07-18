@@ -26,7 +26,9 @@ interface WallpaperDao {
     @Query("SELECT * FROM localwallpaper WHERE id = :key")
     fun getWallpaper(key: Int): LiveData<LocalWallpaper?>?
 
-    @Query("SELECT * FROM localwallpaper WHERE playlistId = :key ORDER BY name DESC")
+    // Rendering query: excludes rows still awaiting crop (localPath null) so the live
+    // wallpaper engine never picks up a not-yet-processed image mid-slideshow.
+    @Query("SELECT * FROM localwallpaper WHERE playlistId = :key AND localPath IS NOT NULL ORDER BY name DESC")
     fun getPlaylistWallpapers(key: String?): LiveData<List<LocalWallpaper?>?>?
 
     @Query("SELECT * FROM localwallpaper WHERE playlistId = :key ORDER BY name DESC")
@@ -38,4 +40,7 @@ interface WallpaperDao {
 
     @get:Query("SELECT * FROM localwallpaper WHERE playlistId = 'Custom' ORDER BY name DESC")
     val allWallpapers: LiveData<List<LocalWallpaper?>?>?
+
+    @Query("SELECT COUNT(*) FROM localwallpaper WHERE playlistId = :key AND localPath IS NOT NULL")
+    fun getProcessedCount(key: String?): LiveData<Int>
 }

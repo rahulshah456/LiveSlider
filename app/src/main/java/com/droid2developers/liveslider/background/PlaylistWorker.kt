@@ -21,8 +21,10 @@ import com.droid2developers.liveslider.utils.Constant.WORKER_KEY_PLAYLIST_ID
 import com.droid2developers.liveslider.utils.DeviceMetrics
 import com.droid2developers.liveslider.utils.FileUtil
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import me.shouheng.compress.Compress
 import me.shouheng.compress.RequestBuilder
 import me.shouheng.compress.strategy.Strategies
@@ -42,6 +44,9 @@ class PlaylistWorker(appContext: Context, params: WorkerParameters) :
 
     companion object {
         val TAG: String? = Companion::class.java.simpleName
+
+        // ponytail: fixed per-image budget, make configurable if some devices need more
+        private const val PER_IMAGE_TIMEOUT_MS = 30_000L
     }
 
     private var playlistRepository: PlaylistRepository? = null
@@ -62,17 +67,41 @@ class PlaylistWorker(appContext: Context, params: WorkerParameters) :
             val playlist = playlistRepository?.getPlaylist(playlistId)
             val wallpapers = wallpaperRepository?.getWallpapers(playlistId)
             val covers = mutableListOf<String?>()
+            var failures = 0
             if (wallpapers?.isNotEmpty() == true) {
-                for (wall in wallpapers) {
-                    val localPath = processWallpaper(wall)
-                    wall?.localPath = localPath
-                    wallpaperRepository?.updateWallpaper(wall)
-                    covers.add(localPath)
+                for ((index, wall) in wallpapers.withIndex()) {
+                    if (wall?.localPath != null) {
+                        // already processed in a previous run of this worker
+                        covers.add(wall.localPath)
+                        continue
+                    }
+                    try {
+                        val localPath = withTimeout(PER_IMAGE_TIMEOUT_MS) { processWallpaper(wall) }
+                        wall?.localPath = localPath
+                        wallpaperRepository?.updateWallpaper(wall)
+                        covers.add(localPath)
+                        Log.d(TAG, "doWork: processed ${index + 1}/${wallpapers.size} -> ${wall?.name}")
+                    } catch (e: TimeoutCancellationException) {
+                        failures++
+                        Log.e(TAG, "doWork: timed out processing wallpaper ${wall?.name} (${wall?.originalPath}) after ${PER_IMAGE_TIMEOUT_MS}ms", e)
+                    } catch (e: Exception) {
+                        failures++
+                        Log.e(TAG, "doWork: failed to process wallpaper ${wall?.name} (${wall?.originalPath})", e)
+                    }
                 }
-                val coverImage = createCoverImage(covers, playlistId)
-                playlist?.isProcessed = true
-                playlist?.coverImage = coverImage
-                playlistRepository?.update(playlist)
+                Log.d(TAG, "doWork: processed ${covers.size}/${wallpapers.size}, failed=$failures")
+
+                if (covers.isNotEmpty()) {
+                    val coverImage = try {
+                        createCoverImage(covers, playlistId)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "doWork: failed to build cover image for $playlistId", e)
+                        null
+                    }
+                    playlist?.isProcessed = failures == 0
+                    playlist?.coverImage = coverImage ?: playlist?.coverImage
+                    playlistRepository?.update(playlist)
+                }
             }
         }
 

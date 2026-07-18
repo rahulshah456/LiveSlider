@@ -9,7 +9,9 @@ import androidx.lifecycle.LiveData;
 import com.droid2developers.liveslider.database.models.LocalWallpaper;
 import com.droid2developers.liveslider.database.repository.WallpaperRepository;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class WallpaperViewModel extends AndroidViewModel {
 
@@ -18,6 +20,7 @@ public class WallpaperViewModel extends AndroidViewModel {
     private String playlistId = null;
     private LiveData<List<LocalWallpaper>> playlistWallpapers;
     private LiveData<List<LocalWallpaper>> allWallpapers;
+    private final Map<String, LiveData<Integer>> processedCounts = new HashMap<>();
 
     public WallpaperViewModel(@NonNull Application application) {
         super(application);
@@ -37,6 +40,10 @@ public class WallpaperViewModel extends AndroidViewModel {
             playlistWallpapers = mRepository.getPlaylistWallpapers(playlistId);
         }
         return playlistWallpapers;
+    }
+
+    public LiveData<Integer> getProcessedCount(String playlistId) {
+        return processedCounts.computeIfAbsent(playlistId, mRepository::getProcessedCount);
     }
 
     public void insert(LocalWallpaper wallpaper) {
