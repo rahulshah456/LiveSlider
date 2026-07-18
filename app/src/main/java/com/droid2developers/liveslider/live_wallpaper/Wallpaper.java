@@ -205,15 +205,53 @@ class Wallpaper {
             1, 1, // bottom right
             1, 0, // top right
     };
-    private static int sMaxTextureSize;
-    private static int sProgramHandle;
-    private static int sAttribPositionHandle;
-    private static int sAlphaUniformHandle;
-    private static int sProgressUniformHandle;
-    private static int sEffectUniformHandle;
-    private static int sAttribTextureCoordsHandle;
-    private static int sUniformTextureHandle;
-    private static int sUniformMVPMatrixHandle;
+    /**
+     * Per-EGL-context GL state. Program/uniform handles are only valid in the
+     * context that compiled them, and each wallpaper engine (home, lock, preview)
+     * has its own context — so these must NOT be static: a second engine calling
+     * initGl() would clobber handles the first engine is still drawing with,
+     * which intermittently renders black.
+     */
+    static class Shader {
+        final int program;
+        final int attribPosition;
+        final int attribTextureCoords;
+        final int uniformAlpha;
+        final int uniformProgress;
+        final int uniformEffect;
+        final int uniformTexture;
+        final int uniformMVPMatrix;
+        final int maxTextureSize;
+
+        private Shader() {
+            int vertexShaderHandle = GLUtil.loadShader(GLES20.GL_VERTEX_SHADER,
+                    VERTEX_SHADER_CODE);
+            int fragShaderHandle = GLUtil.loadShader(GLES20.GL_FRAGMENT_SHADER,
+                    FRAGMENT_SHADER_CODE);
+
+            program = GLUtil.createAndLinkProgram(vertexShaderHandle,
+                    fragShaderHandle, null);
+            uniformAlpha = GLES20.glGetUniformLocation(program, "uAlpha");
+            uniformProgress = GLES20.glGetUniformLocation(program, "uProgress");
+            uniformEffect = GLES20.glGetUniformLocation(program, "uEffect");
+            attribPosition = GLES20.glGetAttribLocation(program, "aPosition");
+            attribTextureCoords = GLES20.glGetAttribLocation(program, "aTexCoords");
+            uniformMVPMatrix = GLES20.glGetUniformLocation(program, "uMVPMatrix");
+            uniformTexture = GLES20.glGetUniformLocation(program, "uTexture");
+
+            int[] maxSize = new int[1];
+            GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_SIZE, maxSize, 0);
+            maxTextureSize = maxSize[0];
+        }
+
+        /** Frees the program. Drains the GL error queue in case the context changed. */
+        void delete() {
+            GLES20.glDeleteProgram(program);
+            //noinspection StatementWithEmptyBody
+            while (GLES20.glGetError() != GLES20.GL_NO_ERROR) ;
+        }
+    }
+
     private final float[] mVertices = new float[COORDS_PER_VERTEX * VERTICES];
     private boolean mHasContent = false;
     private FloatBuffer mVertexBuffer;
@@ -223,15 +261,15 @@ class Wallpaper {
     private int mWidth = 0;
     private int mHeight = 0;
     private float mRatio;
-    private int mTileSize = sMaxTextureSize;
+    private int mTileSize;
     private int[] mTextureHandles;
 
-    Wallpaper(Bitmap bitmap) {
+    Wallpaper(Bitmap bitmap, int maxTextureSize) {
         if (bitmap == null) {
             return;
         }
 
-        mTileSize = sMaxTextureSize;
+        mTileSize = maxTextureSize;
         mHasContent = true;
         mVertexBuffer = GLUtil.newFloatBuffer(mVertices.length);
         mTextureCoordsBuffer = GLUtil.asFloatBuffer(SQUARE_TEXTURE_VERTICES);
@@ -272,64 +310,40 @@ class Wallpaper {
         bitmap.recycle();
     }
 
-    static void initGl() {
-        // Initialize shaders and create/link program
-        int vertexShaderHandle = GLUtil.loadShader(GLES20.GL_VERTEX_SHADER,
-                VERTEX_SHADER_CODE);
-        int fragShaderHandle = GLUtil.loadShader(GLES20.GL_FRAGMENT_SHADER,
-                FRAGMENT_SHADER_CODE);
-
-        sProgramHandle = GLUtil.createAndLinkProgram(vertexShaderHandle,
-                fragShaderHandle, null);
-        sAlphaUniformHandle = GLES20.glGetUniformLocation(sProgramHandle,
-                "uAlpha");
-        sProgressUniformHandle = GLES20.glGetUniformLocation(sProgramHandle,
-                "uProgress");
-        sEffectUniformHandle = GLES20.glGetUniformLocation(sProgramHandle,
-                "uEffect");
-        sAttribPositionHandle = GLES20.glGetAttribLocation(sProgramHandle,
-                "aPosition");
-        sAttribTextureCoordsHandle = GLES20.glGetAttribLocation(sProgramHandle,
-                "aTexCoords");
-        sUniformMVPMatrixHandle = GLES20.glGetUniformLocation(sProgramHandle,
-                "uMVPMatrix");
-        sUniformTextureHandle = GLES20.glGetUniformLocation(sProgramHandle,
-                "uTexture");
-
-        // Compute max texture size
-        int[] maxTextureSize = new int[1];
-        GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_SIZE, maxTextureSize, 0);
-        sMaxTextureSize = maxTextureSize[0];
+    /** Compiles the shader program in the CURRENT EGL context. The caller (renderer)
+     *  owns the returned Shader and must pass it to every draw() call. */
+    static Shader initGl() {
+        return new Shader();
     }
 
-    void draw(float[] mvpMatrix, float alpha, float progress, int effect) {
-        if (!mHasContent) {
+    void draw(Shader shader, float[] mvpMatrix, float alpha, float progress, int effect) {
+        if (!mHasContent || shader == null) {
             return;
         }
 
         // Add program to OpenGL ES environment
-        GLES20.glUseProgram(sProgramHandle);
+        GLES20.glUseProgram(shader.program);
 
         // Apply the projection and view transformation
-        GLES20.glUniformMatrix4fv(sUniformMVPMatrixHandle, 1, false, mvpMatrix,
+        GLES20.glUniformMatrix4fv(shader.uniformMVPMatrix, 1, false, mvpMatrix,
                 0);
         GLUtil.checkGlError("glUniformMatrix4fv");
 
         // Set up vertex buffer
-        GLES20.glUniform1f(sAlphaUniformHandle, alpha);
-        GLES20.glUniform1f(sProgressUniformHandle, progress);
-        GLES20.glUniform1i(sEffectUniformHandle, effect);
-        GLES20.glEnableVertexAttribArray(sAttribPositionHandle);
-        GLES20.glVertexAttribPointer(sAttribPositionHandle, COORDS_PER_VERTEX,
+        GLES20.glUniform1f(shader.uniformAlpha, alpha);
+        GLES20.glUniform1f(shader.uniformProgress, progress);
+        GLES20.glUniform1i(shader.uniformEffect, effect);
+        GLES20.glEnableVertexAttribArray(shader.attribPosition);
+        GLES20.glVertexAttribPointer(shader.attribPosition, COORDS_PER_VERTEX,
                 GLES20.GL_FLOAT, false, VERTEX_STRIDE_BYTES, mVertexBuffer);
 
         // Set up texture stuff
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glUniform1i(sUniformTextureHandle, 0);
-        GLES20.glVertexAttribPointer(sAttribTextureCoordsHandle,
+        GLES20.glUniform1i(shader.uniformTexture, 0);
+        GLES20.glVertexAttribPointer(shader.attribTextureCoords,
                 COORDS_PER_TEXTURE_VERTEX, GLES20.GL_FLOAT, false,
                 TEXTURE_VERTEX_STRIDE_BYTES, mTextureCoordsBuffer);
-        GLES20.glEnableVertexAttribArray(sAttribTextureCoordsHandle);
+        GLES20.glEnableVertexAttribArray(shader.attribTextureCoords);
         // Log.i("Wallpaper", "mRatio=" + mRatio);
         // mRatio = 1;
         // Draw tiles
@@ -358,15 +372,18 @@ class Wallpaper {
             }
         }
 
-        GLES20.glDisableVertexAttribArray(sAttribPositionHandle);
-        GLES20.glDisableVertexAttribArray(sAttribTextureCoordsHandle);
+        GLES20.glDisableVertexAttribArray(shader.attribPosition);
+        GLES20.glDisableVertexAttribArray(shader.attribTextureCoords);
     }
 
     void destroy() {
+        // Clear content FIRST so a stale reference can never draw deleted texture
+        // names (renders black on most drivers).
+        mHasContent = false;
         if (mTextureHandles != null) {
             GLES20.glDeleteTextures(mTextureHandles.length, mTextureHandles, 0);
+            mTextureHandles = null;
             GLUtil.checkGlError("Destroy picture");
-//            mTextureHandles = null;
         }
     }
 }

@@ -86,6 +86,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private float prevPreB;
 
     // Important mutable parameters for live wallpaper
+    // Per-context shader state owned by THIS renderer/engine — never shared across
+    // engines (home/lock/preview each have their own EGL context).
+    private Wallpaper.Shader shader;
     private Wallpaper wallpaper;
     private Wallpaper previousWallpaper; // held alive during effects 1 & 2 crossfade
     private String localWallpaperPath = null;
@@ -116,7 +119,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFuncSeparate(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA, GLES20.GL_ONE, GLES20.GL_ONE);
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        Wallpaper.initGl();
+        // Called again on every resume — free the previous program so re-inits
+        // don't leak one program per screen-off/on cycle.
+        if (shader != null) shader.delete();
+        shader = Wallpaper.initGl();
     }
 
 
@@ -320,27 +326,27 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 float[] prevMVPMatrix  = new float[16];
                 Matrix.setLookAtM(prevViewMatrix, 0, px, py, prevPreB, px, py, 0f, 0f, 1.0f, 0.0f);
                 Matrix.multiplyMM(prevMVPMatrix, 0, mProjectionMatrix, 0, prevViewMatrix, 0);
-                previousWallpaper.draw(prevMVPMatrix, 1.0f, localProgress, 3);
+                previousWallpaper.draw(shader, prevMVPMatrix, 1.0f, localProgress, 3);
             } else if (transitionMidpointReached && wallpaper != null) {
                 // Phase 2: new wallpaper uses the normal current MVP matrix
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
-                wallpaper.draw(mMVPMatrix, 1.0f, localProgress, 2);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, localProgress, 2);
             }
         } else if (currentEffect == 1) {
             // Dissolve — previousWallpaper static backdrop, new wallpaper dissolves in on top
             if (previousWallpaper != null) {
-                previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0);
+                previousWallpaper.draw(shader, mMVPMatrix, 1.0f, 1.0f, 0);
             }
             if (wallpaper != null) {
-                wallpaper.draw(mMVPMatrix, 1.0f, transitionProgress, 1);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 1);
             }
         } else if (currentEffect == 3) {
             // Wipe — previousWallpaper static backdrop, new wallpaper wipes in left→right
             if (previousWallpaper != null) {
-                previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0);
+                previousWallpaper.draw(shader, mMVPMatrix, 1.0f, 1.0f, 0);
             }
             if (wallpaper != null) {
-                wallpaper.draw(mMVPMatrix, 1.0f, transitionProgress, 4);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 4);
             }
         } else if (currentEffect == 4) {
             // Blur — phase 1: old blurs out to peak softness (effect 5), phase 2: new sharpens in (effect 6)
@@ -352,24 +358,24 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 float[] prevMVPMatrix  = new float[16];
                 Matrix.setLookAtM(prevViewMatrix, 0, px, py, prevPreB, px, py, 0f, 0f, 1.0f, 0.0f);
                 Matrix.multiplyMM(prevMVPMatrix, 0, mProjectionMatrix, 0, prevViewMatrix, 0);
-                previousWallpaper.draw(prevMVPMatrix, 1.0f, localProgress, 5);
+                previousWallpaper.draw(shader, prevMVPMatrix, 1.0f, localProgress, 5);
             } else if (transitionMidpointReached && wallpaper != null) {
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
-                wallpaper.draw(mMVPMatrix, 1.0f, localProgress, 6);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, localProgress, 6);
             }
         } else if (currentEffect == 5) {
             // Zoom — previousWallpaper static backdrop, new wallpaper grows from centre
             if (previousWallpaper != null) {
-                previousWallpaper.draw(mMVPMatrix, 1.0f, 1.0f, 0);
+                previousWallpaper.draw(shader, mMVPMatrix, 1.0f, 1.0f, 0);
             }
             if (wallpaper != null) {
-                wallpaper.draw(mMVPMatrix, 1.0f, transitionProgress, 7);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 7);
             }
         } else {
             // Effect 0 (fade) or post-transition static draw
             if (wallpaper != null) {
                 hasLoggedNullWallpaper = false;
-                wallpaper.draw(mMVPMatrix, transitionAlpha, transitionProgress, 0);
+                wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
             } else {
                 if (!hasLoggedNullWallpaper) {
                     Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
@@ -735,14 +741,16 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             Log.e(TAG, "loadTexture: InputStream is null, cannot load wallpaper");
             return;
         }
-        if (wallpaper != null)
-            wallpaper.destroy();
+        // Decode BEFORE destroying the old wallpaper: on a failed decode the old
+        // image stays on screen instead of leaving a destroyed (black) reference.
         Bitmap bmp = cropBitmap(is);
         if (bmp == null) {
             Log.e(TAG, "loadTexture: cropBitmap returned null, cannot create wallpaper");
             return;
         }
-        wallpaper = new Wallpaper(bmp);
+        if (wallpaper != null)
+            wallpaper.destroy();
+        wallpaper = new Wallpaper(bmp, shader != null ? shader.maxTextureSize : 2048);
         preCalculate();
         try {
             is.close();
