@@ -46,6 +46,7 @@ class RainShader {
             + "uniform float u_brightness;"
             + "uniform float u_blur_intensity;"
             + "uniform float u_zoom;"
+            + "uniform float u_opacity;"
             + "uniform int u_blur_iterations;"
             + "uniform bool u_panning;"
             + "uniform bool u_post_processing;"
@@ -188,7 +189,9 @@ class RainShader {
             + "  vec2 vc = UV - .5;"
             + "  col *= 1. - dot(vc, vc);"
 
-            + "  gl_FragColor = vec4(col * u_brightness, 1.0);"
+            // u_opacity < 1 only while the renderer fades the effect around a
+            // wallpaper transition (plain wallpaper is drawn underneath then).
+            + "  gl_FragColor = vec4(col * u_brightness, u_opacity);"
             + "}";
 
     // Fullscreen quad as a triangle strip: BL, BR, TL, TR
@@ -198,7 +201,7 @@ class RainShader {
     private int aPos;
     private int uTex0, uTex0Resolution, uTime, uResolution, uSpeed, uIntensity,
             uNormal, uBrightness, uBlurIntensity, uZoom, uBlurIterations,
-            uPanning, uPostProcessing, uLightning, uTextureFill;
+            uPanning, uPostProcessing, uLightning, uTextureFill, uOpacity;
     private FloatBuffer quadBuffer;
 
     // Holds the wallpaper exactly as the camera/crop matrix rendered it, at full
@@ -228,6 +231,7 @@ class RainShader {
         uPostProcessing = GLES20.glGetUniformLocation(program, "u_post_processing");
         uLightning = GLES20.glGetUniformLocation(program, "u_lightning");
         uTextureFill = GLES20.glGetUniformLocation(program, "u_texture_fill");
+        uOpacity = GLES20.glGetUniformLocation(program, "u_opacity");
 
         quadBuffer = GLUtil.asFloatBuffer(QUAD);
     }
@@ -251,7 +255,8 @@ class RainShader {
      * current (default) framebuffer at screenW x screenH.
      */
     void draw(int screenW, int screenH, float time,
-              float speed, float intensity, float brightness, boolean lightning) {
+              float speed, float intensity, float brightness, boolean lightning,
+              float opacity) {
         if (program == 0) return;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
         GLES20.glViewport(0, 0, screenW, screenH);
@@ -277,6 +282,7 @@ class RainShader {
         GLES20.glUniform1i(uPostProcessing, 0);
         GLES20.glUniform1i(uLightning, lightning ? 1 : 0);
         GLES20.glUniform1i(uTextureFill, 0);
+        GLES20.glUniform1f(uOpacity, opacity);
 
         GLES20.glEnableVertexAttribArray(aPos);
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quadBuffer);

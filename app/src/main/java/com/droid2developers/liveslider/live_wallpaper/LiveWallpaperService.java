@@ -81,10 +81,12 @@ public class LiveWallpaperService extends GLWallpaperService {
         private RotationSensor rotationSensor;
         private BroadcastReceiver powerSaverChangeReceiver;
         private BroadcastReceiver screenOnReceiver;
+        private BroadcastReceiver screenOffReceiver;
         private BroadcastReceiver userPresentReceiver;
 
         private boolean pauseInSavePowerMode = false;
         private boolean changeOnUnlock = false;
+        private boolean changeOnSleep = false;
         private boolean savePowerMode = false;
         private boolean allowClickToChange = false;
         private boolean isSlideShowEnabled = false;
@@ -197,13 +199,17 @@ public class LiveWallpaperService extends GLWallpaperService {
 
             // Change on screen wake — register ACTION_SCREEN_ON receiver
             changeOnUnlock = prefs.getBoolean(Constant.PREF_CHANGE_ON_UNLOCK, false);
+            changeOnSleep = prefs.getBoolean(Constant.PREF_CHANGE_ON_SLEEP, false);
             screenOnReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (isLockScreenService()) {
                         // Lock service: screen turning ON = lock screen appears = advance now,
                         // but only if the user opted into changing on screen wake.
-                        if (isSlideShowEnabled && changeOnUnlock && !playlistWallpapers.isEmpty()) {
+                        // Skipped when change-on-sleep is on — the swap already happened
+                        // invisibly at screen-off; animating another here would double-advance.
+                        if (isSlideShowEnabled && changeOnUnlock && !changeOnSleep
+                                && !playlistWallpapers.isEmpty()) {
                             incrementWallpaper();
                             changeWallpaper();
                             Log.d(TAG, "screenOnReceiver: lock service — advanced to " + mImagesArrayIndex);
@@ -215,6 +221,25 @@ public class LiveWallpaperService extends GLWallpaperService {
                 }
             };
             registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
+
+            // Change on screen sleep — swap INSTANTLY (no animation) while the screen
+            // is off, so the new wallpaper is simply there at the next wake. Avoids
+            // the shaky animation-fighting-the-wake effect of change-on-wake.
+            screenOffReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (isLockScreenService() && isSlideShowEnabled && changeOnSleep
+                            && !cropMode && !playlistWallpapers.isEmpty()) {
+                        incrementWallpaper();
+                        LocalWallpaper next = playlistWallpapers.get(mImagesArrayIndex);
+                        editor.putString("local_wallpaper_path", next.getLocalPath()).apply();
+                        renderer.refreshWallpaperInstant(next.getLocalPath(),
+                                prefs.getBoolean("default_wallpaper", true), next.getCropBias());
+                        Log.d(TAG, "screenOffReceiver: lock service — swapped to " + mImagesArrayIndex);
+                    }
+                }
+            };
+            registerReceiver(screenOffReceiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
 
             // Dual-playlist: when user unlocks, restore home playlist image
             userPresentReceiver = new BroadcastReceiver() {
@@ -254,6 +279,9 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
             if (screenOnReceiver != null) {
                 unregisterReceiver(screenOnReceiver);
+            }
+            if (screenOffReceiver != null) {
+                unregisterReceiver(screenOffReceiver);
             }
             if (userPresentReceiver != null) {
                 unregisterReceiver(userPresentReceiver);
@@ -332,6 +360,14 @@ public class LiveWallpaperService extends GLWallpaperService {
                             } else {
                                 decrementWallpaper();
                             }
+                            doChangeWallpaper();
+                            updateOverlayPlaylistInfo();
+                        }
+                    } else if (hit == CropOverlay.HIT_SHUFFLE) {
+                        if (isPlaylistActive()) {
+                            saveCropBias();
+                            Collections.shuffle(playlistWallpapers);
+                            mImagesArrayIndex = 0;
                             doChangeWallpaper();
                             updateOverlayPlaylistInfo();
                         }
@@ -447,6 +483,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                     break;
                 case "change_on_unlock":
                     changeOnUnlock = sharedPreferences.getBoolean(key, false);
+                    break;
+                case Constant.PREF_CHANGE_ON_SLEEP:
+                    changeOnSleep = sharedPreferences.getBoolean(key, false);
                     break;
                 case PREF_SHUFFLE_PLAYLIST:
                     shufflePlaylist = sharedPreferences.getBoolean(key, false);

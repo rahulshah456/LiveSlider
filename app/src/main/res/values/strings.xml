@@ -99,6 +99,8 @@
     <!-- Change on screen wake -->
     <string name="change_on_screen_on_header">Change On Screen Wake</string>
     <string name="change_on_screen_on_subheader">Advance slideshow each time screen turns on</string>
+    <string name="change_on_screen_off_header">Change On Screen Sleep</string>
+    <string name="change_on_screen_off_subheader">Swap while screen is off — new wallpaper ready at wake</string>
     <string name="shuffle_playlist_header">Shuffle Playlist</string>
     <string name="shuffle_playlist_subheader">Shuffle wallpaper order after each full cycle</string>
 

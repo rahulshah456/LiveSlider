@@ -320,6 +320,17 @@
                     app:hasSwitch="true" />
 
                 <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/changeOnSleepCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:animateLayoutChanges="true"
+                    android:visibility="gone"
+                    app:cardIcon="@drawable/slideshow_24dp"
+                    app:cardHeader="@string/change_on_screen_off_header"
+                    app:cardSubHeader="@string/change_on_screen_off_subheader"
+                    app:hasSwitch="true" />
+
+                <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/shufflePlaylistCard"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"

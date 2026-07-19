@@ -51,6 +51,7 @@ class RippleShader {
             + "uniform vec2 u_touch_pos[" + TOUCH_SLOTS + "];"
             + "uniform float u_touch_age[" + TOUCH_SLOTS + "];"
             + "uniform bool u_rain_lines;"
+            + "uniform float u_opacity;"
             + "uniform float u_rain_lines_strength;"
             + "uniform float u_rain_lines_speed;"
             + "uniform float u_rain_lines_angle;"
@@ -156,7 +157,9 @@ class RippleShader {
             + "    color = mix(color, vec3(0.85, 0.9, 1.0), opacity * 0.6);"
             + "  }"
 
-            + "  gl_FragColor = vec4(color, 1.0);"
+            // u_opacity < 1 only while the renderer fades the effect around a
+            // wallpaper transition (plain wallpaper is drawn underneath then).
+            + "  gl_FragColor = vec4(color, u_opacity);"
             + "}";
 
     // Fullscreen quad as a triangle strip: BL, BR, TL, TR
@@ -166,7 +169,7 @@ class RippleShader {
     private int aPos;
     private int uTex0, uResolution, uTime, uSpeed, uCellSize, uStrength,
             uTouchOnly, uTouchPos, uTouchAge, uRainLines, uRainLinesStrength,
-            uRainLinesSpeed, uRainLinesAngle;
+            uRainLinesSpeed, uRainLinesAngle, uOpacity;
     private FloatBuffer quadBuffer;
 
     private final SceneCapture scene = new SceneCapture();
@@ -219,6 +222,7 @@ class RippleShader {
         uRainLinesStrength = GLES20.glGetUniformLocation(program, "u_rain_lines_strength");
         uRainLinesSpeed = GLES20.glGetUniformLocation(program, "u_rain_lines_speed");
         uRainLinesAngle = GLES20.glGetUniformLocation(program, "u_rain_lines_angle");
+        uOpacity = GLES20.glGetUniformLocation(program, "u_opacity");
 
         quadBuffer = GLUtil.asFloatBuffer(QUAD);
     }
@@ -246,7 +250,8 @@ class RippleShader {
      */
     void draw(int screenW, int screenH, float time, float speed, float cellSize,
               float strength, boolean touchOnly,
-              boolean rainLines, float rainLinesStrength, float rainLinesSpeed, float rainLinesAngle) {
+              boolean rainLines, float rainLinesStrength, float rainLinesSpeed, float rainLinesAngle,
+              float opacity) {
         if (program == 0) return;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
         GLES20.glViewport(0, 0, screenW, screenH);
@@ -265,6 +270,7 @@ class RippleShader {
         GLES20.glUniform1f(uRainLinesStrength, rainLinesStrength);
         GLES20.glUniform1f(uRainLinesSpeed, rainLinesSpeed);
         GLES20.glUniform1f(uRainLinesAngle, rainLinesAngle);
+        GLES20.glUniform1f(uOpacity, opacity);
         uploadTouchUniforms(time);
 
         GLES20.glEnableVertexAttribArray(aPos);

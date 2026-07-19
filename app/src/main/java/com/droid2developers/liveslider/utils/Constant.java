@@ -82,6 +82,7 @@ public class Constant {
 
     public static final String WORKER_KEY_PLAYLIST_ID = "playlist_id";
     public static final String PREF_CHANGE_ON_UNLOCK  = "change_on_unlock";
+    public static final String PREF_CHANGE_ON_SLEEP   = "change_on_sleep";
     public static final String PREF_SHUFFLE_PLAYLIST  = "shuffle_playlist";
     // --- Shader effects registry -------------------------------------------------
     // Exactly one shader (or none) can be active at a time. PREF_ACTIVE_SHADER

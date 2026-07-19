@@ -31,6 +31,7 @@ class CropOverlay {
     static final int HIT_DONE = 3;
     static final int HIT_PREV = 4;
     static final int HIT_NEXT = 5;
+    static final int HIT_SHUFFLE = 6;
 
     // Crop buttons: centres as fractions of screen width/height; radii of width.
     // All three sit on one row: ◀ (0.32) — ✓ (0.50) — ▶ (0.68).
@@ -46,6 +47,10 @@ class CropOverlay {
     private static final float PILL_Y = 0.36f;
     private static final float PILL_HALF_W = 0.22f;
     private static final float PILL_HALF_H = 0.06f;
+
+    // Shuffle button: below the main button row, drawn/hit only when a playlist
+    // is active (same gate as the pill).
+    private static final float SHUFFLE_X = 0.50f, SHUFFLE_Y = 0.62f;
 
     private static final String VERTEX_SHADER = ""
             + "attribute vec4 aPosition;"
@@ -92,6 +97,8 @@ class CropOverlay {
         if (dist(x, y, LEFT_X * screenW, ARROWS_Y * screenH) < r) return HIT_LEFT;
         if (dist(x, y, RIGHT_X * screenW, ARROWS_Y * screenH) < r) return HIT_RIGHT;
         if (dist(x, y, DONE_X * screenW, DONE_Y * screenH) < r) return HIT_DONE;
+        if (pillVisible
+                && dist(x, y, SHUFFLE_X * screenW, SHUFFLE_Y * screenH) < r) return HIT_SHUFFLE;
         return HIT_NONE;
     }
 
@@ -220,6 +227,27 @@ class CropOverlay {
             text.setFakeBoldText(true);
             canvas.drawText(current + "/" + total, 0.5f * w,
                     pillY + halfH * 0.3f, text);
+
+            // Shuffle button below the main row — two crossing arrows
+            float sx = SHUFFLE_X * w, sy = SHUFFLE_Y * h;
+            canvas.drawCircle(sx, sy, r, bg);
+            float sa = a * 0.9f;   // arrow half-length
+            float sh = a * 0.55f;  // arrow half-height
+            float head = a * 0.35f;
+            p.reset();             // ↗ arrow: bottom-left to top-right + head
+            p.moveTo(sx - sa, sy + sh);
+            p.lineTo(sx + sa, sy - sh);
+            p.moveTo(sx + sa - head, sy - sh - head * 0.3f);
+            p.lineTo(sx + sa, sy - sh);
+            p.lineTo(sx + sa - head * 0.3f, sy - sh + head);
+            canvas.drawPath(p, line);
+            p.reset();             // ↘ arrow: top-left to bottom-right + head
+            p.moveTo(sx - sa, sy - sh);
+            p.lineTo(sx + sa, sy + sh);
+            p.moveTo(sx + sa - head, sy + sh + head * 0.3f);
+            p.lineTo(sx + sa, sy + sh);
+            p.lineTo(sx + sa - head * 0.3f, sy + sh - head);
+            canvas.drawPath(p, line);
         }
 
         int tex = GLUtil.loadTexture(bmp);
