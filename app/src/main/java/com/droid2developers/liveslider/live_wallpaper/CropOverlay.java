@@ -216,10 +216,10 @@ class CropOverlay {
             Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
             text.setColor(0xFFFFFFFF);
             text.setTextAlign(Paint.Align.CENTER);
-            text.setTextSize(halfH * 1.1f);
+            text.setTextSize(halfH * 0.8f);
             text.setFakeBoldText(true);
             canvas.drawText(current + "/" + total, 0.5f * w,
-                    pillY + halfH * 0.4f, text);
+                    pillY + halfH * 0.3f, text);
         }
 
         int tex = GLUtil.loadTexture(bmp);

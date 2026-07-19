@@ -83,6 +83,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // "7/10" pill; total 0 = no playlist (pill hidden). Written from service thread.
     private volatile int playlistCurrent = 0;
     private volatile int playlistTotal = 0;
+    // Offscreen blur pipeline for the blur transition — per-EGL-context, rebuilt
+    // lazily like cropOverlay.
+    private Blur blur;
     private float wallpaperAspectRatio;
     private final Runnable transition = new Runnable() {
         @Override
@@ -144,6 +147,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // New EGL context — the overlay's program/texture handles died with the old
         // one. Drop it and let onDrawFrame rebuild lazily if still visible.
         cropOverlay = null;
+        blur = null;
     }
 
 
@@ -376,13 +380,14 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 4);
             }
         } else if (currentEffect == 4) {
-            // Blur — phase 1: old blurs out to peak softness (effect 5), phase 2: new sharpens in (effect 6)
+            // Blur — phase 1: old blurs out to peak softness, phase 2: new sharpens in.
+            // Real blur: scene → ¼-res FBO → separable Gaussian → composite over sharp.
             if (!transitionMidpointReached && previousWallpaper != null) {
                 float localProgress = transitionProgress / 0.5f;
-                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, localProgress, 5);
+                drawBlurred(previousWallpaper, prevMVPMatrix(), localProgress);
             } else if (transitionMidpointReached && wallpaper != null) {
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
-                wallpaper.draw(shader, mMVPMatrix, 1.0f, localProgress, 6);
+                drawBlurred(wallpaper, mMVPMatrix, 1.0f - localProgress);
             }
         } else if (currentEffect == 5) {
             // Zoom — previousWallpaper static backdrop, new wallpaper grows from centre
@@ -412,6 +417,21 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             if (cropOverlay == null) cropOverlay = new CropOverlay();
             cropOverlay.draw(screenW, screenH, playlistCurrent, playlistTotal);
         }
+    }
+
+    /**
+     * Draws {@code w} sharp, then overlays a real Gaussian blur of it with
+     * strength/alpha {@code t} (0 = fully sharp, 1 = peak blur). Falls back to
+     * the plain sharp draw if FBO rendering is unavailable.
+     */
+    private void drawBlurred(Wallpaper w, float[] mvp, float t) {
+        w.draw(shader, mvp, 1.0f, 1.0f, 0);
+        if (t <= 0.0f) return;
+        if (blur == null) blur = new Blur();
+        if (!blur.ensure(screenW, screenH)) return;
+        blur.beginScene();
+        w.draw(shader, mvp, 1.0f, 1.0f, 0);
+        blur.blurAndCompose(t, screenW, screenH);
     }
 
     /** Captures the CURRENT (soon-to-be-old) wallpaper's camera parameters before a
