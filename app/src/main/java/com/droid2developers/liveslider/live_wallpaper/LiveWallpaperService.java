@@ -14,10 +14,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
-import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import androidx.preference.PreferenceManager;
+import com.droid2developers.liveslider.database.LiveWallpaperDatabase;
 import com.droid2developers.liveslider.database.models.LocalWallpaper;
 import com.droid2developers.liveslider.database.repository.WallpaperRepository;
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;
@@ -105,7 +105,10 @@ public class LiveWallpaperService extends GLWallpaperService {
         private List<LocalWallpaper> playlistWallpapers = new ArrayList<>();
         private WallpaperRepository mRepository;
 
-        private GestureDetector doubleTapDetector;
+        private MultiTapDetector tapDetector;
+
+        // Triple-tap crop-adjust mode (home screen only, phase 1 — nothing persisted)
+        private boolean cropMode = false;
 
         // Runnable Threads
         private final Handler handler = new Handler(Looper.getMainLooper());
@@ -169,8 +172,25 @@ public class LiveWallpaperService extends GLWallpaperService {
 
             // Adding touch listeners for touch feedback
             setTouchEventsEnabled(true);
-            doubleTapDetector = new GestureDetector(getApplicationContext(),
-                    new DoubleTapGestureListener(this));
+            tapDetector = new MultiTapDetector(getApplicationContext(),
+                    new MultiTapDetector.Listener() {
+                        @Override
+                        public void onDoubleTap() {
+                            if (isAllowClickToChange() && isSlideShowEnabled()) {
+                                incrementWallpaper();
+                                changeWallpaper();
+                            }
+                        }
+
+                        @Override
+                        public void onTripleTap() {
+                            if (!isLockScreenService()) {
+                                cropMode = true;
+                                updateOverlayPlaylistInfo();
+                                renderer.showCropOverlay();
+                            }
+                        }
+                    });
 
             // Change on screen wake — register ACTION_SCREEN_ON receiver
             changeOnUnlock = prefs.getBoolean(Constant.PREF_CHANGE_ON_UNLOCK, false);
@@ -286,7 +306,37 @@ public class LiveWallpaperService extends GLWallpaperService {
 
         @Override
         public void onTouchEvent(MotionEvent event) {
-            this.doubleTapDetector.onTouchEvent(event);
+            if (cropMode) {
+                // Overlay is up — taps go to its buttons, never to the tap detector
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    android.graphics.Rect frame = getSurfaceHolder().getSurfaceFrame();
+                    int hit = CropOverlay.hitTest(event.getX(), event.getY(),
+                            frame.width(), frame.height(), isPlaylistActive());
+                    if (hit == CropOverlay.HIT_LEFT) {
+                        renderer.nudgeCrop(1);
+                    } else if (hit == CropOverlay.HIT_RIGHT) {
+                        renderer.nudgeCrop(-1);
+                    } else if (hit == CropOverlay.HIT_DONE) {
+                        cropMode = false;
+                        renderer.hideCropOverlay();
+                        saveCropBias();
+                    } else if (hit == CropOverlay.HIT_PREV || hit == CropOverlay.HIT_NEXT) {
+                        if (isPlaylistActive()) {
+                            // Keep the edits for the wallpaper we're leaving, then step
+                            saveCropBias();
+                            if (hit == CropOverlay.HIT_NEXT) {
+                                incrementWallpaper();
+                            } else {
+                                decrementWallpaper();
+                            }
+                            doChangeWallpaper();
+                            updateOverlayPlaylistInfo();
+                        }
+                    }
+                }
+                return;
+            }
+            tapDetector.onTouchEvent(event);
         }
 
 
@@ -347,7 +397,14 @@ public class LiveWallpaperService extends GLWallpaperService {
                 case "refresh_wallpaper":
                     String localWallpaperPath = sharedPreferences.getString("local_wallpaper_path", getDefaultWallpaperPath());
                     boolean isDefault = sharedPreferences.getBoolean("default_wallpaper", true);
-                    renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
+                    if (isDefault) {
+                        renderer.refreshWallpaperFresh(localWallpaperPath, true, 0f);
+                    } else {
+                        // Saved crop lives in Room — fetch off the main thread, then refresh
+                        LiveWallpaperDatabase.databaseWriteExecutor.execute(() ->
+                                renderer.refreshWallpaperFresh(localWallpaperPath, false,
+                                        getRepository().getCropBiasSync(localWallpaperPath)));
+                    }
                     break;
                 case "type":
                     renderer.setWallpaperType(sharedPreferences.getInt(key, TYPE_SINGLE));
@@ -465,14 +522,30 @@ public class LiveWallpaperService extends GLWallpaperService {
         }
 
 
+        private WallpaperRepository getRepository() {
+            if (mRepository == null) {
+                mRepository = new WallpaperRepository(getApplicationContext());
+            }
+            return mRepository;
+        }
+
+        // Persist the chosen crop for the wallpaper currently on screen.
+        // The built-in default asset has no DB row — its center crop stays implicit.
+        private void saveCropBias() {
+            String path = renderer.getCurrentWallpaperPath();
+            if (path != null && !path.equals(getDefaultWallpaperPath())) {
+                getRepository().updateCropBias(path, renderer.getCropBias());
+                Log.d(TAG, "saveCropBias: " + renderer.getCropBias() + " for " + path);
+            }
+        }
+
         // enable/disable playlists
         void setCurrentPlaylist(String playlistId) {
             if (currentPlaylistId.equals(playlistId)) return;
             this.currentPlaylistId = playlistId;
             if (!playlistId.equals(PLAYLIST_NONE)) {
 
-                mRepository = new WallpaperRepository(getApplicationContext());
-                mRepository.getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
+                getRepository().getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
                     Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
                     // Room re-runs this query (and re-emits) on ANY write to the localwallpaper
                     // table, including PlaylistWorker processing an unrelated playlist. Only
@@ -495,12 +568,14 @@ public class LiveWallpaperService extends GLWallpaperService {
                         // Playlist has no processed wallpapers yet (e.g. still cropping); wait for the next update.
                         return;
                     }
-                    String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                    LocalWallpaper currentWallpaper = playlistWallpapers.get(mImagesArrayIndex);
+                    String localWallpaperPath = currentWallpaper.getLocalPath();
                     if (!isPlaylistSwitch && localWallpaperPath != null && localWallpaperPath.equals(previousPath)) {
                         return;
                     }
                     boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                    renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
+                    renderer.refreshWallpaperFresh(localWallpaperPath, isDefault,
+                            currentWallpaper.getCropBias());
                     //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
                 });
             }
@@ -550,6 +625,21 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
         }
 
+        // True when the slideshow is running off a non-empty playlist — the only
+        // state where the overlay's prev/next pill makes sense.
+        private boolean isPlaylistActive() {
+            return isSlideShowEnabled && !playlistWallpapers.isEmpty();
+        }
+
+        // Feeds the overlay's "7/10" pill; (0, 0) hides it (static wallpaper).
+        private void updateOverlayPlaylistInfo() {
+            if (isPlaylistActive()) {
+                renderer.setPlaylistInfo(mImagesArrayIndex + 1, playlistWallpapers.size());
+            } else {
+                renderer.setPlaylistInfo(0, 0);
+            }
+        }
+
         // Functions for wallpapers slideshow
         void incrementWallpaper(){
             // TODO - Change max Index size based on local images too
@@ -562,13 +652,34 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
             Log.d(TAG, "incrementCounter: " + mImagesArrayIndex);
         }
+        void decrementWallpaper(){
+            if (playlistWallpapers.isEmpty()) return;
+            mImagesArrayIndex = (mImagesArrayIndex - 1 + playlistWallpapers.size())
+                    % playlistWallpapers.size();
+            Log.d(TAG, "decrementCounter: " + mImagesArrayIndex);
+        }
         void changeWallpaper(){
+            // Never swap the wallpaper while the crop overlay is being used — covers
+            // every change source (slideshow timer, unlock advance, double tap).
+            // Reschedule so the slideshow resumes on its own after editing is done.
+            // (The overlay's own prev/next buttons call doChangeWallpaper directly.)
+            if (cropMode) {
+                Log.d(TAG, "changeWallpaper: skipped, crop overlay is open");
+                handler.removeCallbacks(slideshow);
+                handler.postDelayed(slideshow, timer);
+                return;
+            }
+            doChangeWallpaper();
+        }
+        private void doChangeWallpaper(){
 
             if (!playlistWallpapers.isEmpty()){
-                String localWallpaperPath = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                LocalWallpaper nextWallpaper = playlistWallpapers.get(mImagesArrayIndex);
+                String localWallpaperPath = nextWallpaper.getLocalPath();
                 editor.putString("local_wallpaper_path", localWallpaperPath).apply();
                 boolean isDefault = prefs.getBoolean("default_wallpaper", true);
-                renderer.refreshWallpaperFresh(localWallpaperPath, isDefault);
+                renderer.refreshWallpaperFresh(localWallpaperPath, isDefault,
+                        nextWallpaper.getCropBias());
 
                 handler.removeCallbacks(slideshow);
                 if (isVisible()){

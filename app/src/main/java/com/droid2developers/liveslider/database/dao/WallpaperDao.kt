@@ -43,4 +43,12 @@ interface WallpaperDao {
 
     @Query("SELECT COUNT(*) FROM localwallpaper WHERE playlistId = :key AND localPath IS NOT NULL")
     fun getProcessedCount(key: String?): LiveData<Int>
+
+    // Crop bias (triple-tap crop overlay). Keyed by localPath because the live
+    // wallpaper engine identifies the current image by its file path, not row id.
+    @Query("UPDATE localwallpaper SET cropBias = :bias WHERE localPath = :path")
+    fun updateCropBias(path: String?, bias: Float)
+
+    @Query("SELECT cropBias FROM localwallpaper WHERE localPath = :path LIMIT 1")
+    fun getCropBias(path: String?): Float?
 }

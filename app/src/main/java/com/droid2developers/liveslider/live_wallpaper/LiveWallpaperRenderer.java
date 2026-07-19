@@ -48,6 +48,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private volatile boolean hasPendingRefresh = false;
     private volatile String pendingWallpaperPath = null;
     private volatile boolean pendingIsDefault = false;
+    private volatile float pendingCropBias = 0f;
 
     // Retry state — when external storage is not yet available on boot, we retry
     // loading the user's wallpaper a few times before falling back to default.
@@ -69,7 +70,19 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private float orientationOffsetX, orientationOffsetY;
     private final Callbacks mCallbacks;
     private float screenAspectRatio;
+    private int screenW;
     private int screenH;
+
+    // Crop-adjust overlay (triple-tap feature) — visibility/bias written from the
+    // service thread, read on the GL thread. Bias is a camera-x offset in world
+    // units; phase 1 only, not persisted.
+    private volatile boolean cropOverlayVisible = false;
+    private volatile float cropBias = 0f;
+    private CropOverlay cropOverlay;
+    // 1-based position and size of the active playlist, shown in the overlay's
+    // "7/10" pill; total 0 = no playlist (pill hidden). Written from service thread.
+    private volatile int playlistCurrent = 0;
+    private volatile int playlistTotal = 0;
     private float wallpaperAspectRatio;
     private final Runnable transition = new Runnable() {
         @Override
@@ -80,10 +93,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private ScheduledFuture<?> transitionHandle;
     private float preA;
     private float preB;
-    // Cached matrix values for previousWallpaper during pixelate — prevents position
-    // shift when loadTexture() calls preCalculate() mid-animation for the new texture.
+    // Snapshotted camera for previousWallpaper during transitions — prevents position
+    // shift when loadTexture()/cropBias switch mid-animation to the new texture's values.
     private float prevPreA;
     private float prevPreB;
+    private float prevCropBias;
+    private float prevSlack;
 
     // Important mutable parameters for live wallpaper
     // Per-context shader state owned by THIS renderer/engine — never shared across
@@ -126,6 +141,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // don't leak one program per screen-off/on cycle.
         if (shader != null) shader.delete();
         shader = Wallpaper.initGl();
+        // New EGL context — the overlay's program/texture handles died with the old
+        // one. Drop it and let onDrawFrame rebuild lazily if still visible.
+        cropOverlay = null;
     }
 
 
@@ -159,6 +177,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                         transitionFadeOutDone = true;
                         localWallpaperPath    = pendingWallpaperPath;
                         isDefaultWallpaper    = pendingIsDefault;
+                        cropBias              = pendingCropBias;
                         needsRefreshWallpaper = true;
                         transitionPendingLoad = true;
                         transitionLoadAfter   = SystemClock.elapsedRealtime() + 50;
@@ -219,6 +238,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     }
                     localWallpaperPath    = pendingWallpaperPath;
                     isDefaultWallpaper    = pendingIsDefault;
+                    cropBias              = pendingCropBias;
                     needsRefreshWallpaper = true;
                     // Do not check completion this frame — let phase 2 start next frame
                     mCallbacks.requestRender();
@@ -262,6 +282,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     }
                     localWallpaperPath    = pendingWallpaperPath;
                     isDefaultWallpaper    = pendingIsDefault;
+                    cropBias              = pendingCropBias;
                     needsRefreshWallpaper = true;
                     mCallbacks.requestRender();
                 } else if (transitionMidpointReached && transitionProgress >= 1.0f) {
@@ -310,7 +331,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         }
 
         // Set the camera position (View matrix)
-        float x = preA * (-2 * scrollOffsetX + 1) + currentOrientationOffsetX;
+        // cropBias shifts the visible crop window horizontally; clamp scroll+bias to
+        // the image's real slack so we never pan past the wallpaper's edge.
+        float slack = Math.max(0f, wallpaperAspectRatio - screenAspectRatio);
+        float base = preA * (-2 * scrollOffsetX + 1) + cropBias;
+        base = Math.max(-slack, Math.min(slack, base));
+        float x = base + currentOrientationOffsetX;
         float y = currentOrientationOffsetY;
         Matrix.setLookAtM(mViewMatrix, 0, x, y, preB, x, y, 0f, 0f, 1.0f, 0.0f);
 
@@ -320,16 +346,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         if (currentEffect == 2) {
             // Pixelate — draw only ONE texture per phase, never both simultaneously
             if (!transitionMidpointReached && previousWallpaper != null) {
-                // Phase 1: previousWallpaper pixelates OUT using its own cached matrix
-                // so preCalculate() updating preA/preB for the new texture does not shift it.
+                // Phase 1: previousWallpaper pixelates OUT using its own snapshotted
+                // camera so the new texture's preA/preB/cropBias do not shift it.
                 float localProgress = transitionProgress / 0.5f;
-                float px = prevPreA * (-2 * scrollOffsetX + 1) + currentOrientationOffsetX;
-                float py = currentOrientationOffsetY;
-                float[] prevViewMatrix = new float[16];
-                float[] prevMVPMatrix  = new float[16];
-                Matrix.setLookAtM(prevViewMatrix, 0, px, py, prevPreB, px, py, 0f, 0f, 1.0f, 0.0f);
-                Matrix.multiplyMM(prevMVPMatrix, 0, mProjectionMatrix, 0, prevViewMatrix, 0);
-                previousWallpaper.draw(shader, prevMVPMatrix, 1.0f, localProgress, 3);
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, localProgress, 3);
             } else if (transitionMidpointReached && wallpaper != null) {
                 // Phase 2: new wallpaper uses the normal current MVP matrix
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
@@ -338,7 +358,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 1) {
             // Dissolve — previousWallpaper static backdrop, new wallpaper dissolves in on top
             if (previousWallpaper != null) {
-                previousWallpaper.draw(shader, mMVPMatrix, 1.0f, 1.0f, 0);
+                // Backdrop keeps ITS OWN snapshotted camera — mMVPMatrix already
+                // describes the incoming wallpaper's crop/aspect.
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, 0);
             }
             if (wallpaper != null) {
                 wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 1);
@@ -346,7 +368,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 3) {
             // Wipe — previousWallpaper static backdrop, new wallpaper wipes in left→right
             if (previousWallpaper != null) {
-                previousWallpaper.draw(shader, mMVPMatrix, 1.0f, 1.0f, 0);
+                // Backdrop keeps ITS OWN snapshotted camera — mMVPMatrix already
+                // describes the incoming wallpaper's crop/aspect.
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, 0);
             }
             if (wallpaper != null) {
                 wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 4);
@@ -355,13 +379,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             // Blur — phase 1: old blurs out to peak softness (effect 5), phase 2: new sharpens in (effect 6)
             if (!transitionMidpointReached && previousWallpaper != null) {
                 float localProgress = transitionProgress / 0.5f;
-                float px = prevPreA * (-2 * scrollOffsetX + 1) + currentOrientationOffsetX;
-                float py = currentOrientationOffsetY;
-                float[] prevViewMatrix = new float[16];
-                float[] prevMVPMatrix  = new float[16];
-                Matrix.setLookAtM(prevViewMatrix, 0, px, py, prevPreB, px, py, 0f, 0f, 1.0f, 0.0f);
-                Matrix.multiplyMM(prevMVPMatrix, 0, mProjectionMatrix, 0, prevViewMatrix, 0);
-                previousWallpaper.draw(shader, prevMVPMatrix, 1.0f, localProgress, 5);
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, localProgress, 5);
             } else if (transitionMidpointReached && wallpaper != null) {
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
                 wallpaper.draw(shader, mMVPMatrix, 1.0f, localProgress, 6);
@@ -369,7 +387,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 5) {
             // Zoom — previousWallpaper static backdrop, new wallpaper grows from centre
             if (previousWallpaper != null) {
-                previousWallpaper.draw(shader, mMVPMatrix, 1.0f, 1.0f, 0);
+                // Backdrop keeps ITS OWN snapshotted camera — mMVPMatrix already
+                // describes the incoming wallpaper's crop/aspect.
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, 0);
             }
             if (wallpaper != null) {
                 wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 7);
@@ -386,6 +406,36 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 }
             }
         }
+
+        // Crop-adjust buttons render on top of everything
+        if (cropOverlayVisible) {
+            if (cropOverlay == null) cropOverlay = new CropOverlay();
+            cropOverlay.draw(screenW, screenH, playlistCurrent, playlistTotal);
+        }
+    }
+
+    /** Captures the CURRENT (soon-to-be-old) wallpaper's camera parameters before a
+     *  transition overwrites them with the incoming wallpaper's. */
+    private void snapshotPrevCamera() {
+        prevPreA     = preA;
+        prevPreB     = preB;
+        prevCropBias = cropBias;
+        prevSlack    = Math.max(0f, wallpaperAspectRatio - screenAspectRatio);
+    }
+
+    /** Camera matrix for the OUTGOING wallpaper during a transition, built from the
+     *  snapshot so the old image keeps its own crop position while cropBias/preA/preB
+     *  already describe the incoming one. */
+    private float[] prevMVPMatrix() {
+        float base = prevPreA * (-2 * scrollOffsetX + 1) + prevCropBias;
+        base = Math.max(-prevSlack, Math.min(prevSlack, base));
+        float px = base + currentOrientationOffsetX;
+        float py = currentOrientationOffsetY;
+        float[] view = new float[16];
+        float[] mvp = new float[16];
+        Matrix.setLookAtM(view, 0, px, py, prevPreB, px, py, 0f, 0f, 1.0f, 0.0f);
+        Matrix.multiplyMM(mvp, 0, mProjectionMatrix, 0, view, 0);
+        return mvp;
     }
 
     private void preCalculate() {
@@ -428,6 +478,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         }
 
         screenAspectRatio = (float) width / (float) height;
+        screenW = width;
         screenH = height;
 
         GLES20.glViewport(0, 0, width, height);
@@ -512,6 +563,43 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         chosenEffect = effect;
     }
 
+    // --- Crop-adjust overlay (triple-tap) — called from the service thread ---
+    void showCropOverlay() {
+        cropOverlayVisible = true;
+        mCallbacks.requestRender();
+    }
+    /** Position shown in the overlay's pill; (0, 0) hides the pill (no playlist). */
+    void setPlaylistInfo(int current, int total) {
+        playlistCurrent = current;
+        playlistTotal = total;
+        if (cropOverlayVisible) mCallbacks.requestRender();
+    }
+    void hideCropOverlay() {
+        cropOverlayVisible = false;
+        mCallbacks.requestRender();
+    }
+    /**
+     * Nudges the crop window by 5% of the image's horizontal slack per tap
+     * (fine-grained — 20 taps from centre to edge).
+     * direction +1 = show more of the image's LEFT side (camera x is positive at
+     * scroll offset 0, which is the leftmost page — geometry x is mirrored).
+     */
+    void nudgeCrop(int direction) {
+        float slack = Math.max(0f, wallpaperAspectRatio - screenAspectRatio);
+        if (slack == 0f) return; // image no wider than screen — nothing to reveal
+        cropBias = Math.max(-slack, Math.min(slack, cropBias + direction * slack * 0.05f));
+        mCallbacks.requestRender();
+    }
+    /** Current bias for persisting when the user taps Done. */
+    float getCropBias() {
+        return cropBias;
+    }
+    /** Path of the wallpaper currently on screen — the row a saved crop belongs to.
+     *  Written on the GL thread; a marginally stale read is harmless for saving. */
+    String getCurrentWallpaperPath() {
+        return localWallpaperPath;
+    }
+
     // Animation speed multiplier — maps Constant.ANIMATION_SPEED_* to a float factor
     private int animationSpeed = 1; // default = ANIMATION_SPEED_NORMAL
 
@@ -542,21 +630,22 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // refreshes current wallpaper and update canvas
     // Called from service/main thread — only writes volatile fields, no GL state.
-    void refreshWallpaper(String wallpaperPath, boolean isDefault) {
+    void refreshWallpaper(String wallpaperPath, boolean isDefault, float savedCropBias) {
         pendingWallpaperPath = wallpaperPath;
         pendingIsDefault     = isDefault;
+        pendingCropBias      = savedCropBias;
         hasPendingRefresh    = true;   // GL thread picks this up at top of next frame
         mCallbacks.requestRender();
     }
 
     // External (user-initiated) wallpaper change — resets the boot-retry counter so the
     // new path gets its full quota of retries independent of any previous attempt.
-    void refreshWallpaperFresh(String wallpaperPath, boolean isDefault) {
+    void refreshWallpaperFresh(String wallpaperPath, boolean isDefault, float savedCropBias) {
         // Any pending retry is now stale — cancel it so it can't fire seconds later
         // and clobber the wallpaper the user just changed to.
         if (retryHandle != null) retryHandle.cancel(false);
         loadRetryCount = 0;
-        refreshWallpaper(wallpaperPath, isDefault);
+        refreshWallpaper(wallpaperPath, isDefault, savedCropBias);
     }
 
     // Consumes a pending refresh request atomically on the GL thread.
@@ -567,6 +656,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
         // Snapshot chosen effect for this transition
         currentEffect = chosenEffect;
+        // NOTE: cropBias is NOT reset here — it switches to pendingCropBias at the
+        // same moment each effect swaps to the new texture, so the outgoing image
+        // keeps its own crop until it's gone.
 
         if (currentEffect == 0) {
             // Fade: two-phase — fade out current, load new, fade in
@@ -579,11 +671,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 1) {
             // Dissolve: keep old texture as static backdrop, load new immediately,
             // animate progress 0→1 (new texture reveals through noise pattern).
+            snapshotPrevCamera();
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;
             wallpaper                = null;
             localWallpaperPath       = pendingWallpaperPath;
             isDefaultWallpaper       = pendingIsDefault;
+            cropBias                 = pendingCropBias;
             needsRefreshWallpaper    = true;   // load new texture on next frame
             transitionProgress       = 0.0f;
             transitionAlpha          = 1.0f;
@@ -594,8 +688,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 2) {
             // Pixelate: two-phase midpoint swap.
             // Snapshot old matrix BEFORE loadTexture() overwrites preA/preB.
-            prevPreA = preA;
-            prevPreB = preB;
+            snapshotPrevCamera();
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;  // old texture drives phase 1
             wallpaper                = null;        // will be loaded at midpoint
@@ -609,11 +702,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 3) {
             // Wipe: keep old texture as static backdrop, load new immediately,
             // animate progress 0→1 (new texture sweeps in left→right).
+            snapshotPrevCamera();
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;
             wallpaper                = null;
             localWallpaperPath       = pendingWallpaperPath;
             isDefaultWallpaper       = pendingIsDefault;
+            cropBias                 = pendingCropBias;
             needsRefreshWallpaper    = true;
             transitionProgress       = 0.0f;
             transitionAlpha          = 1.0f;
@@ -624,8 +719,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 4) {
             // Blur: two-phase midpoint swap (same pattern as pixelate).
             // Snapshot old matrix so the blur-out phase uses the correct camera position.
-            prevPreA = preA;
-            prevPreB = preB;
+            snapshotPrevCamera();
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;  // old texture drives phase 1 (blur out)
             wallpaper                = null;        // will be loaded at midpoint
@@ -638,11 +732,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         } else if (currentEffect == 5) {
             // Zoom: keep old texture as static backdrop, load new immediately,
             // animate progress 0→1 (new texture grows from screen centre).
+            snapshotPrevCamera();
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;
             wallpaper                = null;
             localWallpaperPath       = pendingWallpaperPath;
             isDefaultWallpaper       = pendingIsDefault;
+            cropBias                 = pendingCropBias;
             needsRefreshWallpaper    = true;
             transitionProgress       = 0.0f;
             transitionAlpha          = 1.0f;
@@ -744,16 +840,17 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 loadRetryCount++;
                 final String retryPath = localWallpaperPath;
                 final boolean retryDef = isDefaultWallpaper;
+                final float retryBias  = cropBias;
                 Log.w(TAG, "openWallpaperStream: scheduling retry " + loadRetryCount + "/" + MAX_LOAD_RETRIES
                         + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
                 if (retryHandle != null) retryHandle.cancel(false);
-                retryHandle = scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef),
+                retryHandle = scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef, retryBias),
                         RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
             } else {
                 Log.e(TAG, "openWallpaperStream: giving up after " + MAX_LOAD_RETRIES
                         + " retries, falling back to default wallpaper: " + defaultWallpaperPath);
                 loadRetryCount = 0;
-                refreshWallpaper(defaultWallpaperPath, true);
+                refreshWallpaper(defaultWallpaperPath, true, 0f); // default asset = center crop
             }
             return null;
         }

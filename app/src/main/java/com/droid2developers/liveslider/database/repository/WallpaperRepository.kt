@@ -64,6 +64,18 @@ class WallpaperRepository(mContext: Context) {
         }
     }
 
+    /** Persists the crop bias for the wallpaper at [path]. Fire-and-forget, any thread. */
+    fun updateCropBias(path: String?, bias: Float) {
+        LiveWallpaperDatabase.databaseWriteExecutor.execute {
+            mWallpaperDao.updateCropBias(path, bias)
+        }
+    }
+
+    /** Synchronous DB read — must be called off the main thread. 0 = center crop. */
+    fun getCropBiasSync(path: String?): Float {
+        return mWallpaperDao.getCropBias(path) ?: 0f
+    }
+
 
     fun delete(wallpaper: LocalWallpaper) {
         LiveWallpaperDatabase.databaseWriteExecutor.execute {

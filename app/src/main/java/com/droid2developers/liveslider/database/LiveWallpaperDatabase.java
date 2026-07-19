@@ -2,9 +2,12 @@ package com.droid2developers.liveslider.database;
 
 import android.content.Context;
 
+import androidx.annotation.NonNull;
 import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
+import androidx.room.migration.Migration;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.droid2developers.liveslider.database.dao.PlaylistDao;
 import com.droid2developers.liveslider.database.dao.WallpaperDao;
@@ -16,8 +19,17 @@ import java.util.concurrent.Executors;
 
 import static com.droid2developers.liveslider.utils.Constant.DB_NAME;
 
-@Database(entities = {LocalWallpaper.class, Playlist.class}, version = 4, exportSchema = false)
+@Database(entities = {LocalWallpaper.class, Playlist.class}, version = 5, exportSchema = false)
 public abstract class LiveWallpaperDatabase extends RoomDatabase {
+
+    // v5: per-wallpaper horizontal crop bias (triple-tap crop overlay).
+    // 0 = center crop, matching the previous behaviour for all existing rows.
+    static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase db) {
+            db.execSQL("ALTER TABLE localwallpaper ADD COLUMN cropBias REAL NOT NULL DEFAULT 0");
+        }
+    };
 
     public abstract WallpaperDao wallpaperDao();
     public abstract PlaylistDao playlistDao();
@@ -32,6 +44,7 @@ public abstract class LiveWallpaperDatabase extends RoomDatabase {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                             LiveWallpaperDatabase.class, DB_NAME)
+                            .addMigrations(MIGRATION_4_5)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

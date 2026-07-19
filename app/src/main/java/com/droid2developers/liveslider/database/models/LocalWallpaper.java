@@ -13,6 +13,10 @@ public class LocalWallpaper implements Serializable {
     private String name;
     private String localPath;
     private String originalPath;
+    /** Horizontal crop bias in renderer world units. 0 = center crop (default).
+     *  Positive shows more of the image's left side. Set via the triple-tap
+     *  crop overlay; applied as a camera-x offset, clamped to the image's slack. */
+    private float cropBias = 0f;
 
     public LocalWallpaper(String playlistId, String name, String localPath, String originalPath) {
         this.playlistId = playlistId;
@@ -59,6 +63,14 @@ public class LocalWallpaper implements Serializable {
 
     public void setOriginalPath(String originalPath) {
         this.originalPath = originalPath;
+    }
+
+    public float getCropBias() {
+        return cropBias;
+    }
+
+    public void setCropBias(float cropBias) {
+        this.cropBias = cropBias;
     }
 
     @Override
