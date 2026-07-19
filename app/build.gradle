@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId "com.droid2developers.liveslider"
-        versionCode 17
+        versionCode 18
         minSdk 28
         targetSdk 36
-        versionName "1.34"
+        versionName "1.35"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
