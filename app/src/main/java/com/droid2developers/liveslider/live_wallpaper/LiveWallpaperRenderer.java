@@ -26,7 +26,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
-import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 
 public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
@@ -100,11 +99,14 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean needsRefreshWallpaper;
     private boolean isDefaultWallpaper;
     private int wallpaperType;
+    /** This service's own default asset path (home vs. lock) — see LiveWallpaperService#getDefaultWallpaperPath(). */
+    private final String defaultWallpaperPath;
 
 
-    LiveWallpaperRenderer(Context context, Callbacks callbacks) {
+    LiveWallpaperRenderer(Context context, Callbacks callbacks, String defaultWallpaperPath) {
         mContext = context;
         mCallbacks = callbacks;
+        this.defaultWallpaperPath = defaultWallpaperPath;
     }
 
     void release() {
@@ -716,10 +718,14 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // assets — a FileInputStream can never open the file:///android_asset/ URI, so
     // that path must go through AssetManager regardless of wallpaper type.
     private InputStream openWallpaperStream() {
-        if (DEFAULT_LOCAL_PATH.equals(localWallpaperPath)
+        if (defaultWallpaperPath.equals(localWallpaperPath)
                 || (wallpaperType == TYPE_SINGLE && isDefaultWallpaper)) {
+            // Always load THIS service's own default asset (home vs. lock), never assume home's.
+            String assetName = Constant.DEFAULT_LOCK_LOCAL_PATH.equals(defaultWallpaperPath)
+                    ? Constant.DEFAULT_LOCK_WALLPAPER_NAME
+                    : Constant.DEFAULT_WALLPAPER_NAME;
             try {
-                AssetFileDescriptor fileDescriptor = mContext.getAssets().openFd(Constant.DEFAULT_WALLPAPER_NAME);
+                AssetFileDescriptor fileDescriptor = mContext.getAssets().openFd(assetName);
                 return fileDescriptor.createInputStream();
             } catch (IOException e) {
                 Log.e(TAG, "openWallpaperStream: IOException loading default wallpaper", e);
@@ -745,9 +751,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                         RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
             } else {
                 Log.e(TAG, "openWallpaperStream: giving up after " + MAX_LOAD_RETRIES
-                        + " retries, falling back to default wallpaper");
+                        + " retries, falling back to default wallpaper: " + defaultWallpaperPath);
                 loadRetryCount = 0;
-                refreshWallpaper(DEFAULT_LOCAL_PATH, true);
+                refreshWallpaper(defaultWallpaperPath, true);
             }
             return null;
         }

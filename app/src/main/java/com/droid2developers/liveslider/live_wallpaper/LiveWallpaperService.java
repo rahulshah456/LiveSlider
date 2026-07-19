@@ -130,7 +130,8 @@ public class LiveWallpaperService extends GLWallpaperService {
             editor = prefs.edit();
 
             // initial Setup of LiveWallpaper
-            renderer = new LiveWallpaperRenderer(LiveWallpaperService.this.getApplicationContext(), this);
+            renderer = new LiveWallpaperRenderer(LiveWallpaperService.this.getApplicationContext(), this,
+                    getDefaultWallpaperPath());
 
             // Pre-populate renderer fields BEFORE setRenderer() triggers the GL thread,
             // otherwise onSurfaceChanged fires with localWallpaperPath==null and

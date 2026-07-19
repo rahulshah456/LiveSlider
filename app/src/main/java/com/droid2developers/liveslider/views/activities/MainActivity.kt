@@ -3,6 +3,7 @@ package com.droid2developers.liveslider.views.activities
 import android.app.WallpaperManager
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -11,6 +12,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.viewpager2.widget.ViewPager2
 import com.droid2developers.liveslider.R
+import com.droid2developers.liveslider.utils.Constant
 import com.droid2developers.liveslider.views.activities.MainPagerAdapter.Companion.PAGE_HOME
 import com.droid2developers.liveslider.views.activities.MainPagerAdapter.Companion.PAGE_LOCK
 import com.google.android.material.bottomnavigation.BottomNavigationView
@@ -42,8 +44,15 @@ class MainActivity : AppCompatActivity() {
         bottomNavCard = findViewById(R.id.bottomNavCard)
 
         setupViewPager()
-        setupBottomNav()
         setupSystemBarsAndCutouts()
+
+        // Devices below API 34 (and many OEM skins above it) have no independent lock-screen
+        // live wallpaper slot — the Lock tab would just duplicate Home with nothing to control.
+        if (Constant.supportsIndependentLockWallpaper()) {
+            setupBottomNav()
+        } else {
+            bottomNavCard.visibility = View.GONE
+        }
 
         // Navigate to the sensible starting tab
         if (savedInstanceState == null) {
@@ -58,6 +67,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupViewPager() {
         viewPager.adapter = MainPagerAdapter(this)
         viewPager.offscreenPageLimit = 1          // keep both pages alive
+        viewPager.isUserInputEnabled = Constant.supportsIndependentLockWallpaper()
 
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {

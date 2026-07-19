@@ -1,10 +1,22 @@
 package com.droid2developers.liveslider.utils;
 
+import android.os.Build;
 import android.os.Environment;
 
 import java.util.concurrent.TimeUnit;
 
 public class Constant {
+
+    /**
+     * Independent lock-screen live wallpapers only exist from API 34 onward, and even then
+     * many OEM skins silently ignore FLAG_LOCK and fall back to a static lock image. There's
+     * no public API to query real OEM support (isLockscreenLiveWallpaperEnabled() is a hidden
+     * SystemApi) — this SDK gate is the only usable pre-check; actual success is confirmed
+     * after activation via WallpaperManager#getWallpaperInfo(FLAG_LOCK).
+     */
+    public static boolean supportsIndependentLockWallpaper() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+    }
 
     public static String DB_NAME = "db_live_wallpapers";
 
