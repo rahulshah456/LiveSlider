@@ -241,7 +241,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             };
             registerReceiver(screenOffReceiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
 
-            // Dual-playlist: when user unlocks, restore home playlist image
+            // Dual-playlist: when user unlocks, home screen becomes visible.
             userPresentReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
@@ -250,15 +250,8 @@ public class LiveWallpaperService extends GLWallpaperService {
                         return;
                     }
                     // Home service: user just unlocked → home screen is now visible.
-                    // Advance the slideshow here (not in screenOnReceiver) so the change
-                    // is always seen by the user and is never double-counted. Unlike the
-                    // lock screen, this isn't gated by a setting — "Change On Screen Wake"
-                    // is a lock-screen-only control (see updateSlideshowCardsVisibility).
-                    if (isSlideShowEnabled && !playlistWallpapers.isEmpty()) {
-                        incrementWallpaper();
-                        changeWallpaper();
-                        Log.d(TAG, "userPresentReceiver: home service — advanced to " + mImagesArrayIndex);
-                    }
+                    // We don't advance the wallpaper here for the home screen.
+                    // Slideshow timing is handled via onVisibilityChanged and the handler.
                 }
             };
             registerReceiver(userPresentReceiver, new IntentFilter(Intent.ACTION_USER_PRESENT));
@@ -302,11 +295,11 @@ public class LiveWallpaperService extends GLWallpaperService {
                     rotationSensor.register();
                     renderer.startTransition();
                     if (isSlideShowEnabled) {
-                        // Home always advances via userPresentReceiver on unlock; lock only
-                        // does so when "Change On Screen Wake" is enabled (see screenOnReceiver).
-                        boolean advancesOnWake = !isLockScreenService() || changeOnUnlock;
+                        // Lock screen advances via screenOnReceiver if "Change On Screen Wake"
+                        // is enabled. Home screen always uses the timed slideshow logic.
+                        boolean advancesOnWake = isLockScreenService() && changeOnUnlock;
                         if (advancesOnWake) {
-                            // Advances are driven by screen-on / user-present receivers.
+                            // Advances are driven by screen-on receiver.
                             // Here we only (re)start the periodic slideshow timer so that
                             // timed changes still work normally while the screen is on.
                             handler.removeCallbacks(slideshow);
@@ -554,9 +547,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                         if (pm != null) {
                             savePowerMode = pm.isPowerSaveMode();
                         }
+                        renderer.setPowerSaverActive(savePowerMode);
                         if (savePowerMode && isVisible()) {
                             rotationSensor.unregister();
-                            renderer.setOrientationAngle(0, 0);
                         } else if (!savePowerMode && isVisible()) {
                             rotationSensor.register();
                         }
@@ -569,17 +562,20 @@ public class LiveWallpaperService extends GLWallpaperService {
                 if (pm != null) {
                     savePowerMode = pm.isPowerSaveMode();
                 }
+                renderer.setPowerSaverActive(savePowerMode);
                 if (savePowerMode && isVisible()) {
                     rotationSensor.unregister();
-                    renderer.setOrientationAngle(0, 0);
                 }
             } else {
-                unregisterReceiver(powerSaverChangeReceiver);
-                savePowerMode = pm.isPowerSaveMode();
+                if (powerSaverChangeReceiver != null) {
+                    unregisterReceiver(powerSaverChangeReceiver);
+                    powerSaverChangeReceiver = null;
+                }
+                savePowerMode = pm != null && pm.isPowerSaveMode();
+                renderer.setPowerSaverActive(false); // Feature disabled: always allow shaders
                 if (savePowerMode && isVisible()) {
                     rotationSensor.register();
                 }
-
             }
         }
 

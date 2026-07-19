@@ -113,6 +113,8 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private RippleShader rippleShader;
     private SnowShader snowShader;
     private volatile String activeShaderId = Constant.SHADER_NONE;
+    // Suppress heavy overlay shaders (rain/ripple/snow) when battery saver is on.
+    private volatile boolean powerSaverActive = false;
     // Generic param store: key = Constant.ShaderParam.key (e.g. "intensity",
     // "speed"), value = the shader's own float unit (already mapped from the
     // 0-100 SeekBar progress by ShaderSettingsActivity/LiveWallpaperService).
@@ -205,12 +207,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
         updateFrameStep();
 
-        // Fade the overlay shader out BEFORE letting a pending wallpaper change
-        // start, and back in once nothing is changing — a hard one-frame pop of
-        // rain/ripple/snow around every transition looked broken. Instant changes
-        // (screen-off swap) skip the fade: the screen isn't visible anyway.
-        boolean shaderOn = !Constant.SHADER_NONE.equals(activeShaderId) && wallpaper != null;
-        if (hasPendingRefresh && !pendingInstant && shaderOn && shaderFade > 0f) {
+        // Fade the overlay shader out if it should be off (battery saver active OR
+        // a pending wallpaper refresh), and back in once it's safe to draw.
+        // Instant changes (screen-off swap) skip the fade.
+        boolean shaderOn = !Constant.SHADER_NONE.equals(activeShaderId) && wallpaper != null && !powerSaverActive;
+
+        if (shaderFade > 0f && (!shaderOn || (hasPendingRefresh && !pendingInstant))) {
             shaderFade = Math.max(0f, shaderFade - 4f * frameStep);
             mCallbacks.requestRender();
         } else if (shaderOn && !hasPendingRefresh && !transitionActive && shaderFade < 1f) {
@@ -514,6 +516,17 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         activeShaderId = id;
         mCallbacks.requestRender();
     }
+
+    /** Toggles suppression of heavy shaders and gyro bias during battery saver mode. */
+    void setPowerSaverActive(boolean active) {
+        this.powerSaverActive = active;
+        if (active) {
+            // Reset gyro bias target to center when power saving is active.
+            setOrientationAngle(0, 0);
+        }
+        mCallbacks.requestRender();
+    }
+
     /** Sets a single parameter (by Constant.ShaderParam.key) for whichever
      *  shader currently owns that key. Booleans are passed as 0f/1f. */
     void setShaderParam(String key, float value) {
