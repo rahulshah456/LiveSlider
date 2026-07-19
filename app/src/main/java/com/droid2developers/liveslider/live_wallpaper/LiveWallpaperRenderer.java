@@ -19,7 +19,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -86,6 +88,23 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Offscreen blur pipeline for the blur transition — per-EGL-context, rebuilt
     // lazily like cropOverlay.
     private Blur blur;
+
+    // --- Active overlay shader (rain / ripple / snow / none) --------------------
+    // Only ONE of these can be active at a time (enforced by Constant.SHADER_NONE
+    // being the only "off" state — see setActiveShader()). Shader instances are
+    // lazily created/rebuilt per-EGL-context like blur/cropOverlay above. Drawn
+    // every frame while active, so it needs continuous rendering (see the
+    // requestRender() calls in onDrawFrame's static-draw branch).
+    private RainShader rainShader;
+    private RippleShader rippleShader;
+    private SnowShader snowShader;
+    private volatile String activeShaderId = Constant.SHADER_NONE;
+    // Generic param store: key = Constant.ShaderParam.key (e.g. "intensity",
+    // "speed"), value = the shader's own float unit (already mapped from the
+    // 0-100 SeekBar progress by ShaderSettingsActivity/LiveWallpaperService).
+    // Booleans are stored as 0f/1f, same as the ShaderParam.TOGGLE convention.
+    private final Map<String, Float> shaderParams = new ConcurrentHashMap<>();
+    private final long shaderStartTime = SystemClock.elapsedRealtime();
     private float wallpaperAspectRatio;
     private final Runnable transition = new Runnable() {
         @Override
@@ -148,6 +167,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // one. Drop it and let onDrawFrame rebuild lazily if still visible.
         cropOverlay = null;
         blur = null;
+        rainShader = null;
+        rippleShader = null;
+        snowShader = null;
     }
 
 
@@ -400,15 +422,39 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 7);
             }
         } else {
-            // Effect 0 (fade) or post-transition static draw
+            // Effect 0 (fade) or post-transition static draw.
+            // The active overlay shader only applies here — the static,
+            // non-transitioning case — so two different textures are never
+            // mid-composite under it.
+            boolean shaderActive = wallpaper != null && drawActiveShaderScene();
             if (wallpaper != null) {
                 hasLoggedNullWallpaper = false;
-                wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
+                if (shaderActive) {
+                    // Render the wallpaper (with its real camera/crop matrix) into an
+                    // offscreen capture, THEN draw the shader sampling that — guarantees
+                    // it sees exactly the cropped/panned frame the camera produces,
+                    // pixel space matched 1:1, no separate UV math.
+                    beginActiveShaderScene();
+                    wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
+                    drawActiveShaderEffect();
+                    // u_time-driven — keep rendering every frame while the effect is on.
+                    mCallbacks.requestRender();
+                } else {
+                    wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
+                }
             } else {
                 if (!hasLoggedNullWallpaper) {
                     Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
                     hasLoggedNullWallpaper = true;
                 }
+            }
+
+            // Snow composites on top of whatever was just drawn — it doesn't
+            // sample the wallpaper (no capture/matrix needed, unlike rain/ripple),
+            // just alpha-blends a procedural overlay, so it draws unconditionally
+            // here rather than through the capture-scene dispatch above.
+            if (wallpaper != null && drawActiveShaderSnow()) {
+                mCallbacks.requestRender();
             }
         }
 
@@ -417,6 +463,110 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             if (cropOverlay == null) cropOverlay = new CropOverlay();
             cropOverlay.draw(screenW, screenH, playlistCurrent, playlistTotal);
         }
+    }
+
+    /** Switches the active overlay shader. id must be Constant.SHADER_NONE,
+     *  SHADER_RAIN, SHADER_RIPPLE, or SHADER_SNOW — enforced as the only "which
+     *  shader is on" state, so at most one can ever be active. */
+    void setActiveShader(String id) {
+        activeShaderId = id;
+        mCallbacks.requestRender();
+    }
+    /** Sets a single parameter (by Constant.ShaderParam.key) for whichever
+     *  shader currently owns that key. Booleans are passed as 0f/1f. */
+    void setShaderParam(String key, float value) {
+        shaderParams.put(key, value);
+    }
+    private float shaderParam(String key, float fallback) {
+        Float v = shaderParams.get(key);
+        return v != null ? v : fallback;
+    }
+    private boolean shaderParamBool(String key, boolean fallback) {
+        Float v = shaderParams.get(key);
+        return v != null ? v >= 0.5f : fallback;
+    }
+
+    /** Ensures the active shader's GL objects + capture FBO exist for this frame.
+     *  Returns false if no shader is active or FBO rendering is unavailable. */
+    private boolean drawActiveShaderScene() {
+        if (Constant.SHADER_RAIN.equals(activeShaderId)) {
+            if (rainShader == null) rainShader = new RainShader();
+            rainShader.ensure();
+            return rainShader.ensureScene(screenW, screenH);
+        } else if (Constant.SHADER_RIPPLE.equals(activeShaderId)) {
+            if (rippleShader == null) rippleShader = new RippleShader();
+            rippleShader.ensure();
+            return rippleShader.ensureScene(screenW, screenH);
+        }
+        return false;
+    }
+
+    /** Binds the active shader's capture FBO — call BEFORE the wallpaper draw
+     *  this frame so the capture receives it, then call drawActiveShaderEffect(). */
+    private void beginActiveShaderScene() {
+        if (Constant.SHADER_RAIN.equals(activeShaderId) && rainShader != null) {
+            rainShader.beginScene();
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        } else if (Constant.SHADER_RIPPLE.equals(activeShaderId) && rippleShader != null) {
+            rippleShader.beginScene();
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        }
+    }
+
+    /** Draws the active shader, sampling the scene captured by beginActiveShaderScene(). */
+    private void drawActiveShaderEffect() {
+        float time = (SystemClock.elapsedRealtime() - shaderStartTime) / 1000f;
+        if (Constant.SHADER_RAIN.equals(activeShaderId) && rainShader != null) {
+            rainShader.draw(screenW, screenH, time,
+                    shaderParam("speed", 1.0f),
+                    shaderParam("intensity", 0.5f),
+                    shaderParam("brightness", 1.0f),
+                    shaderParamBool("lightning", false));
+        } else if (Constant.SHADER_RIPPLE.equals(activeShaderId) && rippleShader != null) {
+            rippleShader.draw(screenW, screenH, time,
+                    shaderParam("speed", 1.0f),
+                    shaderParam("cellSize", 10f),
+                    shaderParam("strength", 1.0f),
+                    shaderParamBool("touchOnly", false),
+                    shaderParamBool("rainLines", false),
+                    shaderParam("rainLinesStrength", 0.7f),
+                    shaderParam("rainLinesSpeed", 1.0f),
+                    shaderParam("rainLinesAngle", 0.22f));
+        }
+    }
+
+    /** Draws snow if it's the active shader — self-contained (own low-res FBO,
+     *  own composite pass), no wallpaper capture needed. Returns true if it drew
+     *  (caller keeps rendering continuously while true, same as rain/ripple). */
+    private boolean drawActiveShaderSnow() {
+        if (!Constant.SHADER_SNOW.equals(activeShaderId)) return false;
+        if (snowShader == null) snowShader = new SnowShader();
+        snowShader.ensure();
+        if (!snowShader.ensureTarget(screenW, screenH)) return false;
+
+        float time = (SystemClock.elapsedRealtime() - shaderStartTime) / 1000f;
+        snowShader.draw(screenW, screenH, time,
+                shaderParam("speed", 1.0f),
+                shaderParam("density", 1.0f),
+                shaderParam("flakeSize", 1.0f),
+                shaderParam("opacity", 0.85f));
+        return true;
+    }
+
+    /** Forwards a touch-down position (screen pixels) to the active shader, if it
+     *  supports touch-driven ripples. Safe to call even when ripple isn't active
+     *  or hasn't been GL-initialized yet — becomes a no-op. Called from the
+     *  service's onTouchEvent, so this runs on the UI/input thread, not the GL
+     *  thread; RippleShader.addTouch() is internally synchronized for that. */
+    void addTouchRipple(float screenX, float screenY) {
+        if (!Constant.SHADER_RIPPLE.equals(activeShaderId) || rippleShader == null) return;
+        if (screenW <= 0 || screenH <= 0) return;
+        // Normalize to 0..1, Y-up (gl_FragCoord/u_resolution convention) — screen
+        // Y grows downward, GL fragment coords grow upward, so flip here once.
+        float u = screenX / screenW;
+        float v = 1f - (screenY / screenH);
+        rippleShader.addTouch(u, v);
+        mCallbacks.requestRender();
     }
 
     /**

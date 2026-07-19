@@ -31,6 +31,8 @@ import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
 import static com.droid2developers.liveslider.utils.Constant.TRANSITION_FADE;
 import static com.droid2developers.liveslider.utils.Constant.PREF_CHANGE_ON_UNLOCK;
 import static com.droid2developers.liveslider.utils.Constant.PREF_SHUFFLE_PLAYLIST;
+import static com.droid2developers.liveslider.utils.Constant.PREF_ACTIVE_SHADER;
+import static com.droid2developers.liveslider.utils.Constant.SHADER_NONE;
 import static com.droid2developers.liveslider.utils.Constant.PREF_DUAL_PLAYLIST_ENABLED;
 import static com.droid2developers.liveslider.utils.Constant.PREF_LOCK_PLAYLIST;
 import com.droid2developers.liveslider.utils.Constant;
@@ -162,6 +164,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             setTimer(prefs.getLong("slideshow_timer", DEFAULT_SLIDESHOW_TIME));
             renderer.setTransitionEffect(prefs.getInt("transition_effect", TRANSITION_FADE));
             renderer.setAnimationSpeed(prefs.getInt("animation_speed", Constant.ANIMATION_SPEED_NORMAL));
+            loadActiveShaderFromPrefs();
 
             // Set initial calibration mode
             rotationSensor.setCalibrationMode(prefs.getInt("calibration_mode", 0)); // 0 = CALIBRATION_DEFAULT
@@ -336,6 +339,13 @@ public class LiveWallpaperService extends GLWallpaperService {
                 }
                 return;
             }
+            // Touch-driven ripples (no-op unless Ripple is the active shader and its
+            // touch-only mode is on — see RippleShader.addTouch()). Forwarded
+            // alongside, not instead of, the tap detector so double/triple-tap
+            // gestures keep working exactly as before.
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                renderer.addTouchRipple(event.getX(), event.getY());
+            }
             tapDetector.onTouchEvent(event);
         }
 
@@ -447,6 +457,47 @@ public class LiveWallpaperService extends GLWallpaperService {
                 case PREF_LOCK_PLAYLIST:
                     setLockPlaylist(sharedPreferences.getString(key, PLAYLIST_NONE));
                     break;
+                case PREF_ACTIVE_SHADER:
+                    renderer.setActiveShader(sharedPreferences.getString(key, SHADER_NONE));
+                    loadActiveShaderParams();
+                    break;
+                default:
+                    // Per-shader param keys are "shader_<id>_<paramKey>" (see
+                    // Constant.shaderPrefKey) — any of those changing just needs a
+                    // fresh read of that one active shader's params.
+                    if (key.startsWith("shader_")) {
+                        loadActiveShaderParams();
+                    }
+                    break;
+            }
+        }
+
+        /** Reads PREF_ACTIVE_SHADER and pushes it + its param values into the renderer.
+         *  Called once at startup and whenever the active shader selection changes. */
+        private void loadActiveShaderFromPrefs() {
+            String activeShaderId = prefs.getString(PREF_ACTIVE_SHADER, SHADER_NONE);
+            renderer.setActiveShader(activeShaderId);
+            loadActiveShaderParams();
+        }
+
+        /** Reads every param of the CURRENTLY active shader from prefs and pushes
+         *  them into the renderer. Driven entirely by Constant.SHADERS, so adding a
+         *  new shader/param needs no new code here. */
+        private void loadActiveShaderParams() {
+            String activeShaderId = prefs.getString(PREF_ACTIVE_SHADER, SHADER_NONE);
+            Constant.ShaderDef def = Constant.findShaderDef(activeShaderId);
+            if (def == null) return;
+            for (Constant.ShaderParam param : def.params) {
+                String prefKey = Constant.shaderPrefKey(def.id, param.key);
+                float value;
+                if (param.type == Constant.ShaderParamType.TOGGLE) {
+                    boolean on = prefs.getBoolean(prefKey, param.defaultValue >= 0.5f);
+                    value = on ? 1f : 0f;
+                } else {
+                    int progress = prefs.getInt(prefKey, param.defaultProgress());
+                    value = param.progressToValue(progress);
+                }
+                renderer.setShaderParam(param.key, value);
             }
         }
 

@@ -278,6 +278,16 @@
                     app:hasSwitch="true" />
 
                 <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/shaderEffectsCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:animateLayoutChanges="true"
+                    app:cardIcon="@drawable/slideshow_24dp"
+                    app:cardHeader="@string/shader_effects_header"
+                    app:cardSubHeader="@string/shader_effects_subheader"
+                    app:hasSwitch="false" />
+
+                <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card2ID"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"

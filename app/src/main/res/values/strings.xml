@@ -39,6 +39,11 @@
     <string name="pause_everything_in_battery_saver_mode">Pause everything in battery saver mode</string>
     <string name="power_saver_mode">Power Saver Mode</string>
     <string name="enable_to_get_scroll_effect">Enable to get scroll effect</string>
+    <string name="shader_effects_header">Shader Effects</string>
+    <string name="shader_effects_subheader">Animated overlay effects on your wallpaper</string>
+    <string name="shader_effects_title">Shader Effects</string>
+    <string name="shader_active">Active Shader</string>
+    <string name="shader_none">None</string>
     <string name="wallpaper_scrolling">Wallpaper Scrolling</string>
     <string name="photos">Photos</string>
     <string name="_100">100+</string>

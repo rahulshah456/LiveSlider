@@ -3,6 +3,8 @@ package com.droid2developers.liveslider.utils;
 import android.os.Build;
 import android.os.Environment;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class Constant {
@@ -81,6 +83,105 @@ public class Constant {
     public static final String WORKER_KEY_PLAYLIST_ID = "playlist_id";
     public static final String PREF_CHANGE_ON_UNLOCK  = "change_on_unlock";
     public static final String PREF_SHUFFLE_PLAYLIST  = "shuffle_playlist";
+    // --- Shader effects registry -------------------------------------------------
+    // Exactly one shader (or none) can be active at a time. PREF_ACTIVE_SHADER
+    // stores the ShaderDef.id of the chosen one ("none" = no overlay shader).
+    // Per-shader parameters are looked up by ShaderDef.id + ShaderParam.key to
+    // build the SharedPreferences key ("shader_<id>_<key>") — one generic path
+    // instead of hand-declared PREF_* constants per parameter per shader.
+    public static final String PREF_ACTIVE_SHADER = "active_shader";
+    public static final String SHADER_NONE = "none";
+
+    public static String shaderPrefKey(String shaderId, String paramKey) {
+        return "shader_" + shaderId + "_" + paramKey;
+    }
+
+    public enum ShaderParamType { SLIDER, TOGGLE }
+
+    /** One configurable value on a shader: a 0-100 slider or a boolean toggle.
+     *  min/max/defaultValue are in the shader's own float unit space (sliders
+     *  are stored as 0-100 progress in prefs and mapped to [min,max] at read
+     *  time); defaultValue for a TOGGLE is 0f/1f. */
+    public static final class ShaderParam {
+        public final String key;
+        public final String label;
+        public final ShaderParamType type;
+        public final float min;
+        public final float max;
+        public final float defaultValue;
+
+        public ShaderParam(String key, String label, ShaderParamType type,
+                            float min, float max, float defaultValue) {
+            this.key = key;
+            this.label = label;
+            this.type = type;
+            this.min = min;
+            this.max = max;
+            this.defaultValue = defaultValue;
+        }
+
+        /** Default value expressed as a 0-100 SeekBar progress (SLIDER only). */
+        public int defaultProgress() {
+            return Math.round((defaultValue - min) / (max - min) * 100f);
+        }
+
+        /** Maps a 0-100 SeekBar progress to this param's [min,max] float range. */
+        public float progressToValue(int progress) {
+            return min + (progress / 100f) * (max - min);
+        }
+    }
+
+    /** One selectable overlay shader and its configurable parameters. */
+    public static final class ShaderDef {
+        public final String id;
+        public final String displayName;
+        public final List<ShaderParam> params;
+
+        public ShaderDef(String id, String displayName, ShaderParam... params) {
+            this.id = id;
+            this.displayName = displayName;
+            this.params = Arrays.asList(params);
+        }
+    }
+
+    public static final String SHADER_RAIN = "rain";
+    public static final String SHADER_RIPPLE = "ripple";
+    public static final String SHADER_SNOW = "snow";
+
+    public static final ShaderDef SHADER_DEF_RAIN = new ShaderDef(SHADER_RAIN, "Rain",
+            new ShaderParam("intensity", "Intensity", ShaderParamType.SLIDER, 0f, 1f, 0.5f),
+            new ShaderParam("speed", "Speed", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
+            new ShaderParam("brightness", "Brightness", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
+            new ShaderParam("lightning", "Lightning", ShaderParamType.TOGGLE, 0f, 1f, 0f)
+    );
+
+    public static final ShaderDef SHADER_DEF_RIPPLE = new ShaderDef(SHADER_RIPPLE, "Ripple",
+            new ShaderParam("speed", "Speed", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
+            new ShaderParam("cellSize", "Ripple Size", ShaderParamType.SLIDER, 4f, 20f, 10f),
+            new ShaderParam("strength", "Strength", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
+            new ShaderParam("touchOnly", "Touch-Only Ripples", ShaderParamType.TOGGLE, 0f, 1f, 0f),
+            new ShaderParam("rainLines", "Rain Lines", ShaderParamType.TOGGLE, 0f, 1f, 0f),
+            new ShaderParam("rainLinesStrength", "Rain Lines Opacity", ShaderParamType.SLIDER, 0f, 2f, 0.7f),
+            new ShaderParam("rainLinesSpeed", "Rain Lines Speed", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
+            new ShaderParam("rainLinesAngle", "Rain Lines Direction", ShaderParamType.SLIDER, -0.6f, 0.6f, 0.22f)
+    );
+
+    public static final ShaderDef SHADER_DEF_SNOW = new ShaderDef(SHADER_SNOW, "Snow",
+            new ShaderParam("speed", "Speed", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
+            new ShaderParam("density", "Density", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
+            new ShaderParam("flakeSize", "Flake Size", ShaderParamType.SLIDER, 0.5f, 3f, 1.0f),
+            new ShaderParam("opacity", "Opacity", ShaderParamType.SLIDER, 0f, 1f, 0.85f)
+    );
+
+    public static final List<ShaderDef> SHADERS =
+            Arrays.asList(SHADER_DEF_RAIN, SHADER_DEF_RIPPLE, SHADER_DEF_SNOW);
+
+    public static ShaderDef findShaderDef(String id) {
+        for (ShaderDef def : SHADERS) {
+            if (def.id.equals(id)) return def;
+        }
+        return null;
+    }
 
     // Dual playlist (separate home / lock screen playlists)
     public static final String PREF_DUAL_PLAYLIST_ENABLED = "dual_playlist_enabled";

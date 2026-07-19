@@ -2,6 +2,7 @@ package com.droid2developers.liveslider.views.activities
 
 import android.annotation.SuppressLint
 import android.content.DialogInterface
+import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
@@ -46,6 +47,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var doubleTapCard: SettingsCardView? = null
     private var changeOnUnlockCard: SettingsCardView? = null
     private var shufflePlaylistCard: SettingsCardView? = null
+    private var shaderEffectsCard: SettingsCardView? = null
     private var powerSaverCard: SettingsCardView? = null
     private var scrollCard: SettingsCardView? = null
     private var backButton: CardView? = null
@@ -133,6 +135,7 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         doubleTapCard = findViewById(R.id.card4ID)
         changeOnUnlockCard = findViewById(R.id.changeOnUnlockCard)
         shufflePlaylistCard = findViewById(R.id.shufflePlaylistCard)
+        shaderEffectsCard = findViewById(R.id.shaderEffectsCard)
 
         faceText = findViewById<TextView>(R.id.face)
 
@@ -286,6 +289,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         shufflePlaylistCard?.setOnSwitchChangeListener(this)
 
+        shaderEffectsCard?.setOnCardClickListener(this)
+
         transitionEffectCard?.setOnCardClickListener(this)
 
         animationSpeedCard?.setOnCardClickListener(this)
@@ -337,6 +342,10 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             showTransitionEffectDialog()
         } else if (id == R.id.animationSpeedCard) {
             showAnimationSpeedDialog()
+        } else if (id == R.id.shaderEffectsCard) {
+            val intent = Intent(this, ShaderSettingsActivity::class.java)
+            intent.putExtra(Constant.EXTRA_IS_LOCK_MODE, isLockMode)
+            startActivity(intent)
         }
     }
 
