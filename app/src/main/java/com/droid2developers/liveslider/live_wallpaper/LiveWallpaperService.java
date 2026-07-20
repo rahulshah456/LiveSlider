@@ -92,6 +92,12 @@ public class LiveWallpaperService extends GLWallpaperService {
         private boolean isSlideShowEnabled = false;
         private boolean shufflePlaylist = false;
         private String currentPlaylistId = PLAYLIST_NONE;
+        // observeForever() lives until explicitly removed — without tracking the previous
+        // LiveData/observer pair here, switching playlists stacks up permanent zombie
+        // observers that keep re-firing on every unrelated DB write and stomping the
+        // active playlist's state (see setCurrentPlaylist).
+        private androidx.lifecycle.LiveData<List<LocalWallpaper>> currentPlaylistLiveData;
+        private androidx.lifecycle.Observer<List<LocalWallpaper>> currentPlaylistObserver;
 
         // Dual-playlist (Feature 2): separate playlists for home and lock screen
         private boolean isDualPlaylistEnabled = false;
@@ -99,6 +105,8 @@ public class LiveWallpaperService extends GLWallpaperService {
         private int lockImagesArrayIndex = 0;
         private List<LocalWallpaper> lockPlaylistWallpapers = new ArrayList<>();
         private WallpaperRepository lockRepository;
+        private androidx.lifecycle.LiveData<List<LocalWallpaper>> lockPlaylistLiveData;
+        private androidx.lifecycle.Observer<List<LocalWallpaper>> lockPlaylistObserver;
 
         // TODO - time related parameters
         private long timer = DEFAULT_SLIDESHOW_TIME;
@@ -278,6 +286,12 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
             if (userPresentReceiver != null) {
                 unregisterReceiver(userPresentReceiver);
+            }
+            if (currentPlaylistLiveData != null && currentPlaylistObserver != null) {
+                currentPlaylistLiveData.removeObserver(currentPlaylistObserver);
+            }
+            if (lockPlaylistLiveData != null && lockPlaylistObserver != null) {
+                lockPlaylistLiveData.removeObserver(lockPlaylistObserver);
             }
             prefs.unregisterOnSharedPreferenceChangeListener(this);
             // Kill renderer
@@ -628,10 +642,20 @@ public class LiveWallpaperService extends GLWallpaperService {
         // enable/disable playlists
         void setCurrentPlaylist(String playlistId) {
             if (currentPlaylistId.equals(playlistId)) return;
+            // Tear down the previous playlist's observer BEFORE switching — observeForever()
+            // never stops on its own, so leaving it registered means it keeps re-firing on
+            // every unrelated DB write and overwriting playlistWallpapers/mImagesArrayIndex
+            // with the old playlist's data (the "stuck on old playlist" / flicker bug).
+            if (currentPlaylistLiveData != null && currentPlaylistObserver != null) {
+                currentPlaylistLiveData.removeObserver(currentPlaylistObserver);
+                currentPlaylistLiveData = null;
+                currentPlaylistObserver = null;
+            }
             this.currentPlaylistId = playlistId;
             if (!playlistId.equals(PLAYLIST_NONE)) {
 
-                getRepository().getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
+                currentPlaylistLiveData = getRepository().getPlaylistWallpapers(playlistId);
+                currentPlaylistObserver = wallpaperList -> {
                     Log.d(TAG, "onChanged: wallpaperList = " + wallpaperList.size());
                     // Room re-runs this query (and re-emits) on ANY write to the localwallpaper
                     // table, including PlaylistWorker processing an unrelated playlist. Only
@@ -662,8 +686,11 @@ public class LiveWallpaperService extends GLWallpaperService {
                     boolean isDefault = prefs.getBoolean("default_wallpaper", true);
                     renderer.refreshWallpaperFresh(localWallpaperPath, isDefault,
                             currentWallpaper.getCropBias());
-                    //mRepository.getPlaylistWallpapers(playlistId).removeObserver(this);
-                });
+                };
+                currentPlaylistLiveData.observeForever(currentPlaylistObserver);
+            } else {
+                playlistWallpapers = new ArrayList<>();
+                mImagesArrayIndex = 0;
             }
         }
 
@@ -698,16 +725,26 @@ public class LiveWallpaperService extends GLWallpaperService {
 
         void setLockPlaylist(String playlistId) {
             if (lockPlaylistId.equals(playlistId)) return;
+            // Same observeForever leak as setCurrentPlaylist — remove the previous
+            // playlist's observer before switching, or it keeps re-firing forever.
+            if (lockPlaylistLiveData != null && lockPlaylistObserver != null) {
+                lockPlaylistLiveData.removeObserver(lockPlaylistObserver);
+                lockPlaylistLiveData = null;
+                lockPlaylistObserver = null;
+            }
             this.lockPlaylistId = playlistId;
             if (!playlistId.equals(PLAYLIST_NONE)) {
-                lockRepository = new WallpaperRepository(getApplicationContext());
-                lockRepository.getPlaylistWallpapers(playlistId).observeForever(wallpaperList -> {
+                if (lockRepository == null) lockRepository = new WallpaperRepository(getApplicationContext());
+                lockPlaylistLiveData = lockRepository.getPlaylistWallpapers(playlistId);
+                lockPlaylistObserver = wallpaperList -> {
                     Log.d(TAG, "setLockPlaylist: " + wallpaperList.size());
                     lockImagesArrayIndex = 0;
                     lockPlaylistWallpapers = wallpaperList;
-                });
+                };
+                lockPlaylistLiveData.observeForever(lockPlaylistObserver);
             } else {
                 lockPlaylistWallpapers = new ArrayList<>();
+                lockImagesArrayIndex = 0;
             }
         }
 

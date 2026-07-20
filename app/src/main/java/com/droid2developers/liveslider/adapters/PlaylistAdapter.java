@@ -261,7 +261,14 @@ public class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.MyView
             return;
         }
 
-        if (!playlistId.equals(playlist.playlistId)) {
+        // Re-read from prefs rather than trusting the adapter's cached playlistId field —
+        // it's only seeded once at construction time and goes stale whenever the OTHER
+        // engine's adapter (home vs. lock) commits a change to this same prefs file, or
+        // this fragment/adapter is recreated before a previous commit is reflected. Using
+        // the stale field caused "activate" to silently no-op (fell into the "already
+        // activated" branch below without writing anything).
+        String activePlaylistId = prefs.getString("current_playlist", PLAYLIST_NONE);
+        if (!activePlaylistId.equals(playlist.playlistId)) {
             editor.putInt("type", TYPE_SLIDESHOW);
             editor.putString("local_wallpaper_path", WALLPAPER_NONE);
             editor.putBoolean("double_tap", true);

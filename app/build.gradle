@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.droid2developers.liveslider"
-        versionCode 18
+        versionCode 19
         minSdk 28
         targetSdk 36
         versionName "1.35"

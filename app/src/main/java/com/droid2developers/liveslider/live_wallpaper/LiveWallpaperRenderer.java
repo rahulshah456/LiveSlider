@@ -273,6 +273,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                         previousWallpaper = null;
                     }
                     currentEffect = 0; // reset so static wallpaper renders plain
+                    // One more frame so the shader-fade-in check above (which already ran
+                    // this frame with the stale transitionActive=true) gets to fire.
+                    mCallbacks.requestRender();
                 } else {
                     mCallbacks.requestRender();
                 }
@@ -308,6 +311,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     transitionProgress = 1.0f;
                     transitionActive   = false;
                     currentEffect      = 0;
+                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
                 } else {
                     mCallbacks.requestRender();
                 }
@@ -325,6 +329,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                         previousWallpaper = null;
                     }
                     currentEffect = 0;
+                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
                 } else {
                     mCallbacks.requestRender();
                 }
@@ -352,6 +357,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     transitionProgress = 1.0f;
                     transitionActive   = false;
                     currentEffect      = 0;
+                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
                 } else {
                     mCallbacks.requestRender();
                 }
@@ -369,6 +375,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                         previousWallpaper = null;
                     }
                     currentEffect = 0;
+                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
                 } else {
                     mCallbacks.requestRender();
                 }
