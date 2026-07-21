@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="16dp">
+
+    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <!-- Ripple alone has 8 params (incl. the nested Rain Lines group) and can
+         exceed the sheet's max expanded height, so the whole body below the
+         drag handle scrolls — NestedScrollView cooperates with
+         BottomSheetBehavior instead of fighting its drag gesture. -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/settings_item_horizontal_margin"
+                android:layout_marginBottom="8dp"
+                android:text="@string/shader_effects_header"
+                android:fontFamily="@font/montserrat"
+                android:textStyle="bold"
+                android:textSize="18sp" />
+
+            <!-- Enable/disable the overlay shader entirely -->
+            <com.droid2developers.liveslider.views.components.SettingsCardView
+                android:id="@+id/shaderEnabledCard"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                app:cardHeader="@string/shader_enable"
+                app:cardSubHeader="@string/shader_enable_subheader"
+                app:hasSwitch="true" />
+
+            <!-- Active shader picker — one toggle group, checked button shows a check icon.
+                 Only 3 real shaders now (no "None" button — that's the switch above),
+                 so they comfortably fit one row. Buttons are added at runtime since the
+                 shader list is data-driven. -->
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/activeShaderGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/settings_item_horizontal_margin"
+                android:layout_marginEnd="@dimen/settings_item_horizontal_margin"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                app:singleSelection="true"
+                app:selectionRequired="true" />
+
+            <!--View Separator-->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="@dimen/divider_vertical_margin"
+                android:layout_marginBottom="@dimen/divider_vertical_margin"
+                android:background="@color/color_divider" />
+
+            <!-- Populated at runtime from the active shader's Constant.ShaderDef
+                 param list — sliders/toggles vary per shader, so these rows are
+                 built in code rather than duplicated per-shader XML. -->
+            <LinearLayout
+                android:id="@+id/paramsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

@@ -37,10 +37,6 @@
             android:theme="@style/AppTheme.Transparent"
             android:exported="false">
         </activity>
-        <activity android:name="com.droid2developers.liveslider.views.activities.ShaderSettingsActivity"
-            android:theme="@style/AppTheme.Transparent"
-            android:exported="false">
-        </activity>
         <activity
             android:name="com.droid2developers.liveslider.views.activities.ChangeWallpaperActivity"
             android:theme="@style/AppTheme.Transparent">

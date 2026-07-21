@@ -2,15 +2,12 @@ package com.droid2developers.liveslider.views.activities
 
 import android.annotation.SuppressLint
 import android.content.DialogInterface
-import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
 import android.text.Html
 import android.view.View
 import android.widget.Button
-import android.widget.SeekBar
-import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -27,11 +24,15 @@ import com.droid2developers.liveslider.live_wallpaper.Cube
 import com.droid2developers.liveslider.models.BiasChangeEvent
 import com.droid2developers.liveslider.models.FaceRotationEvent
 import com.droid2developers.liveslider.utils.Constant
+import com.droid2developers.liveslider.utils.resetOnLongPress
 import com.droid2developers.liveslider.views.components.SettingsCardView
+import com.droid2developers.liveslider.views.fragments.ShaderSettingsBottomSheet
+import com.droid2developers.liveslider.views.fragments.SingleChoiceBottomSheet
 import com.droid2developers.liveslider.views.components.SettingsCardView.OnCardClickListener
 import com.droid2developers.liveslider.views.components.SettingsCardView.OnSwitchChangeListener
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.slider.Slider
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
@@ -53,8 +54,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     private var scrollCard: SettingsCardView? = null
     private var backButton: CardView? = null
     private var faceText: TextView? = null
-    private var seekBarRange: SeekBar? = null
-    private var seekBarDelay: SeekBar? = null
+    private var seekBarRange: Slider? = null
+    private var seekBarDelay: Slider? = null
     private var cube: Cube? = null
 
     // Calibration controls
@@ -168,8 +169,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         val rangeProgress = prefs?.getInt("range", 10) ?: 10
         val delayProgress = prefs?.getInt("delay", 10) ?: 10
 
-        seekBarRange?.progress = rangeProgress
-        seekBarDelay?.progress = delayProgress
+        seekBarRange?.value = rangeProgress.toFloat()
+        seekBarDelay?.value = delayProgress.toFloat()
 
         slideshowCard?.isSwitchChecked = prefs?.getBoolean("slideshow", false) ?: false
         doubleTapCard?.isSwitchChecked = prefs?.getBoolean("double_tap", false) ?: false
@@ -268,16 +269,15 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             ?: Constant.ANIMATION_SPEED_NORMAL
         val checkedItem = speedValues.indexOf(currentSpeed).coerceAtLeast(0)
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.animation_speed))
-            .setSingleChoiceItems(speedLabels, checkedItem) { dialog, which ->
-                val chosen = speedValues[which]
-                editor?.putInt("animation_speed", chosen)?.apply()
-                animationSpeedCard?.setSubHeaderText(speedName(chosen))
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel) { dialog, _ -> dialog.dismiss() }
-            .show()
+        val sheet = SingleChoiceBottomSheet.newInstance(
+            getString(R.string.animation_speed), speedLabels, checkedItem
+        )
+        sheet.listener = SingleChoiceBottomSheet.Listener { which ->
+            val chosen = speedValues[which]
+            editor?.putInt("animation_speed", chosen)?.apply()
+            animationSpeedCard?.setSubHeaderText(speedName(chosen))
+        }
+        sheet.show(supportFragmentManager, SingleChoiceBottomSheet.TAG)
     }
 
     private fun setupInitialWallpaperQuality() {
@@ -308,16 +308,15 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             ?: Constant.QUALITY_RGBA8888
         val checkedItem = values.indexOf(current).coerceAtLeast(0)
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.wallpaper_quality))
-            .setSingleChoiceItems(labels, checkedItem) { dialog, which ->
-                val chosen = values[which]
-                editor?.putString(Constant.PREF_WALLPAPER_QUALITY, chosen)?.apply()
-                wallpaperQualityCard?.setSubHeaderText(qualityName(chosen))
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel) { dialog, _ -> dialog.dismiss() }
-            .show()
+        val sheet = SingleChoiceBottomSheet.newInstance(
+            getString(R.string.wallpaper_quality), labels, checkedItem
+        )
+        sheet.listener = SingleChoiceBottomSheet.Listener { which ->
+            val chosen = values[which]
+            editor?.putString(Constant.PREF_WALLPAPER_QUALITY, chosen)?.apply()
+            wallpaperQualityCard?.setSubHeaderText(qualityName(chosen))
+        }
+        sheet.show(supportFragmentManager, SingleChoiceBottomSheet.TAG)
     }
 
     private fun setupListeners() {
@@ -350,8 +349,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         wallpaperQualityCard?.setOnCardClickListener(this)
 
-        seekBarRange?.let { setupSeekBarListener(it, "range") }
-        seekBarDelay?.let { setupSeekBarListener(it, "delay") }
+        seekBarRange?.let { setupSliderListener(it, "range", defaultValue = 10f) }
+        seekBarDelay?.let { setupSliderListener(it, "delay", defaultValue = 10f) }
 
         // Calibration controls
         calibrationGroup?.addOnButtonCheckedListener { _, checkedId, isChecked ->
@@ -374,17 +373,13 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         }
     }
 
-    private fun setupSeekBarListener(seekBar: SeekBar, key: String?) {
-        seekBar.setOnSeekBarChangeListener(object : OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    editor?.putInt(key, progress)?.apply()
-                }
+    private fun setupSliderListener(slider: Slider, key: String, defaultValue: Float) {
+        slider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                editor?.putInt(key, value.toInt())?.apply()
             }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+        }
+        slider.resetOnLongPress(defaultValue)
     }
 
     override fun onCardClick(cardView: SettingsCardView?) {
@@ -400,9 +395,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         } else if (id == R.id.wallpaperQualityCard) {
             showWallpaperQualityDialog()
         } else if (id == R.id.shaderEffectsCard) {
-            val intent = Intent(this, ShaderSettingsActivity::class.java)
-            intent.putExtra(Constant.EXTRA_IS_LOCK_MODE, isLockMode)
-            startActivity(intent)
+            ShaderSettingsBottomSheet.newInstance(isLockMode)
+                .show(supportFragmentManager, ShaderSettingsBottomSheet.TAG)
         }
     }
 
@@ -427,16 +421,15 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             ?: Constant.TRANSITION_FADE
         val checkedItem = effectValues.indexOf(currentEffect).coerceAtLeast(0)
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.transition_effect))
-            .setSingleChoiceItems(effectLabels, checkedItem) { dialog, which ->
-                val chosen = effectValues[which]
-                editor?.putInt("transition_effect", chosen)?.apply()
-                transitionEffectCard?.setSubHeaderText(effectName(chosen))
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel) { dialog, _ -> dialog.dismiss() }
-            .show()
+        val sheet = SingleChoiceBottomSheet.newInstance(
+            getString(R.string.transition_effect), effectLabels, checkedItem
+        )
+        sheet.listener = SingleChoiceBottomSheet.Listener { which ->
+            val chosen = effectValues[which]
+            editor?.putInt("transition_effect", chosen)?.apply()
+            transitionEffectCard?.setSubHeaderText(effectName(chosen))
+        }
+        sheet.show(supportFragmentManager, SingleChoiceBottomSheet.TAG)
     }
 
     override fun onSwitchChanged(

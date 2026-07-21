@@ -92,6 +92,10 @@ public class Constant {
     // instead of hand-declared PREF_* constants per parameter per shader.
     public static final String PREF_ACTIVE_SHADER = "active_shader";
     public static final String SHADER_NONE = "none";
+    // Remembers which shader was picked while the effect is enabled, so
+    // switching the effect off (-> PREF_ACTIVE_SHADER = SHADER_NONE) and back
+    // on restores the same choice instead of defaulting to the first shader.
+    public static final String PREF_LAST_SHADER = "last_shader";
 
     public static String shaderPrefKey(String shaderId, String paramKey) {
         return "shader_" + shaderId + "_" + paramKey;
@@ -120,7 +124,10 @@ public class Constant {
     /** One configurable value on a shader: a 0-100 slider or a boolean toggle.
      *  min/max/defaultValue are in the shader's own float unit space (sliders
      *  are stored as 0-100 progress in prefs and mapped to [min,max] at read
-     *  time); defaultValue for a TOGGLE is 0f/1f. */
+     *  time); defaultValue for a TOGGLE is 0f/1f. dependsOnKey, if set, names
+     *  another ShaderParam.key (a TOGGLE) in the same ShaderDef that this
+     *  param is nested under — the UI only shows/enables it while that
+     *  toggle is on. */
     public static final class ShaderParam {
         public final String key;
         public final String label;
@@ -128,15 +135,22 @@ public class Constant {
         public final float min;
         public final float max;
         public final float defaultValue;
+        public final String dependsOnKey;
 
         public ShaderParam(String key, String label, ShaderParamType type,
                             float min, float max, float defaultValue) {
+            this(key, label, type, min, max, defaultValue, null);
+        }
+
+        public ShaderParam(String key, String label, ShaderParamType type,
+                            float min, float max, float defaultValue, String dependsOnKey) {
             this.key = key;
             this.label = label;
             this.type = type;
             this.min = min;
             this.max = max;
             this.defaultValue = defaultValue;
+            this.dependsOnKey = dependsOnKey;
         }
 
         /** Default value expressed as a 0-100 SeekBar progress (SLIDER only). */
@@ -174,15 +188,17 @@ public class Constant {
             new ShaderParam("lightning", "Lightning", ShaderParamType.TOGGLE, 0f, 1f, 0f)
     );
 
+    private static final String RIPPLE_RAIN_LINES_KEY = "rainLines";
+
     public static final ShaderDef SHADER_DEF_RIPPLE = new ShaderDef(SHADER_RIPPLE, "Ripple",
+            new ShaderParam("touchOnly", "Touch-Only Ripples", ShaderParamType.TOGGLE, 0f, 1f, 0f),
             new ShaderParam("speed", "Speed", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
             new ShaderParam("cellSize", "Ripple Size", ShaderParamType.SLIDER, 4f, 20f, 10f),
             new ShaderParam("strength", "Strength", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
-            new ShaderParam("touchOnly", "Touch-Only Ripples", ShaderParamType.TOGGLE, 0f, 1f, 0f),
-            new ShaderParam("rainLines", "Rain Lines", ShaderParamType.TOGGLE, 0f, 1f, 0f),
-            new ShaderParam("rainLinesStrength", "Rain Lines Opacity", ShaderParamType.SLIDER, 0f, 2f, 0.7f),
-            new ShaderParam("rainLinesSpeed", "Rain Lines Speed", ShaderParamType.SLIDER, 0f, 2f, 1.0f),
-            new ShaderParam("rainLinesAngle", "Rain Lines Direction", ShaderParamType.SLIDER, -0.6f, 0.6f, 0.22f)
+            new ShaderParam(RIPPLE_RAIN_LINES_KEY, "Rain Lines", ShaderParamType.TOGGLE, 0f, 1f, 0f),
+            new ShaderParam("rainLinesStrength", "Rain Lines Opacity", ShaderParamType.SLIDER, 0f, 2f, 0.7f, RIPPLE_RAIN_LINES_KEY),
+            new ShaderParam("rainLinesSpeed", "Rain Lines Speed", ShaderParamType.SLIDER, 0f, 2f, 1.0f, RIPPLE_RAIN_LINES_KEY),
+            new ShaderParam("rainLinesAngle", "Rain Lines Direction", ShaderParamType.SLIDER, -0.6f, 0.6f, 0.22f, RIPPLE_RAIN_LINES_KEY)
     );
 
     public static final ShaderDef SHADER_DEF_SNOW = new ShaderDef(SHADER_SNOW, "Snow",

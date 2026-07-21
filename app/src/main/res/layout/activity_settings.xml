@@ -194,7 +194,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!--Sensor SeekBar Settings-->
+                <!--Sensor Slider Settings-->
                 <TableLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -214,14 +214,14 @@
                             android:textSize="18sp"
                             android:textStyle="bold" />
 
-                        <SeekBar
+                        <com.google.android.material.slider.Slider
                             android:id="@+id/seekBarRange"
-                            android:layout_width="wrap_content"
-                            android:layout_height="match_parent"
-                            android:max="20"
-                            android:maxHeight="@dimen/settings_item_height"
-                            android:minHeight="@dimen/settings_item_height"
-                            android:progress="10" />
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:valueFrom="0"
+                            android:valueTo="20"
+                            android:stepSize="1"
+                            android:value="10" />
 
                     </TableRow>
 
@@ -236,14 +236,14 @@
                             android:textSize="18sp"
                             android:textStyle="bold" />
 
-                        <SeekBar
+                        <com.google.android.material.slider.Slider
                             android:id="@+id/seekBarDelay"
-                            android:layout_width="wrap_content"
-                            android:layout_height="match_parent"
-                            android:max="20"
-                            android:maxHeight="@dimen/settings_item_height"
-                            android:minHeight="@dimen/settings_item_height"
-                            android:progress="10" />
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:valueFrom="0"
+                            android:valueTo="20"
+                            android:stepSize="1"
+                            android:value="10" />
                     </TableRow>
 
                 </TableLayout>
@@ -261,7 +261,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
-                    app:cardIcon="@drawable/scroll_24dp"
                     app:cardHeader="@string/scroll"
                     app:cardSubHeader="@string/enable_to_get_scroll_effect"
                     app:hasSwitch="true" />
@@ -272,27 +271,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
-                    app:cardIcon="@drawable/battery_24dp"
                     app:cardHeader="@string/power_saver_mode"
                     app:cardSubHeader="@string/pause_everything_in_battery_saver_mode"
                     app:hasSwitch="true" />
-
-                <com.droid2developers.liveslider.views.components.SettingsCardView
-                    android:id="@+id/shaderEffectsCard"
-                    android:layout_width="match_parent"
-                    android:layout_height="70dp"
-                    android:animateLayoutChanges="true"
-                    app:cardIcon="@drawable/slideshow_24dp"
-                    app:cardHeader="@string/shader_effects_header"
-                    app:cardSubHeader="@string/shader_effects_subheader"
-                    app:hasSwitch="false" />
 
                 <com.droid2developers.liveslider.views.components.SettingsCardView
                     android:id="@+id/card2ID"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
-                    app:cardIcon="@drawable/slideshow_24dp"
                     app:cardHeader="@string/wallpaper_slideshow"
                     app:cardSubHeader="@string/wallpaper_changes_after_some_time"
                     app:hasSwitch="true" />
@@ -303,7 +290,6 @@
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
                     android:visibility="gone"
-                    app:cardIcon="@drawable/double_tap_24dp"
                     app:cardHeader="@string/double_tap_wallpaper"
                     app:cardSubHeader="@string/change_current_wallpaper"
                     app:hasSwitch="true" />
@@ -314,7 +300,6 @@
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
                     android:visibility="gone"
-                    app:cardIcon="@drawable/slideshow_24dp"
                     app:cardHeader="@string/change_on_screen_on_header"
                     app:cardSubHeader="@string/change_on_screen_on_subheader"
                     app:hasSwitch="true" />
@@ -325,7 +310,6 @@
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
                     android:visibility="gone"
-                    app:cardIcon="@drawable/slideshow_24dp"
                     app:cardHeader="@string/change_on_screen_off_header"
                     app:cardSubHeader="@string/change_on_screen_off_subheader"
                     app:hasSwitch="true" />
@@ -336,7 +320,6 @@
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
                     android:visibility="gone"
-                    app:cardIcon="@drawable/slideshow_24dp"
                     app:cardHeader="@string/shuffle_playlist_header"
                     app:cardSubHeader="@string/shuffle_playlist_subheader"
                     app:hasSwitch="true" />
@@ -348,7 +331,6 @@
                     android:layout_height="70dp"
                     android:animateLayoutChanges="true"
                     android:visibility="gone"
-                    app:cardIcon="@drawable/clock_icon"
                     app:cardHeader="Slideshow Time Interval"
                     app:cardSubHeader="15 Minutes (Default)"
                     app:hasSwitch="false" />
@@ -358,7 +340,6 @@
                     android:id="@+id/transitionEffectCard"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
-                    app:cardIcon="@drawable/slideshow_24dp"
                     app:cardHeader="@string/transition_effect"
                     app:cardSubHeader="@string/transition_fade"
                     app:hasSwitch="false" />
@@ -368,7 +349,6 @@
                     android:id="@+id/animationSpeedCard"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
-                    app:cardIcon="@drawable/clock_icon"
                     app:cardHeader="@string/animation_speed"
                     app:cardSubHeader="@string/animation_speed_normal"
                     app:hasSwitch="false" />
@@ -378,9 +358,18 @@
                     android:id="@+id/wallpaperQualityCard"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
-                    app:cardIcon="@drawable/slideshow_24dp"
                     app:cardHeader="@string/wallpaper_quality"
                     app:cardSubHeader="@string/wallpaper_quality_rgba8888"
+                    app:hasSwitch="false" />
+
+                <!-- Shader Effects — tapping opens a bottom sheet to pick a shader and tune it -->
+                <com.droid2developers.liveslider.views.components.SettingsCardView
+                    android:id="@+id/shaderEffectsCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:animateLayoutChanges="true"
+                    app:cardHeader="@string/shader_effects_header"
+                    app:cardSubHeader="@string/shader_effects_subheader"
                     app:hasSwitch="false" />
 
             </LinearLayout>

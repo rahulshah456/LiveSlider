@@ -41,9 +41,8 @@
     <string name="enable_to_get_scroll_effect">Enable to get scroll effect</string>
     <string name="shader_effects_header">Shader Effects</string>
     <string name="shader_effects_subheader">Animated overlay effects on your wallpaper</string>
-    <string name="shader_effects_title">Shader Effects</string>
-    <string name="shader_active">Active Shader</string>
-    <string name="shader_none">None</string>
+    <string name="shader_enable">Enable Shader Effect</string>
+    <string name="shader_enable_subheader">Adds an animated overlay on top of your gyro wallpaper</string>
     <string name="wallpaper_scrolling">Wallpaper Scrolling</string>
     <string name="photos">Photos</string>
     <string name="_100">100+</string>

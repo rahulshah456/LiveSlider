@@ -145,7 +145,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private long lastShaderFrameMs = 0L;
     // Generic param store: key = Constant.ShaderParam.key (e.g. "intensity",
     // "speed"), value = the shader's own float unit (already mapped from the
-    // 0-100 SeekBar progress by ShaderSettingsActivity/LiveWallpaperService).
+    // 0-100 SeekBar progress by ShaderSettingsBottomSheet/LiveWallpaperService).
     // Booleans are stored as 0f/1f, same as the ShaderParam.TOGGLE convention.
     private final Map<String, Float> shaderParams = new ConcurrentHashMap<>();
     private final long shaderStartTime = SystemClock.elapsedRealtime();

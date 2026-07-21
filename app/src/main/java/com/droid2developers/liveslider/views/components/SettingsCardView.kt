@@ -5,9 +5,7 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.CompoundButton
-import android.widget.ImageView
 import android.widget.TextView
-import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.cardview.widget.CardView
@@ -16,7 +14,6 @@ import com.droid2developers.liveslider.R
 import com.google.android.material.materialswitch.MaterialSwitch
 
 class SettingsCardView : CardView, View.OnClickListener {
-    private var iconImageView: ImageView? = null
     private var headerTextView: TextView? = null
     private var subHeaderTextView: TextView? = null
     private var materialSwitch: MaterialSwitch? = null
@@ -70,7 +67,6 @@ class SettingsCardView : CardView, View.OnClickListener {
         }
 
         // Find views
-        iconImageView = findViewById(R.id.settings_card_icon)
         headerTextView = findViewById(R.id.settings_card_header)
         subHeaderTextView = findViewById(R.id.settings_card_subheader)
         materialSwitch = findViewById(R.id.settings_card_switch)
@@ -82,12 +78,6 @@ class SettingsCardView : CardView, View.OnClickListener {
         if (attrs != null) {
             val a = context.obtainStyledAttributes(attrs, R.styleable.SettingsCardView)
             try {
-                // Set icon
-                val iconRes = a.getResourceId(R.styleable.SettingsCardView_cardIcon, 0)
-                if (iconRes != 0) {
-                    setIcon(iconRes)
-                }
-
                 // Set header text
                 val headerText = a.getString(R.styleable.SettingsCardView_cardHeader)
                 if (headerText != null) {
@@ -137,10 +127,6 @@ class SettingsCardView : CardView, View.OnClickListener {
     }
 
     // Setter methods
-    fun setIcon(@DrawableRes iconRes: Int) {
-        iconImageView?.setImageResource(iconRes)
-    }
-
     fun setHeaderText(text: String?) {
         headerTextView?.text = text
     }
