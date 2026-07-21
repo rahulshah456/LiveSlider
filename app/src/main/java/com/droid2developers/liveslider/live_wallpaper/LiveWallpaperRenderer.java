@@ -125,6 +125,11 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // again just reloads the same texture from what's already known; nothing about
     // "which wallpaper, what crop, playlist position" is lost, only the GPU bytes.
     private volatile boolean pendingWallpaperRelease = false;
+    // GL-thread only. True after the release above actually freed the wallpaper —
+    // the reload decision must happen HERE on the GL thread: the service thread's
+    // "wallpaper == null?" check in setEngineVisible(true) can race the free and
+    // read a stale non-null wallpaper, flagging no reload → permanent black frame.
+    private boolean wallpaperReleasedWhileHidden = false;
     // Suppress heavy overlay shaders (rain/ripple/snow) when battery saver is on.
     private volatile boolean powerSaverActive = false;
     // False while this engine's surface is not visible (the OTHER screen is showing).
@@ -253,6 +258,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // must run here where the EGL context is current.
         consumeShaderRelease();
         consumeWallpaperRelease();
+
+        // The wallpaper texture was freed while hidden and we're visible again —
+        // reload it now, on the GL thread, where wallpaper's null-ness is authoritative.
+        if (wallpaperReleasedWhileHidden && engineVisible) {
+            wallpaperReleasedWhileHidden = false;
+            if (wallpaper == null && !hasPendingRefresh) needsRefreshWallpaper = true;
+        }
 
         // Fade the overlay shader out if it should be off (battery saver active OR
         // a pending wallpaper refresh), and back in once it's safe to draw.
@@ -696,6 +708,11 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private void consumeWallpaperRelease() {
         if (!pendingWallpaperRelease) return;
         pendingWallpaperRelease = false;
+        // Engine became visible again before this frame ran — keep the texture.
+        // Without this guard the ordering "setEngineVisible(false) →
+        // setEngineVisible(true) (wallpaper still non-null, no reload flagged) →
+        // this free" left a permanent black frame on lock/home reactivation.
+        if (engineVisible) return;
         if (wallpaper == null && previousWallpaper == null) return;
 
         transitionActive = false;
@@ -705,6 +722,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
         if (wallpaper != null) { wallpaper.destroy(); wallpaper = null; }
         if (previousWallpaper != null) { previousWallpaper.destroy(); previousWallpaper = null; }
+        wallpaperReleasedWhileHidden = true;
     }
 
     /** Sets a single parameter (by Constant.ShaderParam.key) for whichever

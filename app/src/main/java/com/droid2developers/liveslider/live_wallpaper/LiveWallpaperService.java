@@ -24,7 +24,9 @@ import com.droid2developers.liveslider.database.repository.WallpaperRepository;
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_LOCAL_PATH;
 import static com.droid2developers.liveslider.utils.Constant.DEFAULT_SLIDESHOW_TIME;
 import static com.droid2developers.liveslider.utils.Constant.PLAYLIST_NONE;
@@ -746,6 +748,23 @@ public class LiveWallpaperService extends GLWallpaperService {
                             ? playlistWallpapers.get(mImagesArrayIndex).getLocalPath() : null;
 
                     currentPlaylistId = playlistId;
+                    // A locally shuffled order (overlay SHUFFLE button, shuffle-on-wrap)
+                    // lives only in playlistWallpapers — Room re-emits in DB order on ANY
+                    // table write (saveCropBias is the big one: overlay shuffle saves the
+                    // crop first, so the re-emit reverted the shuffle and snapped back to
+                    // the DB's first wallpaper). Keep the current local order, but take
+                    // the fresh rows so updated fields (crop bias) still come through.
+                    if (!isPlaylistSwitch && !playlistWallpapers.isEmpty()) {
+                        Map<String, LocalWallpaper> freshByPath = new LinkedHashMap<>();
+                        for (LocalWallpaper w : wallpaperList) freshByPath.put(w.getLocalPath(), w);
+                        List<LocalWallpaper> reordered = new ArrayList<>(wallpaperList.size());
+                        for (LocalWallpaper w : playlistWallpapers) {
+                            LocalWallpaper fresh = freshByPath.remove(w.getLocalPath());
+                            if (fresh != null) reordered.add(fresh);
+                        }
+                        reordered.addAll(freshByPath.values()); // rows newly added to the playlist
+                        wallpaperList = reordered;
+                    }
                     playlistWallpapers = wallpaperList;
                     if (isPlaylistSwitch) {
                         mImagesArrayIndex = 0;
