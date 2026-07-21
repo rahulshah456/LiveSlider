@@ -135,6 +135,20 @@ class CropOverlay {
         GLES20.glDisableVertexAttribArray(attribTexCoords);
     }
 
+    /** Frees GL objects. Safe to call with a live context only. */
+    void release() {
+        if (texture != -1) {
+            GLES20.glDeleteTextures(1, new int[]{texture}, 0);
+            texture = -1;
+        }
+        if (program != -1) {
+            GLES20.glDeleteProgram(program);
+            program = -1;
+        }
+        lastCurrent = -1;
+        lastTotal = -1;
+    }
+
     private void initProgram() {
         program = GLUtil.createAndLinkProgram(
                 GLUtil.loadShader(GLES20.GL_VERTEX_SHADER, VERTEX_SHADER),

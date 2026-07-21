@@ -113,8 +113,24 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private RippleShader rippleShader;
     private SnowShader snowShader;
     private volatile String activeShaderId = Constant.SHADER_NONE;
+    // Set from any thread when a shader/Blur should be freed; consumed on the GL
+    // thread at the top of onDrawFrame (glDelete* needs the context current).
+    // "all" also frees Blur; otherwise every shader that isn't activeShaderId is freed.
+    private volatile boolean pendingShaderRelease = false;
+    private volatile boolean pendingReleaseAll = false;
     // Suppress heavy overlay shaders (rain/ripple/snow) when battery saver is on.
     private volatile boolean powerSaverActive = false;
+    // False while this engine's surface is not visible (the OTHER screen is showing).
+    // An animated shader keeps requesting frames forever; gating that request on
+    // visibility lets the GL thread idle for the hidden engine — the big win when
+    // home + lock are both active but only one is ever on screen at a time.
+    private volatile boolean engineVisible = true;
+    // Shader animation frame cap: overlay shaders re-request a frame every draw,
+    // pinning them to display refresh (60/120Hz). 30fps is visually fine for
+    // rain/snow and halves their GPU/CPU cost. Gates only the shader's self-render
+    // request, never wallpaper transitions or parallax.
+    private static final long SHADER_FRAME_INTERVAL_MS = 33; // ~30 fps
+    private long lastShaderFrameMs = 0L;
     // Generic param store: key = Constant.ShaderParam.key (e.g. "intensity",
     // "speed"), value = the shader's own float unit (already mapped from the
     // 0-100 SeekBar progress by ShaderSettingsActivity/LiveWallpaperService).
@@ -152,6 +168,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean needsRefreshWallpaper;
     private boolean isDefaultWallpaper;
     private int wallpaperType;
+    // Bitmap.Config the wallpaper is decoded/uploaded with (user "wallpaper quality"
+    // pref). Default full-quality; RGB_565 halves texture memory. Read on the GL
+    // thread in cropBitmap; written from the service thread — volatile is enough.
+    private volatile Bitmap.Config wallpaperConfig = Bitmap.Config.ARGB_8888;
     /** This service's own default asset path (home vs. lock) — see LiveWallpaperService#getDefaultWallpaperPath(). */
     private final String defaultWallpaperPath;
 
@@ -175,18 +195,29 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFuncSeparate(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA, GLES20.GL_ONE, GLES20.GL_ONE);
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        // Called again on every resume — free the previous program so re-inits
-        // don't leak one program per screen-off/on cycle.
+        // onSurfaceCreated fires on EVERY resume (surface recreated), but this GL
+        // wrapper REUSES the EGL context across pause/resume — it is NOT lost (see
+        // EglHelper.start(): "create context only once"). So the previous frame's GL
+        // objects are still alive in the current context. Nulling them without
+        // deleting orphans their programs/FBOs/textures into the live context — a
+        // leak of a full shader set every screen-off/on cycle, which is why Graphics
+        // memory never came back down. Explicitly release, then drop the references.
         if (shader != null) shader.delete();
         shader = Wallpaper.initGl();
         contextLost = true; // textures are dead — next onSurfaceChanged must hard-reload
-        // New EGL context — the overlay's program/texture handles died with the old
-        // one. Drop it and let onDrawFrame rebuild lazily if still visible.
-        cropOverlay = null;
-        blur = null;
-        rainShader = null;
-        rippleShader = null;
-        snowShader = null;
+        // A transition caught mid-flight at resume leaves previousWallpaper holding a
+        // full wallpaper texture that loadTexture() (which only frees `wallpaper`)
+        // never reclaims. Free it here so it can't linger for the context's lifetime.
+        if (previousWallpaper != null) { previousWallpaper.destroy(); previousWallpaper = null; }
+        transitionActive = false;
+        if (cropOverlay != null) { cropOverlay.release(); cropOverlay = null; }
+        if (blur != null) { blur.release(); blur = null; }
+        if (rainShader != null) { rainShader.release(); rainShader = null; }
+        if (rippleShader != null) { rippleShader.release(); rippleShader = null; }
+        if (snowShader != null) { snowShader.release(); snowShader = null; }
+        // Objects a pending release targeted were just freed above — clear the flags.
+        pendingShaderRelease = false;
+        pendingReleaseAll = false;
     }
 
 
@@ -206,6 +237,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     public void onDrawFrame(GL10 gl) {
 
         updateFrameStep();
+
+        // Free any shader/Blur GL objects flagged for release on another thread —
+        // must run here where the EGL context is current.
+        consumeShaderRelease();
 
         // Fade the overlay shader out if it should be off (battery saver active OR
         // a pending wallpaper refresh), and back in once it's safe to draw.
@@ -488,8 +523,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                         wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
                     }
                     drawActiveShaderEffect();
-                    // u_time-driven — keep rendering every frame while the effect is on.
-                    mCallbacks.requestRender();
+                    // u_time-driven — keep the effect animating, paced to ~30fps and
+                    // suppressed while this engine is hidden.
+                    requestShaderFrame();
                 } else {
                     wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
                 }
@@ -505,7 +541,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             // just alpha-blends a procedural overlay, so it draws unconditionally
             // here rather than through the capture-scene dispatch above.
             if (wallpaper != null && drawActiveShaderSnow()) {
-                mCallbacks.requestRender();
+                requestShaderFrame();
             }
         }
 
@@ -520,8 +556,48 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
      *  SHADER_RAIN, SHADER_RIPPLE, or SHADER_SNOW — enforced as the only "which
      *  shader is on" state, so at most one can ever be active. */
     void setActiveShader(String id) {
-        activeShaderId = id;
+        if (!id.equals(activeShaderId)) {
+            // The shader we're leaving still holds a full-screen FBO/texture; free it
+            // on the GL thread (releaseInactiveShaders keeps only the new activeShaderId).
+            activeShaderId = id;
+            pendingShaderRelease = true;
+        }
         mCallbacks.requestRender();
+    }
+
+    /** Frees ALL shader + Blur GL objects on the GL thread — called when the engine
+     *  goes invisible (screen off / another app foreground). ensure() lazily
+     *  recompiles them on the next visible frame. */
+    void releaseAllShaders() {
+        pendingReleaseAll = true;
+        pendingShaderRelease = true;
+        mCallbacks.requestRender();
+    }
+
+    /** Called from the engine's onVisibilityChanged. When this engine's screen is
+     *  not showing, animated shaders stop requesting frames so the GL thread idles. */
+    void setEngineVisible(boolean visible) {
+        engineVisible = visible;
+        if (visible) mCallbacks.requestRender();
+    }
+
+    /** Requests the next animated-shader frame, paced to ~30fps and suppressed while
+     *  the engine is hidden. Under RENDERMODE_WHEN_DIRTY the GL thread only draws
+     *  when a render is requested, so NOT requesting is what actually caps the rate:
+     *  if the cap hasn't elapsed, schedule a one-shot catch-up render at the next
+     *  slot instead of a same-frame re-request (which would run at full refresh). */
+    private void requestShaderFrame() {
+        if (!engineVisible) return;
+        long now = SystemClock.elapsedRealtime();
+        long since = now - lastShaderFrameMs;
+        if (since >= SHADER_FRAME_INTERVAL_MS) {
+            lastShaderFrameMs = now;
+            mCallbacks.requestRender();
+        } else {
+            // Too soon — wake the GL thread once when the next 30fps slot is due.
+            scheduler.schedule(mCallbacks::requestRender,
+                    SHADER_FRAME_INTERVAL_MS - since, TimeUnit.MILLISECONDS);
+        }
     }
 
     /** Toggles suppression of heavy shaders and gyro bias during battery saver mode. */
@@ -530,8 +606,41 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         if (active) {
             // Reset gyro bias target to center when power saving is active.
             setOrientationAngle(0, 0);
+            // Heavy overlay shaders are suppressed while saving power — free their
+            // FBOs/textures too instead of leaving them resident.
+            pendingShaderRelease = true;
         }
         mCallbacks.requestRender();
+    }
+
+    /** GL-thread only. Frees every overlay shader that is not the active one (and
+     *  Blur too when releaseAll). Called from onDrawFrame when a release is pending. */
+    private void consumeShaderRelease() {
+        if (!pendingShaderRelease) return;
+        pendingShaderRelease = false;
+        boolean all = pendingReleaseAll;
+        pendingReleaseAll = false;
+
+        boolean keepRain   = !all && Constant.SHADER_RAIN.equals(activeShaderId) && !powerSaverActive;
+        boolean keepRipple = !all && Constant.SHADER_RIPPLE.equals(activeShaderId) && !powerSaverActive;
+        boolean keepSnow   = !all && Constant.SHADER_SNOW.equals(activeShaderId) && !powerSaverActive;
+
+        // Unbind any texture unit first — deleting a still-bound texture is deferred
+        // on some drivers, which is one reason a release may not free memory promptly.
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
+        boolean freed = false;
+        if (!keepRain && rainShader != null) { rainShader.release(); rainShader = null; freed = true; }
+        if (!keepRipple && rippleShader != null) { rippleShader.release(); rippleShader = null; freed = true; }
+        if (!keepSnow && snowShader != null) { snowShader.release(); snowShader = null; freed = true; }
+        // Blur is only used by the wallpaper transition, not an overlay shader — free
+        // it only on a full release (screen off), never on a shader swap.
+        if (all && blur != null) { blur.release(); blur = null; freed = true; }
+        // TEMP diagnostic — confirm via logcat whether releases actually fire. The
+        // meminfo "Graphics" line lags glDelete* (driver keeps freed GPU memory in
+        // its own reuse pool), so absence of a meminfo drop does NOT mean this didn't run.
+        if (freed) Log.d(TAG, "consumeShaderRelease: freed shaders (all=" + all
+                + ", active=" + activeShaderId + ", powerSaver=" + powerSaverActive + ")");
     }
 
     /** Sets a single parameter (by Constant.ShaderParam.key) for whichever
@@ -757,8 +866,22 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     }
 
     void setOrientationAngle(float roll, float pitch) {
-        orientationOffsetX = (float) (biasRange * Math.sin(roll));
-        orientationOffsetY = (float) (biasRange * Math.sin(pitch));
+        float newX = (float) (biasRange * Math.sin(roll));
+        float newY = (float) (biasRange * Math.sin(pitch));
+        // Deadband against rotation-sensor noise: a phone lying still on a table
+        // still emits micro-jitter every sample. Without this, each jitter moves the
+        // target enough to clear transitionCal's threshold, waking the GPU 60x/sec
+        // for sub-perceptible motion — a real continuous-render battery drain. Only
+        // accept a new target once it differs by ~half a pixel of on-screen parallax.
+        // ponytail: fixed 0.0002 deadband; derive from screenW/biasRange if a device
+        // ever needs it finer, but a constant is plenty here.
+        float deadband = 0.0002f;
+        if (Math.abs(newX - orientationOffsetX) < deadband
+                && Math.abs(newY - orientationOffsetY) < deadband) {
+            return;
+        }
+        orientationOffsetX = newX;
+        orientationOffsetY = newY;
     }
 
     void setNewFaceRotation(int face) {
@@ -802,6 +925,11 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     }
     void setWallpaperType(int wallpaperType){
         this.wallpaperType = wallpaperType;
+    }
+    /** Sets the decode/upload bit depth for the NEXT wallpaper load. The caller
+     *  triggers a reload if it wants the change applied to the current wallpaper. */
+    void setWallpaperConfig(Bitmap.Config config) {
+        this.wallpaperConfig = config;
     }
 
     // Effect 0 = fade (default), 1 = dissolve, 2 = pixelate, 3 = wipe, 4 = blur, 5 = zoom
@@ -1070,6 +1198,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // Create and loads new Wallpaper from the required settings
     private void loadTexture() {
+        // cropBitmap() decodes a full-res bitmap then allocates a second scaled/
+        // cropped one per change — tens of MB of native churn. recycle() frees the
+        // backing buffers but the gc reclaims the intermediate objects promptly so
+        // total memory doesn't climb across changes. This is load-bearing, not cargo.
         System.gc();
         InputStream is = openWallpaperStream();
         if (is == null) {
@@ -1092,7 +1224,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             wallpaper.destroy();
         wallpaper = new Wallpaper(bmp, shader != null ? shader.maxTextureSize : 2048);
         preCalculate();
-        System.gc();
+        System.gc(); // reclaim the decode/scale bitmap churn now, not on the next collection
     }
 
     // Opens the right stream for the current path. The built-in default lives in
@@ -1141,7 +1273,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         }
     }
     private Bitmap cropBitmap(InputStream is) {
-        Bitmap src = BitmapFactory.decodeStream(is);
+        // Decode at the user-chosen bit depth. RGB_565 halves the resulting GL
+        // texture memory (GLUtils.texImage2D picks format from the bitmap config);
+        // createBitmap/createScaledBitmap below preserve this config, so setting it
+        // once here covers the whole chain.
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inPreferredConfig = wallpaperConfig;
+        Bitmap src = BitmapFactory.decodeStream(is, null, opts);
         if (src == null) {
             Log.e(TAG, "cropBitmap: BitmapFactory.decodeStream returned null");
             return null;

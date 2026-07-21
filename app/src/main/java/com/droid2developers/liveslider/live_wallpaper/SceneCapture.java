@@ -31,8 +31,11 @@ class SceneCapture {
         GLES20.glGenFramebuffers(1, fbo, 0);
         GLES20.glGenTextures(1, tex, 0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex[0]);
-        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0,
-                GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+        // RGB565 (16bpp) — this is a transient overlay capture, not the sharp
+        // wallpaper, so half the memory with no perceptible quality loss under the
+        // animated effect. No alpha channel needed (the wallpaper fills every pixel).
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGB, width, height, 0,
+                GLES20.GL_RGB, GLES20.GL_UNSIGNED_SHORT_5_6_5, null);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);

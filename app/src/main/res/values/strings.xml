@@ -96,6 +96,13 @@
     <string name="animation_speed_triple">3x (Very Fast)</string>
     <string name="animation_speed_stupid">4x (Stupid Fast)</string>
 
+    <!-- Wallpaper Quality (texture bit depth — memory vs. sharpness) -->
+    <string name="wallpaper_quality">Wallpaper Quality</string>
+    <string name="wallpaper_quality_subheader">Texture detail vs. memory use</string>
+    <string name="wallpaper_quality_rgba8888">High (32-bit, sharpest)</string>
+    <string name="wallpaper_quality_rgb888">Standard (32-bit, opaque)</string>
+    <string name="wallpaper_quality_rgb565">Low (16-bit, saves memory)</string>
+
     <!-- Change on screen wake -->
     <string name="change_on_screen_on_header">Change On Screen Wake</string>
     <string name="change_on_screen_on_subheader">Advance slideshow each time screen turns on</string>

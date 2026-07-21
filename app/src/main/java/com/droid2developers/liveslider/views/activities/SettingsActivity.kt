@@ -69,6 +69,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     // Animation speed card (selection via dialog)
     private var animationSpeedCard: SettingsCardView? = null
 
+    // Wallpaper quality card (selection via dialog)
+    private var wallpaperQualityCard: SettingsCardView? = null
+
     private var isLockMode = false
 
     @SuppressLint("CommitPrefEdits")
@@ -153,6 +156,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         // Animation speed controls
         animationSpeedCard = findViewById(R.id.animationSpeedCard)
 
+        // Wallpaper quality controls
+        wallpaperQualityCard = findViewById(R.id.wallpaperQualityCard)
+
         // Help button
         val helpButton = findViewById<CardView>(R.id.helpButtonId)
         helpButton?.setOnClickListener { showHelpDialog() }
@@ -187,6 +193,9 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
 
         // Setup initial animation speed
         setupInitialAnimationSpeed()
+
+        // Setup initial wallpaper quality
+        setupInitialWallpaperQuality()
     }
 
     private fun setupInitialCalibrationMode() {
@@ -271,6 +280,46 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             .show()
     }
 
+    private fun setupInitialWallpaperQuality() {
+        val saved = prefs?.getString(Constant.PREF_WALLPAPER_QUALITY, Constant.QUALITY_RGBA8888)
+            ?: Constant.QUALITY_RGBA8888
+        wallpaperQualityCard?.setSubHeaderText(qualityName(saved))
+    }
+
+    /** Display name for a wallpaper-quality pref value. */
+    private fun qualityName(quality: String): String = when (quality) {
+        Constant.QUALITY_RGB888 -> getString(R.string.wallpaper_quality_rgb888)
+        Constant.QUALITY_RGB565 -> getString(R.string.wallpaper_quality_rgb565)
+        else                    -> getString(R.string.wallpaper_quality_rgba8888)
+    }
+
+    private fun showWallpaperQualityDialog() {
+        val labels = arrayOf(
+            getString(R.string.wallpaper_quality_rgba8888),
+            getString(R.string.wallpaper_quality_rgb888),
+            getString(R.string.wallpaper_quality_rgb565)
+        )
+        val values = arrayOf(
+            Constant.QUALITY_RGBA8888,
+            Constant.QUALITY_RGB888,
+            Constant.QUALITY_RGB565
+        )
+        val current = prefs?.getString(Constant.PREF_WALLPAPER_QUALITY, Constant.QUALITY_RGBA8888)
+            ?: Constant.QUALITY_RGBA8888
+        val checkedItem = values.indexOf(current).coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.wallpaper_quality))
+            .setSingleChoiceItems(labels, checkedItem) { dialog, which ->
+                val chosen = values[which]
+                editor?.putString(Constant.PREF_WALLPAPER_QUALITY, chosen)?.apply()
+                wallpaperQualityCard?.setSubHeaderText(qualityName(chosen))
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel) { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+
     private fun setupListeners() {
         backButton?.setOnClickListener { v: View? -> onBackPressedDispatcher.onBackPressed() }
 
@@ -298,6 +347,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
         transitionEffectCard?.setOnCardClickListener(this)
 
         animationSpeedCard?.setOnCardClickListener(this)
+
+        wallpaperQualityCard?.setOnCardClickListener(this)
 
         seekBarRange?.let { setupSeekBarListener(it, "range") }
         seekBarDelay?.let { setupSeekBarListener(it, "delay") }
@@ -346,6 +397,8 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
             showTransitionEffectDialog()
         } else if (id == R.id.animationSpeedCard) {
             showAnimationSpeedDialog()
+        } else if (id == R.id.wallpaperQualityCard) {
+            showWallpaperQualityDialog()
         } else if (id == R.id.shaderEffectsCard) {
             val intent = Intent(this, ShaderSettingsActivity::class.java)
             intent.putExtra(Constant.EXTRA_IS_LOCK_MODE, isLockMode)

@@ -80,6 +80,14 @@ public class GLUtil {
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
                     GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
 
+            // Rows may not be 4-byte aligned: an RGB_565 (2 bytes/px) bitmap with an
+            // ODD width has a row stride that breaks GL's default GL_UNPACK_ALIGNMENT
+            // of 4, so texImage2D reads each row shifted — the image shears into
+            // "weird angles". Tell GL rows are byte-packed. 1 is always safe for any
+            // config; only the unscaled-image path hit this (createScaledBitmap
+            // happened to yield aligned rows, which is why only some images skewed).
+            GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1);
+
             // Load the bitmap into the bound texture.
             GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
             GLUtil.checkGlError("texImage2D");

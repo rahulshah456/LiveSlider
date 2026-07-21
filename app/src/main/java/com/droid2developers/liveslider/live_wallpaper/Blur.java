@@ -163,7 +163,7 @@ class Blur {
     }
 
     /** Frees GL objects. Safe to call with a live context only (resize path). */
-    private void release() {
+    void release() {
         if (program != 0) {
             GLES20.glDeleteProgram(program);
             program = 0;

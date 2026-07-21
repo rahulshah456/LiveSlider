@@ -97,6 +97,24 @@ public class Constant {
         return "shader_" + shaderId + "_" + paramKey;
     }
 
+    // --- Wallpaper texture quality (memory vs. sharpness) -------------------------
+    // Controls the Bitmap.Config the wallpaper is decoded with, which in turn sets
+    // the GL texture bit depth (GLUtils.texImage2D infers format from the config).
+    // ARGB_8888 = 32bpp (sharpest, default); RGB_565 = 16bpp (~half the texture
+    // memory, faint banding on gradients). "rgb888" has no distinct Bitmap.Config —
+    // Android has no 24bpp config, so it maps to ARGB_8888 (the wallpaper is opaque,
+    // so the alpha byte carries no data anyway) and exists only as a labelled choice.
+    public static final String PREF_WALLPAPER_QUALITY = "wallpaper_quality";
+    public static final String QUALITY_RGBA8888 = "rgba8888"; // default — full quality
+    public static final String QUALITY_RGB888   = "rgb888";   // opaque 32bpp (== rgba8888 storage)
+    public static final String QUALITY_RGB565   = "rgb565";   // 16bpp — half the memory
+
+    /** Bitmap.Config for a wallpaper-quality pref value. Unknown/null → ARGB_8888. */
+    public static android.graphics.Bitmap.Config wallpaperConfig(String quality) {
+        if (QUALITY_RGB565.equals(quality)) return android.graphics.Bitmap.Config.RGB_565;
+        return android.graphics.Bitmap.Config.ARGB_8888;
+    }
+
     public enum ShaderParamType { SLIDER, TOGGLE }
 
     /** One configurable value on a shader: a 0-100 slider or a boolean toggle.

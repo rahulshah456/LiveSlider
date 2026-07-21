@@ -155,6 +155,9 @@ public class LiveWallpaperService extends GLWallpaperService {
             renderer.setIsDefaultWallpaper(prefs.getBoolean("default_wallpaper", true));
             renderer.setLocalWallpaperPath(prefs.getString("local_wallpaper_path", getDefaultWallpaperPath()));
             renderer.setWallpaperType(prefs.getInt("type", TYPE_SINGLE));
+            // Bit depth must be set before the first texture load (setRenderer below).
+            renderer.setWallpaperConfig(Constant.wallpaperConfig(
+                    prefs.getString(Constant.PREF_WALLPAPER_QUALITY, Constant.QUALITY_RGBA8888)));
 
             setRenderer(renderer);
             setRenderMode(RENDERMODE_WHEN_DIRTY);
@@ -236,6 +239,11 @@ public class LiveWallpaperService extends GLWallpaperService {
             screenOffReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
+                    // Screen off = nothing is drawn — free the overlay shader/Blur GPU
+                    // buffers. onVisibilityChanged doesn't reliably fire on device sleep
+                    // (the wallpaper is often already "not visible"), so this is the real
+                    // screen-off hook. ensure() lazily rebuilds them on the next wake.
+                    renderer.releaseAllShaders();
                     if (isLockScreenService() && isSlideShowEnabled && changeOnSleep
                             && !cropMode && !playlistWallpapers.isEmpty()) {
                         incrementWallpaper();
@@ -304,6 +312,9 @@ public class LiveWallpaperService extends GLWallpaperService {
 
         @Override
         public void onVisibilityChanged(boolean visible) {
+            // Let the renderer idle animated shaders for the hidden engine — when home
+            // and lock are both active, only one screen is ever visible at a time.
+            renderer.setEngineVisible(visible);
             if (!pauseInSavePowerMode || !savePowerMode) {
                 if (visible) {
                     rotationSensor.register();
@@ -332,12 +343,14 @@ public class LiveWallpaperService extends GLWallpaperService {
                     rotationSensor.unregister();
                     handler.removeCallbacks(slideshow);
                     renderer.stopTransition();
+                    renderer.releaseAllShaders();
                 }
             } else {
                 if (visible) {
                     renderer.startTransition();
                 } else {
                     renderer.stopTransition();
+                    renderer.releaseAllShaders();
                 }
             }
         }
@@ -487,6 +500,21 @@ public class LiveWallpaperService extends GLWallpaperService {
                     break;
                 case "animation_speed":
                     renderer.setAnimationSpeed(sharedPreferences.getInt(key, Constant.ANIMATION_SPEED_NORMAL));
+                    break;
+                case Constant.PREF_WALLPAPER_QUALITY:
+                    // New bit depth applies on the next load — force a reload of the
+                    // current wallpaper so the change is visible immediately.
+                    renderer.setWallpaperConfig(Constant.wallpaperConfig(
+                            sharedPreferences.getString(key, Constant.QUALITY_RGBA8888)));
+                    String qPath = prefs.getString("local_wallpaper_path", getDefaultWallpaperPath());
+                    boolean qDefault = prefs.getBoolean("default_wallpaper", true);
+                    if (qDefault) {
+                        renderer.refreshWallpaperFresh(qPath, true, 0f);
+                    } else {
+                        LiveWallpaperDatabase.databaseWriteExecutor.execute(() ->
+                                renderer.refreshWallpaperFresh(qPath, false,
+                                        getRepository().getCropBiasSync(qPath)));
+                    }
                     break;
                 case "change_on_unlock":
                     changeOnUnlock = sharedPreferences.getBoolean(key, false);
