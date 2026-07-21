@@ -15,6 +15,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import androidx.preference.PreferenceManager;
 import com.droid2developers.liveslider.database.LiveWallpaperDatabase;
@@ -41,6 +42,10 @@ public class LiveWallpaperService extends GLWallpaperService {
 
     private final static String TAG = LiveWallpaperService.class.getSimpleName();
     public static final int SENSOR_RATE = 60;
+    // Screen-off animation takes ~300ms; swap after it's done so it's never visible.
+    private static final long SLEEP_CHANGE_DELAY_MS = 500;
+    // Give the wake/unlock animation a moment to settle before advancing.
+    private static final long WAKE_CHANGE_DELAY_MS = 400;
 
 
     @Override
@@ -221,9 +226,14 @@ public class LiveWallpaperService extends GLWallpaperService {
                         // invisibly at screen-off; animating another here would double-advance.
                         if (isSlideShowEnabled && changeOnUnlock && !changeOnSleep
                                 && !playlistWallpapers.isEmpty()) {
-                            incrementWallpaper();
-                            changeWallpaper();
-                            Log.d(TAG, "screenOnReceiver: lock service — advanced to " + mImagesArrayIndex);
+                            // Small delay so the transition starts just after wake, not the
+                            // instant the power button is pressed (avoids it being visible
+                            // mid-wake before the lock screen is actually up).
+                            handler.postDelayed(() -> {
+                                incrementWallpaper();
+                                changeWallpaper();
+                                Log.d(TAG, "screenOnReceiver: lock service — advanced to " + mImagesArrayIndex);
+                            }, WAKE_CHANGE_DELAY_MS);
                         }
                     }
                     // Home service: do NOT advance here. ACTION_SCREEN_ON fires before the home
@@ -246,12 +256,17 @@ public class LiveWallpaperService extends GLWallpaperService {
                     renderer.releaseAllShaders();
                     if (isLockScreenService() && isSlideShowEnabled && changeOnSleep
                             && !cropMode && !playlistWallpapers.isEmpty()) {
-                        incrementWallpaper();
-                        LocalWallpaper next = playlistWallpapers.get(mImagesArrayIndex);
-                        editor.putString("local_wallpaper_path", next.getLocalPath()).apply();
-                        renderer.refreshWallpaperInstant(next.getLocalPath(),
-                                prefs.getBoolean("default_wallpaper", true), next.getCropBias());
-                        Log.d(TAG, "screenOffReceiver: lock service — swapped to " + mImagesArrayIndex);
+                        // Delay the actual swap until the screen is fully asleep and hidden —
+                        // ACTION_SCREEN_OFF can fire while the screen-off animation is still
+                        // playing, so an instant swap here is briefly visible to the user.
+                        handler.postDelayed(() -> {
+                            incrementWallpaper();
+                            LocalWallpaper next = playlistWallpapers.get(mImagesArrayIndex);
+                            editor.putString("local_wallpaper_path", next.getLocalPath()).apply();
+                            renderer.refreshWallpaperInstant(next.getLocalPath(),
+                                    prefs.getBoolean("default_wallpaper", true), next.getCropBias());
+                            Log.d(TAG, "screenOffReceiver: lock service — swapped to " + mImagesArrayIndex);
+                        }, SLEEP_CHANGE_DELAY_MS);
                     }
                 }
             };
@@ -282,7 +297,7 @@ public class LiveWallpaperService extends GLWallpaperService {
             // Unregister this as listener
             Log.d(TAG, "onDestroy: ");
             rotationSensor.unregister();
-            handler.removeCallbacks(slideshow);
+            handler.removeCallbacksAndMessages(null);
             if(powerSaverChangeReceiver != null) {
                 unregisterReceiver(powerSaverChangeReceiver);
             }
@@ -371,6 +386,9 @@ public class LiveWallpaperService extends GLWallpaperService {
                         cropMode = false;
                         renderer.hideCropOverlay();
                         saveCropBias();
+                    } else if (hit == CropOverlay.HIT_CLOSE) {
+                        cropMode = false;
+                        renderer.hideCropOverlay();
                     } else if (hit == CropOverlay.HIT_PREV || hit == CropOverlay.HIT_NEXT) {
                         if (isPlaylistActive()) {
                             // Keep the edits for the wallpaper we're leaving, then step
@@ -434,6 +452,39 @@ public class LiveWallpaperService extends GLWallpaperService {
         public void onSurfaceDestroyed(SurfaceHolder holder) {
             super.onSurfaceDestroyed(holder);
             handler.removeCallbacks(slideshow);
+        }
+
+        @Override
+        public void onSurfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            super.onSurfaceChanged(holder, format, width, height);
+            // Parallax/transitions are paced by SENSOR_RATE (60Hz, see transitionCal's
+            // scheduler) — nothing in this renderer needs more. On a 90/120Hz-capable
+            // panel the compositor will otherwise present every requestRender() at the
+            // display's native rate, roughly doubling GPU wake-ups and draw calls for
+            // motion no one can perceive as faster. Cap the surface itself so this
+            // holds even if some future call site requests renders more often.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Surface surface = holder.getSurface();
+                if (surface != null && surface.isValid()) {
+                    try {
+                        surface.setFrameRate((float) SENSOR_RATE,
+                                Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                                Surface.CHANGE_FRAME_RATE_ALWAYS);
+                    } catch (IllegalArgumentException | IllegalStateException e) {
+                        Log.w(TAG, "onSurfaceChanged: setFrameRate failed", e);
+                    }
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Surface surface = holder.getSurface();
+                if (surface != null && surface.isValid()) {
+                    try {
+                        surface.setFrameRate((float) SENSOR_RATE,
+                                Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);
+                    } catch (IllegalArgumentException | IllegalStateException e) {
+                        Log.w(TAG, "onSurfaceChanged: setFrameRate failed", e);
+                    }
+                }
+            }
         }
 
         @Override

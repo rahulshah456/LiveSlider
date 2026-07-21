@@ -87,9 +87,10 @@ class SingleFragment : Fragment(), OnSharedPreferenceChangeListener {
         progressIndicator?.hide()
 
         // Creating default wallpaper data
-        val localPath = Constant.DEFAULT_LOCAL_PATH
+        val localPath = if (isLockMode) Constant.DEFAULT_LOCK_LOCAL_PATH else Constant.DEFAULT_LOCAL_PATH
+        val wallpaperName = if (isLockMode) Constant.DEFAULT_LOCK_WALLPAPER_NAME else Constant.DEFAULT_WALLPAPER_NAME
         defaultWallpaper = LocalWallpaper(
-            Constant.DEFAULT, Constant.DEFAULT_WALLPAPER_NAME,
+            Constant.DEFAULT, wallpaperName,
             localPath, localPath
         )
 
@@ -153,7 +154,7 @@ class SingleFragment : Fragment(), OnSharedPreferenceChangeListener {
                 .setCancelable(false)
                 .setPositiveButton("Confirm") { dialog: DialogInterface, which: Int ->
                     // Continue with operation
-                    if (wallpaper.name == Constant.DEFAULT_WALLPAPER_NAME) {
+                    if (wallpaper.name == Constant.DEFAULT_WALLPAPER_NAME || wallpaper.name == Constant.DEFAULT_LOCK_WALLPAPER_NAME) {
                         Toast.makeText(
                             requireContext(), "This is the default wallpaper and can't be deleted!",
                             Toast.LENGTH_SHORT

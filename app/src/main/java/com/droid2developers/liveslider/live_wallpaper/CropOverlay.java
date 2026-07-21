@@ -32,6 +32,7 @@ class CropOverlay {
     static final int HIT_PREV = 4;
     static final int HIT_NEXT = 5;
     static final int HIT_SHUFFLE = 6;
+    static final int HIT_CLOSE = 7;
 
     // Crop buttons: centres as fractions of screen width/height; radii of width.
     // All three sit on one row: ◀ (0.32) — ✓ (0.50) — ▶ (0.68).
@@ -49,8 +50,29 @@ class CropOverlay {
     private static final float PILL_HALF_H = 0.06f;
 
     // Shuffle button: below the main button row, drawn/hit only when a playlist
-    // is active (same gate as the pill).
+    // is active (same gate as the pill). Now a text pill ("SHUFFLE") rather than
+    // an icon so its purpose is obvious at a glance.
     private static final float SHUFFLE_X = 0.50f, SHUFFLE_Y = 0.62f;
+    private static final float SHUFFLE_HALF_W = 0.14f;
+    private static final float SHUFFLE_HALF_H = 0.045f;
+
+    // Overlay frame: thin border + faint background wash, sized to hug its
+    // content (min box) instead of spanning the full screen width/height.
+    // Horizontal bounds wrap the widest row (the playlist pill); vertical
+    // bounds run from the label above the arrows down to the shuffle button
+    // (or the arrow row, when no playlist is active).
+    private static final float FRAME_LEFT = 0.5f - PILL_HALF_W - 0.14f;
+    private static final float FRAME_RIGHT = 0.5f + PILL_HALF_W + 0.14f;
+    private static final float FRAME_TOP = ARROWS_Y - RADIUS * 2.9f;
+    private static final float FRAME_BOTTOM_NO_PLAYLIST = ARROWS_Y + RADIUS * 1.5f;
+    private static final float FRAME_BOTTOM_PLAYLIST = SHUFFLE_Y + SHUFFLE_HALF_H * 2.2f;
+    private static final float FRAME_RADIUS_FRAC = 0.03f;
+
+    // Close ("X") button: pinned to the frame's own top-right corner.
+    private static final float CLOSE_RADIUS = 0.05f;
+    private static final float CLOSE_HIT_RADIUS = 0.07f;
+    private static final float CLOSE_MARGIN_TOP = 0.06f;
+    private static final float CLOSE_MARGIN_RIGHT = 0.07f;
 
     private static final String VERTEX_SHADER = ""
             + "attribute vec4 aPosition;"
@@ -86,6 +108,13 @@ class CropOverlay {
      * pill would swallow taps.
      */
     static int hitTest(float x, float y, int screenW, int screenH, boolean pillVisible) {
+        float frameBottom = (pillVisible ? FRAME_BOTTOM_PLAYLIST : FRAME_BOTTOM_NO_PLAYLIST) * screenH;
+        float closeCx = FRAME_RIGHT * screenW - CLOSE_MARGIN_RIGHT * screenW;
+        float closeCy = FRAME_TOP * screenH + CLOSE_MARGIN_TOP * screenW;
+        if (dist(x, y, closeCx, closeCy) < CLOSE_HIT_RADIUS * screenW) {
+            return HIT_CLOSE;
+        }
+        if (y > frameBottom) return HIT_NONE;
         if (pillVisible
                 && Math.abs(y - PILL_Y * screenH) < PILL_HALF_H * screenW * 1.2f
                 && Math.abs(x - 0.5f * screenW) < PILL_HALF_W * screenW) {
@@ -98,7 +127,10 @@ class CropOverlay {
         if (dist(x, y, RIGHT_X * screenW, ARROWS_Y * screenH) < r) return HIT_RIGHT;
         if (dist(x, y, DONE_X * screenW, DONE_Y * screenH) < r) return HIT_DONE;
         if (pillVisible
-                && dist(x, y, SHUFFLE_X * screenW, SHUFFLE_Y * screenH) < r) return HIT_SHUFFLE;
+                && Math.abs(y - SHUFFLE_Y * screenH) < SHUFFLE_HALF_H * screenW * 1.3f
+                && Math.abs(x - SHUFFLE_X * screenW) < SHUFFLE_HALF_W * screenW * 1.15f) {
+            return HIT_SHUFFLE;
+        }
         return HIT_NONE;
     }
 
@@ -182,12 +214,40 @@ class CropOverlay {
         Paint doneBg = new Paint(Paint.ANTI_ALIAS_FLAG);
         doneBg.setColor(0xCC2E7D32); // translucent green — the confirm/save action
 
+        // Frame: faint fill + thin stroke, sized to hug its content (min box)
+        // rather than spanning the full screen, so the buttons read as one
+        // compact panel.
+        Paint frameBg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        frameBg.setColor(0x33000000);
+        Paint frameStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        frameStroke.setColor(0x66FFFFFF);
+        frameStroke.setStyle(Paint.Style.STROKE);
+        frameStroke.setStrokeWidth(r * 0.06f);
+        float frameBottomFrac = total > 0 ? FRAME_BOTTOM_PLAYLIST : FRAME_BOTTOM_NO_PLAYLIST;
+        RectF frame = new RectF(FRAME_LEFT * w, FRAME_TOP * h,
+                FRAME_RIGHT * w, frameBottomFrac * h);
+        float frameRadius = FRAME_RADIUS_FRAC * w;
+        canvas.drawRoundRect(frame, frameRadius, frameRadius, frameBg);
+        canvas.drawRoundRect(frame, frameRadius, frameRadius, frameStroke);
+
+        // Close button — sits in the frame's own top-right corner with no
+        // background of its own, so it visually submerges into the panel.
+        float cx = frame.right - CLOSE_MARGIN_RIGHT * w, cy = frame.top + CLOSE_MARGIN_TOP * w;
+        float cr = CLOSE_RADIUS * w;
+        float ca = cr * 0.45f;
+        Path p = new Path();
+        p.moveTo(cx - ca, cy - ca);
+        p.lineTo(cx + ca, cy + ca);
+        p.moveTo(cx + ca, cy - ca);
+        p.lineTo(cx - ca, cy + ca);
+        canvas.drawPath(p, line);
+
         canvas.drawCircle(lx, ay, r, bg);
         canvas.drawCircle(rx, ay, r, bg);
         canvas.drawCircle(dx, dy, r, doneBg);
 
         float a = r * 0.35f;
-        Path p = new Path(); // ◀ chevron
+        p.reset();           // ◀ chevron
         p.moveTo(lx + a * 0.6f, ay - a);
         p.lineTo(lx - a * 0.6f, ay);
         p.lineTo(lx + a * 0.6f, ay + a);
@@ -242,26 +302,18 @@ class CropOverlay {
             canvas.drawText(current + "/" + total, 0.5f * w,
                     pillY + halfH * 0.3f, text);
 
-            // Shuffle button below the main row — two crossing arrows
+            // Shuffle button below the main row — a labelled text pill, easier to
+            // recognize at a glance than an icon.
             float sx = SHUFFLE_X * w, sy = SHUFFLE_Y * h;
-            canvas.drawCircle(sx, sy, r, bg);
-            float sa = a * 0.9f;   // arrow half-length
-            float sh = a * 0.55f;  // arrow half-height
-            float head = a * 0.35f;
-            p.reset();             // ↗ arrow: bottom-left to top-right + head
-            p.moveTo(sx - sa, sy + sh);
-            p.lineTo(sx + sa, sy - sh);
-            p.moveTo(sx + sa - head, sy - sh - head * 0.3f);
-            p.lineTo(sx + sa, sy - sh);
-            p.lineTo(sx + sa - head * 0.3f, sy - sh + head);
-            canvas.drawPath(p, line);
-            p.reset();             // ↘ arrow: top-left to bottom-right + head
-            p.moveTo(sx - sa, sy - sh);
-            p.lineTo(sx + sa, sy + sh);
-            p.moveTo(sx + sa - head, sy + sh + head * 0.3f);
-            p.lineTo(sx + sa, sy + sh);
-            p.lineTo(sx + sa - head * 0.3f, sy + sh - head);
-            canvas.drawPath(p, line);
+            float shHalfW = SHUFFLE_HALF_W * w, shHalfH = SHUFFLE_HALF_H * w;
+            RectF shufflePill = new RectF(sx - shHalfW, sy - shHalfH, sx + shHalfW, sy + shHalfH);
+            canvas.drawRoundRect(shufflePill, shHalfH, shHalfH, bg);
+            Paint shuffleText = new Paint(Paint.ANTI_ALIAS_FLAG);
+            shuffleText.setColor(0xFFFFFFFF);
+            shuffleText.setTextAlign(Paint.Align.CENTER);
+            shuffleText.setTextSize(shHalfH * 0.9f);
+            shuffleText.setFakeBoldText(true);
+            canvas.drawText("SHUFFLE", sx, sy + shHalfH * 0.35f, shuffleText);
         }
 
         int tex = GLUtil.loadTexture(bmp);

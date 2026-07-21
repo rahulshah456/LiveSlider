@@ -118,6 +118,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // "all" also frees Blur; otherwise every shader that isn't activeShaderId is freed.
     private volatile boolean pendingShaderRelease = false;
     private volatile boolean pendingReleaseAll = false;
+    // Set when this engine goes invisible (screen off, or the OTHER engine is on
+    // screen — home/lock are never both visible at once). Frees the wallpaper GL
+    // texture(s) too — the single biggest per-engine GPU allocation — not just the
+    // overlay shaders. Path/crop/playlist fields are untouched, so becoming visible
+    // again just reloads the same texture from what's already known; nothing about
+    // "which wallpaper, what crop, playlist position" is lost, only the GPU bytes.
+    private volatile boolean pendingWallpaperRelease = false;
     // Suppress heavy overlay shaders (rain/ripple/snow) when battery saver is on.
     private volatile boolean powerSaverActive = false;
     // False while this engine's surface is not visible (the OTHER screen is showing).
@@ -233,6 +240,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
 
     // Here we do our drawing
     private boolean hasLoggedNullWallpaper = false;
+    // Guards the default-wallpaper self-heal retry (see the null-wallpaper branch
+    // below) so a genuinely broken default asset retries once per null-streak,
+    // not every single frame. Cleared as soon as loadTexture() succeeds.
+    private boolean defaultRecoveryTried = false;
     @Override
     public void onDrawFrame(GL10 gl) {
 
@@ -241,6 +252,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // Free any shader/Blur GL objects flagged for release on another thread —
         // must run here where the EGL context is current.
         consumeShaderRelease();
+        consumeWallpaperRelease();
 
         // Fade the overlay shader out if it should be off (battery saver active OR
         // a pending wallpaper refresh), and back in once it's safe to draw.
@@ -289,6 +301,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     if (transitionAlpha >= 1.0f) {
                         transitionAlpha  = 1.0f;
                         transitionActive = false;
+                        mCallbacks.requestRender(); // let the shader fade-in check run next frame
                     } else {
                         mCallbacks.requestRender();
                     }
@@ -534,6 +547,26 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     Log.w(TAG, "onDrawFrame: wallpaper is null, skipping draw");
                     hasLoggedNullWallpaper = true;
                 }
+                // Self-heal: static state with no wallpaper and nothing already
+                // scheduled to fix it would otherwise stay black forever. Must match
+                // openWallpaperStream()'s own "load the built-in asset" condition
+                // exactly — using isDefaultWallpaper alone is wrong, since playlists
+                // leave that flag at its stale/default value while a real playlist
+                // path is what's actually loaded (see WallpapersListAdapter). And
+                // retryHandle already tracks an in-flight async retry for a user/
+                // playlist file (openWallpaperStream, 3s delay) — firing this while
+                // that's pending clobbers localWallpaperPath with the default asset
+                // before the real retry ever runs.
+                boolean isDefaultAssetPath = defaultWallpaperPath.equals(localWallpaperPath)
+                        || (wallpaperType == TYPE_SINGLE && isDefaultWallpaper);
+                boolean retryInFlight = retryHandle != null && !retryHandle.isDone();
+                if (engineVisible && isDefaultAssetPath && !needsRefreshWallpaper
+                        && !hasPendingRefresh && !retryInFlight && !defaultRecoveryTried) {
+                    defaultRecoveryTried = true;
+                    Log.w(TAG, "onDrawFrame: retrying default wallpaper load after null texture");
+                    needsRefreshWallpaper = true;
+                    mCallbacks.requestRender();
+                }
             }
 
             // Snow composites on top of whatever was just drawn — it doesn't
@@ -575,10 +608,20 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     }
 
     /** Called from the engine's onVisibilityChanged. When this engine's screen is
-     *  not showing, animated shaders stop requesting frames so the GL thread idles. */
+     *  not showing, animated shaders stop requesting frames so the GL thread idles.
+     *  Also frees the wallpaper GL texture(s) while hidden — see pendingWallpaperRelease
+     *  — and reloads them lazily from the already-known path/crop the moment this
+     *  engine becomes visible again. */
     void setEngineVisible(boolean visible) {
         engineVisible = visible;
-        if (visible) mCallbacks.requestRender();
+        if (visible) {
+            // Texture was dropped while hidden (or never loaded yet) — reload it now.
+            if (wallpaper == null) needsRefreshWallpaper = true;
+            mCallbacks.requestRender();
+        } else {
+            pendingWallpaperRelease = true;
+            mCallbacks.requestRender(); // one more frame so the GL thread can consume it
+        }
     }
 
     /** Requests the next animated-shader frame, paced to ~30fps and suppressed while
@@ -641,6 +684,27 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // its own reuse pool), so absence of a meminfo drop does NOT mean this didn't run.
         if (freed) Log.d(TAG, "consumeShaderRelease: freed shaders (all=" + all
                 + ", active=" + activeShaderId + ", powerSaver=" + powerSaverActive + ")");
+    }
+
+    /** GL-thread only. Frees the wallpaper texture(s) when this engine has gone
+     *  invisible — the single biggest per-engine GPU allocation, so an engine that
+     *  isn't on screen (device asleep, or the other engine is showing) holds none
+     *  of it. Cancels any in-flight transition first: a transition mid-flight is
+     *  holding previousWallpaper as a second live texture, and there is no visible
+     *  frame to finish animating anyway while hidden. Path/crop/playlist fields
+     *  are untouched — setEngineVisible(true) flags a plain reload from them. */
+    private void consumeWallpaperRelease() {
+        if (!pendingWallpaperRelease) return;
+        pendingWallpaperRelease = false;
+        if (wallpaper == null && previousWallpaper == null) return;
+
+        transitionActive = false;
+        transitionAlpha = 1.0f;
+        transitionProgress = 1.0f;
+        currentEffect = 0;
+
+        if (wallpaper != null) { wallpaper.destroy(); wallpaper = null; }
+        if (previousWallpaper != null) { previousWallpaper.destroy(); previousWallpaper = null; }
     }
 
     /** Sets a single parameter (by Constant.ShaderParam.key) for whichever
@@ -1223,6 +1287,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         if (wallpaper != null)
             wallpaper.destroy();
         wallpaper = new Wallpaper(bmp, shader != null ? shader.maxTextureSize : 2048);
+        defaultRecoveryTried = false; // loaded fine — re-arm the self-heal for next time
         preCalculate();
         System.gc(); // reclaim the decode/scale bitmap churn now, not on the next collection
     }
