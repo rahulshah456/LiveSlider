@@ -3,7 +3,6 @@ package com.droid2developers.liveslider.views.activities
 import android.app.WallpaperManager
 import android.os.Bundle
 import android.util.Log
-import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -13,6 +12,7 @@ import androidx.core.view.updatePadding
 import androidx.viewpager2.widget.ViewPager2
 import com.droid2developers.liveslider.R
 import com.droid2developers.liveslider.utils.Constant
+import com.droid2developers.liveslider.views.activities.MainPagerAdapter.Companion.PAGE_HELP
 import com.droid2developers.liveslider.views.activities.MainPagerAdapter.Companion.PAGE_HOME
 import com.droid2developers.liveslider.views.activities.MainPagerAdapter.Companion.PAGE_LOCK
 import com.google.android.material.bottomnavigation.BottomNavigationView
@@ -48,11 +48,10 @@ class MainActivity : AppCompatActivity() {
 
         // Devices below API 34 (and many OEM skins above it) have no independent lock-screen
         // live wallpaper slot — the Lock tab would just duplicate Home with nothing to control.
-        if (Constant.supportsIndependentLockWallpaper()) {
-            setupBottomNav()
-        } else {
-            bottomNavCard.visibility = View.GONE
+        if (!Constant.supportsIndependentLockWallpaper()) {
+            bottomNav.menu.removeItem(R.id.nav_lock)
         }
+        setupBottomNav()
 
         // Navigate to the sensible starting tab
         if (savedInstanceState == null) {
@@ -66,7 +65,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupViewPager() {
         viewPager.adapter = MainPagerAdapter(this)
-        viewPager.offscreenPageLimit = 1          // keep both pages alive
+        viewPager.offscreenPageLimit = 1          // keep neighboring pages alive
         viewPager.isUserInputEnabled = Constant.supportsIndependentLockWallpaper()
 
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
@@ -92,12 +91,14 @@ class MainActivity : AppCompatActivity() {
     private fun pageToMenuId(page: Int) = when (page) {
         PAGE_HOME                              -> R.id.nav_home
         PAGE_LOCK                              -> R.id.nav_lock
+        PAGE_HELP                              -> R.id.nav_help
         else                                   -> R.id.nav_home
     }
 
     private fun menuIdToPage(itemId: Int) = when (itemId) {
         R.id.nav_home     -> PAGE_HOME
         R.id.nav_lock     -> PAGE_LOCK
+        R.id.nav_help     -> PAGE_HELP
         else              -> -1
     }
 

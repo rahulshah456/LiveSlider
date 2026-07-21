@@ -37,6 +37,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    buildFeatures {
+        buildConfig true
+    }
     kotlinOptions {
         jvmTarget = '1.8'
     }
@@ -83,4 +86,5 @@ dependencies {
     implementation libs.converter.gson
     implementation libs.compressor
     implementation libs.viewpager2
+    implementation libs.markwon.core
 }

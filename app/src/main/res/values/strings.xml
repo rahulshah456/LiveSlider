@@ -133,6 +133,7 @@
     <string name="nav_activate">Activate</string>
     <string name="nav_home">Home</string>
     <string name="nav_lock">Lock Screen</string>
+    <string name="nav_help">Help</string>
 
     <!-- Two-button activation labels -->
     <string name="activate_home">Home\nScreen</string>
@@ -148,6 +149,23 @@
     <string name="activate_hint_both">Live Slider is active on both Home &amp; Lock Screen ✓</string>
     <string name="activate_label_lock">Activate\nLock Screen</string>
     <string name="activate_label_active">Active ✓</string>
+
+    <!-- Help bottom sheet -->
+    <string name="help_sheet_version">Version %1$s</string>
+    <string name="help_sheet_release_notes">View latest release notes</string>
+    <string name="help_sheet_about_title">About Live Slider</string>
+    <string name="help_sheet_about_body">Live Slider turns your home screen into a live, interactive wallpaper with a parallax effect that responds to device movement, plus customizable wallpaper slideshows and playlists. It\'s free and open-source — no ads, no in-app purchases, no data collection.</string>
+    <string name="help_sheet_bug_title">Found a bug or have an idea?</string>
+    <string name="help_sheet_bug_body">Please open an issue on GitHub instead of sending an email — it lets bugs get fixed faster and helps keep the app stable as new Android releases come out. You can also request new features or flag anything that\'s hard to use, so other users don\'t run into the same problem. Don\'t have a GitHub account? You can also reach out by email.</string>
+    <string name="help_sheet_report_issue">Report a bug / request a feature</string>
+    <string name="help_sheet_email_us">Email us instead</string>
+    <string name="help_sheet_email_subject">Live Slider — Bug report / Feature request</string>
+    <string name="help_sheet_rate_title">Enjoying the app?</string>
+    <string name="help_sheet_rate_body">A Play Store rating helps other people find Live Slider.</string>
+    <string name="help_sheet_rate_action">Rate on Play Store</string>
+
+    <!-- Release notes bottom sheet -->
+    <string name="release_notes_error">Couldn\'t load release notes. Check your connection and try again.</string>
 
     <!-- Profiles fragment placeholder -->
 </resources>
