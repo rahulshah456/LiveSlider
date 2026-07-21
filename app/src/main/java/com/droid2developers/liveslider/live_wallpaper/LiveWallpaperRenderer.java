@@ -1300,12 +1300,22 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         }
         if (bmp == null) {
             Log.e(TAG, "loadTexture: cropBitmap returned null, cannot create wallpaper");
+            // A corrupt user/playlist file must enter the same retry/fallback chain as
+            // a missing one — before this, a failed decode with no texture on screen
+            // (e.g. wake after the hidden-engine release) stayed black forever. The
+            // built-in asset is exempt: if IT won't decode the build is broken and
+            // retrying can only loop.
+            boolean isDefaultAsset = defaultWallpaperPath.equals(localWallpaperPath)
+                    || (wallpaperType == TYPE_SINGLE && isDefaultWallpaper);
+            if (!isDefaultAsset) scheduleRetryOrReportFailure("decode failed");
             return;
         }
         if (wallpaper != null)
             wallpaper.destroy();
         wallpaper = new Wallpaper(bmp, shader != null ? shader.maxTextureSize : 2048);
         defaultRecoveryTried = false; // loaded fine — re-arm the self-heal for next time
+        loadRetryCount = 0; // full success (open AND decode) — reset the retry quota
+        mCallbacks.onWallpaperLoadSucceeded();
         preCalculate();
         System.gc(); // reclaim the decode/scale bitmap churn now, not on the next collection
     }
@@ -1329,30 +1339,36 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             }
         }
         try {
-            InputStream is = new FileInputStream(localWallpaperPath);
-            loadRetryCount = 0; // successful open — reset retry counter
-            return is;
+            return new FileInputStream(localWallpaperPath);
         } catch (FileNotFoundException e) {
             Log.e(TAG, "openWallpaperStream: FileNotFoundException for path: " + localWallpaperPath, e);
-            if (loadRetryCount < MAX_LOAD_RETRIES) {
-                // External storage may not be mounted yet (post-boot). Retry after a delay
-                // using the original path so the user's wallpaper is not lost.
-                loadRetryCount++;
-                final String retryPath = localWallpaperPath;
-                final boolean retryDef = isDefaultWallpaper;
-                final float retryBias  = cropBias;
-                Log.w(TAG, "openWallpaperStream: scheduling retry " + loadRetryCount + "/" + MAX_LOAD_RETRIES
-                        + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
-                if (retryHandle != null) retryHandle.cancel(false);
-                retryHandle = scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef, retryBias),
-                        RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
-            } else {
-                Log.e(TAG, "openWallpaperStream: giving up after " + MAX_LOAD_RETRIES
-                        + " retries, falling back to default wallpaper: " + defaultWallpaperPath);
-                loadRetryCount = 0;
-                refreshWallpaper(defaultWallpaperPath, true, 0f); // default asset = center crop
-            }
+            scheduleRetryOrReportFailure("file missing");
             return null;
+        }
+    }
+
+    // Shared self-heal for a user/playlist wallpaper that failed to load — the file
+    // is missing (storage not mounted yet post-boot, entry deleted) or present but
+    // undecodable (corrupt, or still being written by the crop worker). Retry the
+    // SAME path a few times, then hand the decision to the service via the callback:
+    // it advances the playlist past the dead entry, or falls back to the default
+    // wallpaper — either beats a permanently black frame.
+    private void scheduleRetryOrReportFailure(String reason) {
+        if (loadRetryCount < MAX_LOAD_RETRIES) {
+            loadRetryCount++;
+            final String retryPath = localWallpaperPath;
+            final boolean retryDef = isDefaultWallpaper;
+            final float retryBias  = cropBias;
+            Log.w(TAG, "scheduleRetryOrReportFailure (" + reason + "): retry " + loadRetryCount
+                    + "/" + MAX_LOAD_RETRIES + " in " + RETRY_DELAY_MS + "ms for path: " + retryPath);
+            if (retryHandle != null) retryHandle.cancel(false);
+            retryHandle = scheduler.schedule(() -> refreshWallpaper(retryPath, retryDef, retryBias),
+                    RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+        } else {
+            Log.e(TAG, "scheduleRetryOrReportFailure (" + reason + "): giving up after "
+                    + MAX_LOAD_RETRIES + " retries for path: " + localWallpaperPath);
+            loadRetryCount = 0;
+            mCallbacks.onWallpaperLoadFailed(localWallpaperPath);
         }
     }
     private Bitmap cropBitmap(InputStream is) {
@@ -1405,5 +1421,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // Internal Callback for refreshing the current canvas
     interface Callbacks {
         void requestRender();
+        /** Every retry for the current path is exhausted (file missing or
+         *  undecodable). The service decides what heals the screen: next playlist
+         *  entry, or the default wallpaper. Called from the GL/scheduler thread —
+         *  implementers must hop to their own thread. */
+        default void onWallpaperLoadFailed(String path) {}
+        /** A wallpaper texture loaded successfully (GL thread). */
+        default void onWallpaperLoadSucceeded() {}
     }
 }

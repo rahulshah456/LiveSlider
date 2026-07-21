@@ -22,6 +22,7 @@ import com.droid2developers.liveslider.database.LiveWallpaperDatabase;
 import com.droid2developers.liveslider.database.models.LocalWallpaper;
 import com.droid2developers.liveslider.database.repository.WallpaperRepository;
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -892,9 +893,53 @@ public class LiveWallpaperService extends GLWallpaperService {
             }
             doChangeWallpaper();
         }
+        // Consecutive dead playlist entries skipped by the load-failure self-heal.
+        // Bounded by playlist size so an all-dead playlist ends at the default
+        // wallpaper instead of cycling forever. Touched only on the engine handler.
+        private int deadWallpaperSkips = 0;
+
+        // Renderer gave up on a path (missing or corrupt after all retries).
+        // Self-heal: advance the playlist past the dead entry; with no playlist to
+        // advance (or every entry dead), the default wallpaper beats a black screen.
+        // Render-side only — never rewrites prefs, the playlist, or DB rows.
+        @Override
+        public void onWallpaperLoadFailed(String path) {
+            // Called from the renderer's GL/scheduler thread — hop to the engine thread.
+            handler.post(() -> {
+                if (isPlaylistActive() && playlistWallpapers.size() > 1
+                        && deadWallpaperSkips < playlistWallpapers.size()) {
+                    deadWallpaperSkips++;
+                    Log.w(TAG, "onWallpaperLoadFailed: skipping dead entry (" + deadWallpaperSkips
+                            + " consecutive): " + path);
+                    incrementWallpaper();
+                    doChangeWallpaper();
+                    updateOverlayPlaylistInfo();
+                } else {
+                    Log.w(TAG, "onWallpaperLoadFailed: falling back to default wallpaper, path: " + path);
+                    deadWallpaperSkips = 0;
+                    renderer.refreshWallpaperFresh(getDefaultWallpaperPath(), true, 0f);
+                }
+            });
+        }
+
+        @Override
+        public void onWallpaperLoadSucceeded() {
+            handler.post(() -> deadWallpaperSkips = 0);
+        }
+
         private void doChangeWallpaper(){
 
             if (!playlistWallpapers.isEmpty()){
+                // Skip entries whose file is already gone — cheaper than discovering
+                // it through the renderer's 5×3s retry chain. Bounded scan; if every
+                // entry is missing we fall through with the current one and let the
+                // retry/failure path above end at the default wallpaper.
+                for (int i = 0; i < playlistWallpapers.size(); i++) {
+                    String candidate = playlistWallpapers.get(mImagesArrayIndex).getLocalPath();
+                    if (candidate != null && new File(candidate).exists()) break;
+                    Log.w(TAG, "doChangeWallpaper: file missing, skipping: " + candidate);
+                    incrementWallpaper();
+                }
                 LocalWallpaper nextWallpaper = playlistWallpapers.get(mImagesArrayIndex);
                 String localWallpaperPath = nextWallpaper.getLocalPath();
                 editor.putString("local_wallpaper_path", localWallpaperPath).apply();
