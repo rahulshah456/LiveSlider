@@ -20,7 +20,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.preference.PreferenceManager
 import com.droid2developers.liveslider.R
-import com.droid2developers.liveslider.live_wallpaper.Cube
+import com.droid2developers.liveslider.live_wallpaper.ui.Cube
 import com.droid2developers.liveslider.models.BiasChangeEvent
 import com.droid2developers.liveslider.models.FaceRotationEvent
 import com.droid2developers.liveslider.utils.Constant

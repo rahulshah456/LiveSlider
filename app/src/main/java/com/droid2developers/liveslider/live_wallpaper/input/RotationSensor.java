@@ -1,4 +1,4 @@
-package com.droid2developers.liveslider.live_wallpaper;
+package com.droid2developers.liveslider.live_wallpaper.input;
 
 import static com.droid2developers.liveslider.utils.Constant.FACE_LANDSCAPE_RIGHT;
 import static com.droid2developers.liveslider.utils.Constant.FACE_LANDSCAPE_LEFT;
@@ -84,7 +84,7 @@ public class RotationSensor implements SensorEventListener {
         return result;
     }
 
-    RotationSensor(Context context, Callback callback, int sampleRate) {
+    public RotationSensor(Context context, Callback callback, int sampleRate) {
         this.sampleRate = sampleRate;
         this.callback = callback;
         sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
@@ -99,7 +99,7 @@ public class RotationSensor implements SensorEventListener {
         }
     }
 
-    void register() {
+    public void register() {
         if (listenerRegistered) return;
 
         initialRotationMatrix = null;
@@ -115,7 +115,7 @@ public class RotationSensor implements SensorEventListener {
         }
     }
 
-    void unregister() {
+    public void unregister() {
         if (!listenerRegistered) return;
         sensorManager.unregisterListener(this);
         listenerRegistered = false;

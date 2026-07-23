@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 
 import static com.droid2developers.liveslider.utils.Constant.DB_NAME;
 
-@Database(entities = {LocalWallpaper.class, Playlist.class}, version = 5, exportSchema = false)
+@Database(entities = {LocalWallpaper.class, Playlist.class}, version = 6, exportSchema = false)
 public abstract class LiveWallpaperDatabase extends RoomDatabase {
 
     // v5: per-wallpaper horizontal crop bias (triple-tap crop overlay).
@@ -28,6 +28,14 @@ public abstract class LiveWallpaperDatabase extends RoomDatabase {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase db) {
             db.execSQL("ALTER TABLE localwallpaper ADD COLUMN cropBias REAL NOT NULL DEFAULT 0");
+        }
+    };
+
+    // v6: version bump only, schema identical to v5. Nothing to do.
+    static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase db) {
+            // No schema change between v5 and v6.
         }
     };
 
@@ -44,7 +52,7 @@ public abstract class LiveWallpaperDatabase extends RoomDatabase {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                             LiveWallpaperDatabase.class, DB_NAME)
-                            .addMigrations(MIGRATION_4_5)
+                            .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

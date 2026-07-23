@@ -1,4 +1,4 @@
-package com.droid2developers.liveslider.live_wallpaper;
+package com.droid2developers.liveslider.live_wallpaper.input;
 
 import android.content.Context;
 import android.os.Handler;
@@ -20,9 +20,9 @@ import android.view.ViewConfiguration;
  * timeout, and moved less than touch slop. Anything else (scroll, fling,
  * pinch, long press) resets the sequence.
  */
-class MultiTapDetector {
+public class MultiTapDetector {
 
-    interface Listener {
+    public interface Listener {
         void onDoubleTap();
         void onTripleTap();
     }
@@ -41,12 +41,12 @@ class MultiTapDetector {
     private float downX, downY;
     private boolean tapCancelled;
 
-    MultiTapDetector(Context context, Listener listener) {
+    public MultiTapDetector(Context context, Listener listener) {
         this.listener = listener;
         this.touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
     }
 
-    void onTouchEvent(MotionEvent e) {
+    public void onTouchEvent(MotionEvent e) {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 // Finger is down again — hold any pending resolve until we see

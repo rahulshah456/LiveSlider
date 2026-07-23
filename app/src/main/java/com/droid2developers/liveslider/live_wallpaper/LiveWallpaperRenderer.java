@@ -19,9 +19,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -29,6 +27,12 @@ import java.util.concurrent.TimeUnit;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 import static com.droid2developers.liveslider.utils.Constant.TYPE_SINGLE;
+import static com.droid2developers.liveslider.utils.Constant.TRANSITION_FADE;
+import static com.droid2developers.liveslider.utils.Constant.TRANSITION_DISSOLVE;
+import static com.droid2developers.liveslider.utils.Constant.TRANSITION_PIXELATE;
+import static com.droid2developers.liveslider.utils.Constant.TRANSITION_WIPE;
+import static com.droid2developers.liveslider.utils.Constant.TRANSITION_BLUR;
+import static com.droid2developers.liveslider.utils.Constant.TRANSITION_ZOOM;
 
 public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private final static int REFRESH_RATE = 60;
@@ -43,8 +47,19 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean transitionPendingLoad = false;
     private long transitionLoadAfter = 0L;
     private boolean transitionMidpointReached = false; // pixelate: has phase-2 started?
-    private int chosenEffect = 0;   // user's saved preference — written from any thread
-    private int currentEffect = 0;  // active shader effect — only touched on GL thread
+    private int chosenEffect = TRANSITION_FADE;   // user's saved preference — written from any thread
+    private int currentEffect = TRANSITION_FADE;  // active shader effect — only touched on GL thread
+
+    // Pixelate/blur only: the midpoint swap used to call loadTexture() synchronously
+    // ON the GL thread — a full decode+crop+GC stalling the frame right as phase 2
+    // should start smoothly. Instead the decode is kicked off on `scheduler` (a plain
+    // background thread, not GL) as soon as phase 1 begins, so it runs in parallel
+    // with the phase-1 animation; only the cheap GL texture upload happens at the
+    // midpoint. requestToken guards against a superseded/cancelled request writing
+    // its stale result after a newer transition has already started.
+    private int prefetchRequestToken = 0;
+    private volatile int prefetchResultToken = -1;
+    private volatile DecodedWallpaper prefetchResult = null;
 
     // Real-time progress step, recomputed once per frame (updateFrameStep). The old
     // fixed per-frame constants made transition speed depend on display refresh
@@ -109,10 +124,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // lazily created/rebuilt per-EGL-context like blur/cropOverlay above. Drawn
     // every frame while active, so it needs continuous rendering (see the
     // requestRender() calls in onDrawFrame's static-draw branch).
-    private RainShader rainShader;
-    private RippleShader rippleShader;
-    private SnowShader snowShader;
-    private volatile String activeShaderId = Constant.SHADER_NONE;
+    private final OverlayShaderController overlayShaders = new OverlayShaderController();
     // Set from any thread when a shader/Blur should be freed; consumed on the GL
     // thread at the top of onDrawFrame (glDelete* needs the context current).
     // "all" also frees Blur; otherwise every shader that isn't activeShaderId is freed.
@@ -143,12 +155,6 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     // request, never wallpaper transitions or parallax.
     private static final long SHADER_FRAME_INTERVAL_MS = 33; // ~30 fps
     private long lastShaderFrameMs = 0L;
-    // Generic param store: key = Constant.ShaderParam.key (e.g. "intensity",
-    // "speed"), value = the shader's own float unit (already mapped from the
-    // 0-100 SeekBar progress by ShaderSettingsBottomSheet/LiveWallpaperService).
-    // Booleans are stored as 0f/1f, same as the ShaderParam.TOGGLE convention.
-    private final Map<String, Float> shaderParams = new ConcurrentHashMap<>();
-    private final long shaderStartTime = SystemClock.elapsedRealtime();
     private float wallpaperAspectRatio;
     private final Runnable transition = new Runnable() {
         @Override
@@ -179,7 +185,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     private boolean scrollMode = true;
     private boolean needsRefreshWallpaper;
     private boolean isDefaultWallpaper;
-    private int wallpaperType;
+    // Read from the prefetch background thread (openWallpaperStream overload) as
+    // well as the GL thread — volatile so that cross-thread read is well-defined.
+    private volatile int wallpaperType;
     // Bitmap.Config the wallpaper is decoded/uploaded with (user "wallpaper quality"
     // pref). Default full-quality; RGB_565 halves texture memory. Read on the GL
     // thread in cropBitmap; written from the service thread — volatile is enough.
@@ -197,6 +205,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     void release() {
         if (wallpaper != null) wallpaper.destroy();
         if (previousWallpaper != null) { previousWallpaper.destroy(); previousWallpaper = null; }
+        cancelPendingPrefetch();
         stopTransition();
         scheduler.shutdown();
     }
@@ -222,11 +231,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // never reclaims. Free it here so it can't linger for the context's lifetime.
         if (previousWallpaper != null) { previousWallpaper.destroy(); previousWallpaper = null; }
         transitionActive = false;
+        // transitionActive=false permanently skips the onDrawFrame tick that would
+        // otherwise consume a pixelate/blur prefetch — without this, a result that
+        // lands after this point sits in prefetchResult forever, unrecycled.
+        cancelPendingPrefetch();
         if (cropOverlay != null) { cropOverlay.release(); cropOverlay = null; }
         if (blur != null) { blur.release(); blur = null; }
-        if (rainShader != null) { rainShader.release(); rainShader = null; }
-        if (rippleShader != null) { rippleShader.release(); rippleShader = null; }
-        if (snowShader != null) { snowShader.release(); snowShader = null; }
+        overlayShaders.releaseAll();
         // Objects a pending release targeted were just freed above — clear the flags.
         pendingShaderRelease = false;
         pendingReleaseAll = false;
@@ -269,7 +280,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // Fade the overlay shader out if it should be off (battery saver active OR
         // a pending wallpaper refresh), and back in once it's safe to draw.
         // Instant changes (screen-off swap) skip the fade.
-        boolean shaderOn = !Constant.SHADER_NONE.equals(activeShaderId) && wallpaper != null && !powerSaverActive;
+        boolean shaderOn = !overlayShaders.isNone() && wallpaper != null && !powerSaverActive;
 
         if (shaderFade > 0f && (!shaderOn || (hasPendingRefresh && !pendingInstant))) {
             shaderFade = Math.max(0f, shaderFade - 4f * frameStep);
@@ -286,162 +297,8 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             consumePendingRefresh();
         }
 
-        // --- Transition tick (runs entirely on GL thread) ---
-        if (transitionActive) {
-            if (currentEffect == 0) {
-                // ---- Effect 0: two-phase alpha fade ----
-                if (!transitionFadeOutDone) {
-                    transitionAlpha -= frameStep;
-                    if (transitionAlpha <= 0.0f) {
-                        transitionAlpha       = 0.0f;
-                        transitionFadeOutDone = true;
-                        localWallpaperPath    = pendingWallpaperPath;
-                        isDefaultWallpaper    = pendingIsDefault;
-                        cropBias              = pendingCropBias;
-                        needsRefreshWallpaper = true;
-                        transitionPendingLoad = true;
-                        transitionLoadAfter   = SystemClock.elapsedRealtime() + 50;
-                    }
-                    mCallbacks.requestRender();
-                } else if (transitionPendingLoad) {
-                    if (SystemClock.elapsedRealtime() >= transitionLoadAfter) {
-                        transitionPendingLoad = false;
-                    }
-                    mCallbacks.requestRender();
-                } else {
-                    transitionAlpha += frameStep;
-                    if (transitionAlpha >= 1.0f) {
-                        transitionAlpha  = 1.0f;
-                        transitionActive = false;
-                        mCallbacks.requestRender(); // let the shader fade-in check run next frame
-                    } else {
-                        mCallbacks.requestRender();
-                    }
-                }
-                transitionProgress = transitionAlpha;
-
-            } else if (currentEffect == 1) {
-                // ---- Effect 1: dissolve crossfade ----
-                // previousWallpaper = static opaque backdrop
-                // wallpaper (new)   = dissolves in, progress 0→1
-                transitionProgress += frameStep;
-                if (transitionProgress >= 1.0f) {
-                    transitionProgress = 1.0f;
-                    transitionActive   = false;
-                    if (previousWallpaper != null) {
-                        previousWallpaper.destroy();
-                        previousWallpaper = null;
-                    }
-                    currentEffect = 0; // reset so static wallpaper renders plain
-                    // One more frame so the shader-fade-in check above (which already ran
-                    // this frame with the stale transitionActive=true) gets to fire.
-                    mCallbacks.requestRender();
-                } else {
-                    mCallbacks.requestRender();
-                }
-
-            } else if (currentEffect == 2) {
-                // ---- Effect 2: pixelate — strict two-phase midpoint swap ----
-                // Phase 1 (transitionProgress 0.0 → 0.5):
-                //   Only previousWallpaper drawn with effect 3 (blocky → sharp).
-                //   localProgress = transitionProgress / 0.5  (0→1)
-                // At 0.5: destroy previousWallpaper, load new texture.
-                // Phase 2 (transitionProgress 0.5 → 1.0):
-                //   Only wallpaper drawn with effect 2 (blocky → sharp).
-                //   localProgress = (transitionProgress - 0.5) / 0.5  (0→1)
-
-                // Half-step: each phase gets the full duration, matching fade's feel.
-                transitionProgress += 0.5f * frameStep;
-
-                if (!transitionMidpointReached && transitionProgress >= 0.5f) {
-                    // Clamp so phase-2 localProgress starts cleanly at 0
-                    transitionProgress        = 0.5f;
-                    transitionMidpointReached = true;
-                    if (previousWallpaper != null) {
-                        previousWallpaper.destroy();
-                        previousWallpaper = null;
-                    }
-                    localWallpaperPath    = pendingWallpaperPath;
-                    isDefaultWallpaper    = pendingIsDefault;
-                    cropBias              = pendingCropBias;
-                    needsRefreshWallpaper = true;
-                    // Do not check completion this frame — let phase 2 start next frame
-                    mCallbacks.requestRender();
-                } else if (transitionMidpointReached && transitionProgress >= 1.0f) {
-                    transitionProgress = 1.0f;
-                    transitionActive   = false;
-                    currentEffect      = 0;
-                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
-                } else {
-                    mCallbacks.requestRender();
-                }
-
-            } else if (currentEffect == 3) {
-                // ---- Effect 3: wipe ----
-                // previousWallpaper = static opaque backdrop
-                // wallpaper (new)   = wipes in left→right, progress 0→1
-                transitionProgress += frameStep;
-                if (transitionProgress >= 1.0f) {
-                    transitionProgress = 1.0f;
-                    transitionActive   = false;
-                    if (previousWallpaper != null) {
-                        previousWallpaper.destroy();
-                        previousWallpaper = null;
-                    }
-                    currentEffect = 0;
-                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
-                } else {
-                    mCallbacks.requestRender();
-                }
-
-            } else if (currentEffect == 4) {
-                // ---- Effect 4: blur — two-phase midpoint swap ----
-                // Phase 1 (0.0 → 0.5): previousWallpaper blurs out to peak softness (effect 5).
-                // Phase 2 (0.5 → 1.0): new wallpaper sharpens in from peak blur (effect 6).
-                // Half-step: each phase gets the full duration, matching fade's feel.
-                transitionProgress += 0.5f * frameStep;
-
-                if (!transitionMidpointReached && transitionProgress >= 0.5f) {
-                    transitionProgress        = 0.5f;
-                    transitionMidpointReached = true;
-                    if (previousWallpaper != null) {
-                        previousWallpaper.destroy();
-                        previousWallpaper = null;
-                    }
-                    localWallpaperPath    = pendingWallpaperPath;
-                    isDefaultWallpaper    = pendingIsDefault;
-                    cropBias              = pendingCropBias;
-                    needsRefreshWallpaper = true;
-                    mCallbacks.requestRender();
-                } else if (transitionMidpointReached && transitionProgress >= 1.0f) {
-                    transitionProgress = 1.0f;
-                    transitionActive   = false;
-                    currentEffect      = 0;
-                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
-                } else {
-                    mCallbacks.requestRender();
-                }
-
-            } else if (currentEffect == 5) {
-                // ---- Effect 5: zoom ----
-                // previousWallpaper = static opaque backdrop
-                // wallpaper (new)   = zooms in from screen centre, progress 0→1
-                transitionProgress += frameStep;
-                if (transitionProgress >= 1.0f) {
-                    transitionProgress = 1.0f;
-                    transitionActive   = false;
-                    if (previousWallpaper != null) {
-                        previousWallpaper.destroy();
-                        previousWallpaper = null;
-                    }
-                    currentEffect = 0;
-                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
-                } else {
-                    mCallbacks.requestRender();
-                }
-            }
-        }
-        // --- End transition tick ---
+        // Advance transition state for this frame (GL thread only).
+        if (transitionActive) tickTransition();
 
         if (needsRefreshWallpaper) {
             loadTexture();
@@ -473,39 +330,230 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
 
-        if (currentEffect == 2) {
+        drawWallpaper();
+
+        // Crop-adjust buttons render on top of everything
+        if (cropOverlayVisible) {
+            if (cropOverlay == null) cropOverlay = new CropOverlay();
+            cropOverlay.draw(screenW, screenH, playlistCurrent, playlistTotal);
+        }
+    }
+
+    /** Advances the active transition's state by one frame. GL-thread only;
+     *  called from onDrawFrame while transitionActive. Every branch requests the
+     *  next render itself and clears transitionActive (resetting currentEffect to
+     *  TRANSITION_FADE for the crossfade/wipe/zoom effects) when it completes. */
+    private void tickTransition() {
+        if (currentEffect == TRANSITION_FADE) {
+            // ---- Fade: two-phase alpha fade ----
+            if (!transitionFadeOutDone) {
+                transitionAlpha -= frameStep;
+                if (transitionAlpha <= 0.0f) {
+                    transitionAlpha       = 0.0f;
+                    transitionFadeOutDone = true;
+                    localWallpaperPath    = pendingWallpaperPath;
+                    isDefaultWallpaper    = pendingIsDefault;
+                    cropBias              = pendingCropBias;
+                    needsRefreshWallpaper = true;
+                    transitionPendingLoad = true;
+                    transitionLoadAfter   = SystemClock.elapsedRealtime() + 50;
+                }
+                mCallbacks.requestRender();
+            } else if (transitionPendingLoad) {
+                if (SystemClock.elapsedRealtime() >= transitionLoadAfter) {
+                    transitionPendingLoad = false;
+                }
+                mCallbacks.requestRender();
+            } else {
+                transitionAlpha += frameStep;
+                if (transitionAlpha >= 1.0f) {
+                    transitionAlpha  = 1.0f;
+                    transitionActive = false;
+                    mCallbacks.requestRender(); // let the shader fade-in check run next frame
+                } else {
+                    mCallbacks.requestRender();
+                }
+            }
+            transitionProgress = transitionAlpha;
+
+        } else if (currentEffect == TRANSITION_DISSOLVE) {
+            // ---- Dissolve crossfade ----
+            // previousWallpaper = static opaque backdrop
+            // wallpaper (new)   = dissolves in, progress 0→1
+            transitionProgress += frameStep;
+            if (transitionProgress >= 1.0f) {
+                transitionProgress = 1.0f;
+                transitionActive   = false;
+                if (previousWallpaper != null) {
+                    previousWallpaper.destroy();
+                    previousWallpaper = null;
+                }
+                currentEffect = TRANSITION_FADE; // reset so static wallpaper renders plain
+                // One more frame so the shader-fade-in check above (which already ran
+                // this frame with the stale transitionActive=true) gets to fire.
+                mCallbacks.requestRender();
+            } else {
+                mCallbacks.requestRender();
+            }
+
+        } else if (currentEffect == TRANSITION_PIXELATE) {
+            // ---- Pixelate — strict two-phase midpoint swap ----
+            // Phase 1 (transitionProgress 0.0 → 0.5):
+            //   Only previousWallpaper drawn with DRAW_PIXELATE_OUT (sharp → blocky).
+            //   localProgress = transitionProgress / 0.5  (0→1)
+            // At 0.5: destroy previousWallpaper, load new texture.
+            // Phase 2 (transitionProgress 0.5 → 1.0):
+            //   Only wallpaper drawn with DRAW_PIXELATE_IN (blocky → sharp).
+            //   localProgress = (transitionProgress - 0.5) / 0.5  (0→1)
+
+            // Half-step: each phase gets the full duration, matching fade's feel.
+            transitionProgress += 0.5f * frameStep;
+
+            if (!transitionMidpointReached && transitionProgress >= 0.5f) {
+                if (!prefetchReady()) {
+                    // Decode still running — hold here at the clamped midpoint
+                    // progress and keep drawing previousWallpaper (phase 1's last
+                    // frame) instead of destroying it and flipping to phase 2 with
+                    // no replacement texture yet, which would draw nothing (black
+                    // frame) and then force a redundant synchronous decode anyway.
+                    transitionProgress = 0.5f;
+                    mCallbacks.requestRender();
+                } else {
+                    // Clamp so phase-2 localProgress starts cleanly at 0
+                    transitionProgress        = 0.5f;
+                    transitionMidpointReached = true;
+                    if (previousWallpaper != null) {
+                        previousWallpaper.destroy();
+                        previousWallpaper = null;
+                    }
+                    localWallpaperPath    = pendingWallpaperPath;
+                    isDefaultWallpaper    = pendingIsDefault;
+                    cropBias              = pendingCropBias;
+                    consumePrefetchedWallpaper();
+                    // Do not check completion this frame — let phase 2 start next frame
+                    mCallbacks.requestRender();
+                }
+            } else if (transitionMidpointReached && transitionProgress >= 1.0f) {
+                transitionProgress = 1.0f;
+                transitionActive   = false;
+                currentEffect      = TRANSITION_FADE;
+                mCallbacks.requestRender(); // let the shader fade-in check run next frame
+            } else {
+                mCallbacks.requestRender();
+            }
+
+        } else if (currentEffect == TRANSITION_WIPE) {
+            // ---- Wipe ----
+            // previousWallpaper = static opaque backdrop
+            // wallpaper (new)   = wipes in left→right, progress 0→1
+            transitionProgress += frameStep;
+            if (transitionProgress >= 1.0f) {
+                transitionProgress = 1.0f;
+                transitionActive   = false;
+                if (previousWallpaper != null) {
+                    previousWallpaper.destroy();
+                    previousWallpaper = null;
+                }
+                currentEffect = TRANSITION_FADE;
+                mCallbacks.requestRender(); // let the shader fade-in check run next frame
+            } else {
+                mCallbacks.requestRender();
+            }
+
+        } else if (currentEffect == TRANSITION_BLUR) {
+            // ---- Blur — two-phase midpoint swap ----
+            // Phase 1 (0.0 → 0.5): previousWallpaper blurs out to peak softness (DRAW_BLUR_OUT).
+            // Phase 2 (0.5 → 1.0): new wallpaper sharpens in from peak blur (DRAW_BLUR_IN).
+            // Half-step: each phase gets the full duration, matching fade's feel.
+            transitionProgress += 0.5f * frameStep;
+
+            if (!transitionMidpointReached && transitionProgress >= 0.5f) {
+                if (!prefetchReady()) {
+                    // Decode still running — hold at the midpoint, keep blurring
+                    // previousWallpaper at peak softness instead of destroying it
+                    // with no replacement ready. See pixelate for the full reasoning.
+                    transitionProgress = 0.5f;
+                    mCallbacks.requestRender();
+                } else {
+                    transitionProgress        = 0.5f;
+                    transitionMidpointReached = true;
+                    if (previousWallpaper != null) {
+                        previousWallpaper.destroy();
+                        previousWallpaper = null;
+                    }
+                    localWallpaperPath    = pendingWallpaperPath;
+                    isDefaultWallpaper    = pendingIsDefault;
+                    cropBias              = pendingCropBias;
+                    consumePrefetchedWallpaper();
+                    mCallbacks.requestRender();
+                }
+            } else if (transitionMidpointReached && transitionProgress >= 1.0f) {
+                transitionProgress = 1.0f;
+                transitionActive   = false;
+                currentEffect      = TRANSITION_FADE;
+                mCallbacks.requestRender(); // let the shader fade-in check run next frame
+            } else {
+                mCallbacks.requestRender();
+            }
+
+        } else if (currentEffect == TRANSITION_ZOOM) {
+            // ---- Zoom ----
+            // previousWallpaper = static opaque backdrop
+            // wallpaper (new)   = zooms in from screen centre, progress 0→1
+            transitionProgress += frameStep;
+            if (transitionProgress >= 1.0f) {
+                transitionProgress = 1.0f;
+                transitionActive   = false;
+                if (previousWallpaper != null) {
+                    previousWallpaper.destroy();
+                    previousWallpaper = null;
+                }
+                currentEffect = TRANSITION_FADE;
+                mCallbacks.requestRender(); // let the shader fade-in check run next frame
+            } else {
+                mCallbacks.requestRender();
+            }
+        }
+    }
+
+    /** Draws the wallpaper(s) for the current frame. GL-thread only; reads the
+     *  camera matrix (mMVPMatrix) computed by onDrawFrame. Each transition effect
+     *  draws its own texture(s); the else branch is the static / plain-fade case
+     *  where overlay shaders apply. */
+    private void drawWallpaper() {
+        if (currentEffect == TRANSITION_PIXELATE) {
             // Pixelate — draw only ONE texture per phase, never both simultaneously
             if (!transitionMidpointReached && previousWallpaper != null) {
                 // Phase 1: previousWallpaper pixelates OUT using its own snapshotted
                 // camera so the new texture's preA/preB/cropBias do not shift it.
                 float localProgress = transitionProgress / 0.5f;
-                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, localProgress, 3);
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, localProgress, Wallpaper.DRAW_PIXELATE_OUT);
             } else if (transitionMidpointReached && wallpaper != null) {
                 // Phase 2: new wallpaper uses the normal current MVP matrix
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
-                wallpaper.draw(shader, mMVPMatrix, 1.0f, localProgress, 2);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, localProgress, Wallpaper.DRAW_PIXELATE_IN);
             }
-        } else if (currentEffect == 1) {
+        } else if (currentEffect == TRANSITION_DISSOLVE) {
             // Dissolve — previousWallpaper static backdrop, new wallpaper dissolves in on top
             if (previousWallpaper != null) {
                 // Backdrop keeps ITS OWN snapshotted camera — mMVPMatrix already
                 // describes the incoming wallpaper's crop/aspect.
-                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, 0);
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, Wallpaper.DRAW_PLAIN);
             }
             if (wallpaper != null) {
-                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 1);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, Wallpaper.DRAW_DISSOLVE);
             }
-        } else if (currentEffect == 3) {
+        } else if (currentEffect == TRANSITION_WIPE) {
             // Wipe — previousWallpaper static backdrop, new wallpaper wipes in left→right
             if (previousWallpaper != null) {
                 // Backdrop keeps ITS OWN snapshotted camera — mMVPMatrix already
                 // describes the incoming wallpaper's crop/aspect.
-                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, 0);
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, Wallpaper.DRAW_PLAIN);
             }
             if (wallpaper != null) {
-                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 4);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, Wallpaper.DRAW_WIPE);
             }
-        } else if (currentEffect == 4) {
+        } else if (currentEffect == TRANSITION_BLUR) {
             // Blur — phase 1: old blurs out to peak softness, phase 2: new sharpens in.
             // Real blur: scene → ¼-res FBO → separable Gaussian → composite over sharp.
             if (!transitionMidpointReached && previousWallpaper != null) {
@@ -515,22 +563,22 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                 float localProgress = (transitionProgress - 0.5f) / 0.5f;
                 drawBlurred(wallpaper, mMVPMatrix, 1.0f - localProgress);
             }
-        } else if (currentEffect == 5) {
+        } else if (currentEffect == TRANSITION_ZOOM) {
             // Zoom — previousWallpaper static backdrop, new wallpaper grows from centre
             if (previousWallpaper != null) {
                 // Backdrop keeps ITS OWN snapshotted camera — mMVPMatrix already
                 // describes the incoming wallpaper's crop/aspect.
-                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, 0);
+                previousWallpaper.draw(shader, prevMVPMatrix(), 1.0f, 1.0f, Wallpaper.DRAW_PLAIN);
             }
             if (wallpaper != null) {
-                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, 7);
+                wallpaper.draw(shader, mMVPMatrix, 1.0f, transitionProgress, Wallpaper.DRAW_ZOOM);
             }
         } else {
-            // Effect 0 (fade) or post-transition static draw.
+            // Fade or post-transition static draw.
             // The active overlay shader only applies here — the static,
             // non-transitioning case — so two different textures are never
             // mid-composite under it.
-            boolean shaderActive = wallpaper != null && shaderFade > 0f && drawActiveShaderScene();
+            boolean shaderActive = wallpaper != null && shaderFade > 0f && overlayShaders.beginFrame(screenW, screenH);
             if (wallpaper != null) {
                 hasLoggedNullWallpaper = false;
                 if (shaderActive) {
@@ -538,21 +586,21 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
                     // offscreen capture, THEN draw the shader sampling that — guarantees
                     // it sees exactly the cropped/panned frame the camera produces,
                     // pixel space matched 1:1, no separate UV math.
-                    beginActiveShaderScene();
-                    wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
+                    overlayShaders.beginScene();
+                    wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, Wallpaper.DRAW_PLAIN);
                     if (shaderFade < 1f) {
                         // Mid-fade the effect composites with partial alpha, so the
                         // plain wallpaper must already be on screen underneath it.
                         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
                         GLES20.glViewport(0, 0, screenW, screenH);
-                        wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
+                        wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, Wallpaper.DRAW_PLAIN);
                     }
-                    drawActiveShaderEffect();
+                    overlayShaders.drawEffect(screenW, screenH, shaderFade);
                     // u_time-driven — keep the effect animating, paced to ~30fps and
                     // suppressed while this engine is hidden.
                     requestShaderFrame();
                 } else {
-                    wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, 0);
+                    wallpaper.draw(shader, mMVPMatrix, transitionAlpha, transitionProgress, Wallpaper.DRAW_PLAIN);
                 }
             } else {
                 if (!hasLoggedNullWallpaper) {
@@ -585,15 +633,9 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             // sample the wallpaper (no capture/matrix needed, unlike rain/ripple),
             // just alpha-blends a procedural overlay, so it draws unconditionally
             // here rather than through the capture-scene dispatch above.
-            if (wallpaper != null && drawActiveShaderSnow()) {
+            if (wallpaper != null && overlayShaders.drawSnow(screenW, screenH, shaderFade)) {
                 requestShaderFrame();
             }
-        }
-
-        // Crop-adjust buttons render on top of everything
-        if (cropOverlayVisible) {
-            if (cropOverlay == null) cropOverlay = new CropOverlay();
-            cropOverlay.draw(screenW, screenH, playlistCurrent, playlistTotal);
         }
     }
 
@@ -601,10 +643,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
      *  SHADER_RAIN, SHADER_RIPPLE, or SHADER_SNOW — enforced as the only "which
      *  shader is on" state, so at most one can ever be active. */
     void setActiveShader(String id) {
-        if (!id.equals(activeShaderId)) {
+        if (overlayShaders.willChange(id)) {
             // The shader we're leaving still holds a full-screen FBO/texture; free it
-            // on the GL thread (releaseInactiveShaders keeps only the new activeShaderId).
-            activeShaderId = id;
+            // on the GL thread (releaseInactive keeps only the new active shader).
+            overlayShaders.setActiveShader(id);
             pendingShaderRelease = true;
         }
         mCallbacks.requestRender();
@@ -676,18 +718,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         boolean all = pendingReleaseAll;
         pendingReleaseAll = false;
 
-        boolean keepRain   = !all && Constant.SHADER_RAIN.equals(activeShaderId) && !powerSaverActive;
-        boolean keepRipple = !all && Constant.SHADER_RIPPLE.equals(activeShaderId) && !powerSaverActive;
-        boolean keepSnow   = !all && Constant.SHADER_SNOW.equals(activeShaderId) && !powerSaverActive;
-
-        // Unbind any texture unit first — deleting a still-bound texture is deferred
-        // on some drivers, which is one reason a release may not free memory promptly.
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
-
-        boolean freed = false;
-        if (!keepRain && rainShader != null) { rainShader.release(); rainShader = null; freed = true; }
-        if (!keepRipple && rippleShader != null) { rippleShader.release(); rippleShader = null; freed = true; }
-        if (!keepSnow && snowShader != null) { snowShader.release(); snowShader = null; freed = true; }
+        boolean freed = overlayShaders.releaseInactive(all, powerSaverActive);
         // Blur is only used by the wallpaper transition, not an overlay shader — free
         // it only on a full release (screen off), never on a shader swap.
         if (all && blur != null) { blur.release(); blur = null; freed = true; }
@@ -695,7 +726,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // meminfo "Graphics" line lags glDelete* (driver keeps freed GPU memory in
         // its own reuse pool), so absence of a meminfo drop does NOT mean this didn't run.
         if (freed) Log.d(TAG, "consumeShaderRelease: freed shaders (all=" + all
-                + ", active=" + activeShaderId + ", powerSaver=" + powerSaverActive + ")");
+                + ", active=" + overlayShaders.activeShaderId() + ", powerSaver=" + powerSaverActive + ")");
     }
 
     /** GL-thread only. Frees the wallpaper texture(s) when this engine has gone
@@ -718,7 +749,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         transitionActive = false;
         transitionAlpha = 1.0f;
         transitionProgress = 1.0f;
-        currentEffect = 0;
+        currentEffect = TRANSITION_FADE;
 
         if (wallpaper != null) { wallpaper.destroy(); wallpaper = null; }
         if (previousWallpaper != null) { previousWallpaper.destroy(); previousWallpaper = null; }
@@ -728,84 +759,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
     /** Sets a single parameter (by Constant.ShaderParam.key) for whichever
      *  shader currently owns that key. Booleans are passed as 0f/1f. */
     void setShaderParam(String key, float value) {
-        shaderParams.put(key, value);
-    }
-    private float shaderParam(String key, float fallback) {
-        Float v = shaderParams.get(key);
-        return v != null ? v : fallback;
-    }
-    private boolean shaderParamBool(String key, boolean fallback) {
-        Float v = shaderParams.get(key);
-        return v != null ? v >= 0.5f : fallback;
-    }
-
-    /** Ensures the active shader's GL objects + capture FBO exist for this frame.
-     *  Returns false if no shader is active or FBO rendering is unavailable. */
-    private boolean drawActiveShaderScene() {
-        if (Constant.SHADER_RAIN.equals(activeShaderId)) {
-            if (rainShader == null) rainShader = new RainShader();
-            rainShader.ensure();
-            return rainShader.ensureScene(screenW, screenH);
-        } else if (Constant.SHADER_RIPPLE.equals(activeShaderId)) {
-            if (rippleShader == null) rippleShader = new RippleShader();
-            rippleShader.ensure();
-            return rippleShader.ensureScene(screenW, screenH);
-        }
-        return false;
-    }
-
-    /** Binds the active shader's capture FBO — call BEFORE the wallpaper draw
-     *  this frame so the capture receives it, then call drawActiveShaderEffect(). */
-    private void beginActiveShaderScene() {
-        if (Constant.SHADER_RAIN.equals(activeShaderId) && rainShader != null) {
-            rainShader.beginScene();
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        } else if (Constant.SHADER_RIPPLE.equals(activeShaderId) && rippleShader != null) {
-            rippleShader.beginScene();
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        }
-    }
-
-    /** Draws the active shader, sampling the scene captured by beginActiveShaderScene(). */
-    private void drawActiveShaderEffect() {
-        float time = (SystemClock.elapsedRealtime() - shaderStartTime) / 1000f;
-        if (Constant.SHADER_RAIN.equals(activeShaderId) && rainShader != null) {
-            rainShader.draw(screenW, screenH, time,
-                    shaderParam("speed", 1.0f),
-                    shaderParam("intensity", 0.5f),
-                    shaderParam("brightness", 1.0f),
-                    shaderParamBool("lightning", false),
-                    shaderFade);
-        } else if (Constant.SHADER_RIPPLE.equals(activeShaderId) && rippleShader != null) {
-            rippleShader.draw(screenW, screenH, time,
-                    shaderParam("speed", 1.0f),
-                    shaderParam("cellSize", 10f),
-                    shaderParam("strength", 1.0f),
-                    shaderParamBool("touchOnly", false),
-                    shaderParamBool("rainLines", false),
-                    shaderParam("rainLinesStrength", 0.7f),
-                    shaderParam("rainLinesSpeed", 1.0f),
-                    shaderParam("rainLinesAngle", 0.22f),
-                    shaderFade);
-        }
-    }
-
-    /** Draws snow if it's the active shader — self-contained (own low-res FBO,
-     *  own composite pass), no wallpaper capture needed. Returns true if it drew
-     *  (caller keeps rendering continuously while true, same as rain/ripple). */
-    private boolean drawActiveShaderSnow() {
-        if (!Constant.SHADER_SNOW.equals(activeShaderId) || shaderFade <= 0f) return false;
-        if (snowShader == null) snowShader = new SnowShader();
-        snowShader.ensure();
-        if (!snowShader.ensureTarget(screenW, screenH)) return false;
-
-        float time = (SystemClock.elapsedRealtime() - shaderStartTime) / 1000f;
-        snowShader.draw(screenW, screenH, time,
-                shaderParam("speed", 1.0f),
-                shaderParam("density", 1.0f),
-                shaderParam("flakeSize", 1.0f),
-                shaderParam("opacity", 0.85f) * shaderFade);
-        return true;
+        overlayShaders.setParam(key, value);
     }
 
     /** Forwards a touch-down position (screen pixels) to the active shader, if it
@@ -814,13 +768,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
      *  service's onTouchEvent, so this runs on the UI/input thread, not the GL
      *  thread; RippleShader.addTouch() is internally synchronized for that. */
     void addTouchRipple(float screenX, float screenY) {
-        if (!Constant.SHADER_RIPPLE.equals(activeShaderId) || rippleShader == null) return;
         if (screenW <= 0 || screenH <= 0) return;
         // Normalize to 0..1, Y-up (gl_FragCoord/u_resolution convention) — screen
         // Y grows downward, GL fragment coords grow upward, so flip here once.
         float u = screenX / screenW;
         float v = 1f - (screenY / screenH);
-        rippleShader.addTouch(u, v);
+        overlayShaders.addTouch(u, v);
         mCallbacks.requestRender();
     }
 
@@ -830,12 +783,12 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
      * the plain sharp draw if FBO rendering is unavailable.
      */
     private void drawBlurred(Wallpaper w, float[] mvp, float t) {
-        w.draw(shader, mvp, 1.0f, 1.0f, 0);
+        w.draw(shader, mvp, 1.0f, 1.0f, Wallpaper.DRAW_PLAIN);
         if (t <= 0.0f) return;
         if (blur == null) blur = new Blur();
         if (!blur.ensure(screenW, screenH)) return;
         blur.beginScene();
-        w.draw(shader, mvp, 1.0f, 1.0f, 0);
+        w.draw(shader, mvp, 1.0f, 1.0f, Wallpaper.DRAW_PLAIN);
         blur.blurAndCompose(t, screenW, screenH);
     }
 
@@ -1014,7 +967,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         this.wallpaperConfig = config;
     }
 
-    // Effect 0 = fade (default), 1 = dissolve, 2 = pixelate, 3 = wipe, 4 = blur, 5 = zoom
+    /** effect is a Constant.TRANSITION_* id (FADE default, DISSOLVE, PIXELATE, WIPE, BLUR, ZOOM). */
     void setTransitionEffect(int effect) {
         chosenEffect = effect;
     }
@@ -1130,6 +1083,13 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         if (!hasPendingRefresh) return;
         hasPendingRefresh = false;
 
+        // A new refresh always supersedes whatever pixelate/blur prefetch was in
+        // flight for a previous, now-abandoned transition — bump the token so that
+        // decode's result (whenever it lands) is recognised as stale and its bitmap
+        // gets recycled instead of silently sitting in prefetchResult forever, and
+        // recycle anything that had ALREADY landed but was never consumed.
+        cancelPendingPrefetch();
+
         if (pendingInstant) {
             // No animation: load the new texture this frame and cancel any
             // transition state. Used for screen-off changes.
@@ -1155,7 +1115,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // same moment each effect swaps to the new texture, so the outgoing image
         // keeps its own crop until it's gone.
 
-        if (currentEffect == 0) {
+        if (currentEffect == TRANSITION_FADE) {
             // Fade: two-phase — fade out current, load new, fade in
             transitionAlpha          = 1.0f;
             transitionProgress       = 0.0f;
@@ -1163,7 +1123,7 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             transitionPendingLoad    = false;
             transitionMidpointReached = false;
 
-        } else if (currentEffect == 1) {
+        } else if (currentEffect == TRANSITION_DISSOLVE) {
             // Dissolve: keep old texture as static backdrop, load new immediately,
             // animate progress 0→1 (new texture reveals through noise pattern).
             snapshotPrevCamera();
@@ -1180,21 +1140,24 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             transitionPendingLoad    = false;
             transitionMidpointReached = false;
 
-        } else if (currentEffect == 2) {
+        } else if (currentEffect == TRANSITION_PIXELATE) {
             // Pixelate: two-phase midpoint swap.
             // Snapshot old matrix BEFORE loadTexture() overwrites preA/preB.
             snapshotPrevCamera();
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;  // old texture drives phase 1
             wallpaper                = null;        // will be loaded at midpoint
-            // Do NOT set needsRefreshWallpaper here — load happens at progress=0.5
+            // Do NOT set needsRefreshWallpaper here — load happens at progress=0.5.
+            // Kick off the decode NOW instead, on a background thread, so it runs
+            // in parallel with phase 1 and is (usually) already done by the midpoint.
+            prefetchWallpaperForMidpoint();
             transitionProgress       = 0.0f;
             transitionAlpha          = 1.0f;
             transitionFadeOutDone    = true;
             transitionPendingLoad    = false;
             transitionMidpointReached = false;
 
-        } else if (currentEffect == 3) {
+        } else if (currentEffect == TRANSITION_WIPE) {
             // Wipe: keep old texture as static backdrop, load new immediately,
             // animate progress 0→1 (new texture sweeps in left→right).
             snapshotPrevCamera();
@@ -1211,20 +1174,21 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             transitionPendingLoad    = false;
             transitionMidpointReached = false;
 
-        } else if (currentEffect == 4) {
+        } else if (currentEffect == TRANSITION_BLUR) {
             // Blur: two-phase midpoint swap (same pattern as pixelate).
             // Snapshot old matrix so the blur-out phase uses the correct camera position.
             snapshotPrevCamera();
             if (previousWallpaper != null) previousWallpaper.destroy();
             previousWallpaper        = wallpaper;  // old texture drives phase 1 (blur out)
             wallpaper                = null;        // will be loaded at midpoint
+            prefetchWallpaperForMidpoint(); // decode in parallel with phase 1 — see pixelate
             transitionProgress       = 0.0f;
             transitionAlpha          = 1.0f;
             transitionFadeOutDone    = true;
             transitionPendingLoad    = false;
             transitionMidpointReached = false;
 
-        } else if (currentEffect == 5) {
+        } else if (currentEffect == TRANSITION_ZOOM) {
             // Zoom: keep old texture as static backdrop, load new immediately,
             // animate progress 0→1 (new texture grows from screen centre).
             snapshotPrevCamera();
@@ -1285,21 +1249,8 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         // backing buffers but the gc reclaims the intermediate objects promptly so
         // total memory doesn't climb across changes. This is load-bearing, not cargo.
         System.gc();
-        InputStream is = openWallpaperStream();
-        if (is == null) {
-            Log.e(TAG, "loadTexture: InputStream is null, cannot load wallpaper");
-            return;
-        }
-        // Decode BEFORE destroying the old wallpaper: on a failed decode the old
-        // image stays on screen instead of leaving a destroyed (black) reference.
-        Bitmap bmp = cropBitmap(is);
-        try {
-            is.close();
-        } catch (IOException e) {
-            Log.e(TAG, "loadTexture: IOException closing InputStream", e);
-        }
-        if (bmp == null) {
-            Log.e(TAG, "loadTexture: cropBitmap returned null, cannot create wallpaper");
+        DecodedWallpaper decoded = decodeCurrentWallpaper();
+        if (decoded == null) {
             // A corrupt user/playlist file must enter the same retry/fallback chain as
             // a missing one — before this, a failed decode with no texture on screen
             // (e.g. wake after the hidden-engine release) stayed black forever. The
@@ -1310,9 +1261,42 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             if (!isDefaultAsset) scheduleRetryOrReportFailure("decode failed");
             return;
         }
+        uploadDecodedWallpaper(decoded);
+    }
+
+    /** Off-GL-thread-safe: opens the stream and decodes/crops the bitmap for
+     *  whatever localWallpaperPath/isDefaultWallpaper/wallpaperType/wallpaperConfig
+     *  are RIGHT NOW. Callers that run this on a background thread must snapshot
+     *  those fields as needed beforehand — this method only reads, never writes,
+     *  renderer state, so it's safe to run off the GL thread. */
+    private DecodedWallpaper decodeCurrentWallpaper() {
+        InputStream is = openWallpaperStream();
+        if (is == null) {
+            Log.e(TAG, "decodeCurrentWallpaper: InputStream is null, cannot load wallpaper");
+            return null;
+        }
+        DecodedWallpaper decoded = cropBitmap(is);
+        try {
+            is.close();
+        } catch (IOException e) {
+            Log.e(TAG, "decodeCurrentWallpaper: IOException closing InputStream", e);
+        }
+        if (decoded == null) {
+            Log.e(TAG, "decodeCurrentWallpaper: cropBitmap returned null, cannot create wallpaper");
+        }
+        return decoded;
+    }
+
+    /** GL-thread only: uploads an already-decoded bitmap as the new wallpaper
+     *  texture and applies the aspect ratio cropBitmap() computed for it (scrollRange
+     *  is recomputed by preCalculate() below, same as the original synchronous path).
+     *  This is the cheap half of what loadTexture() used to do in one call — safe
+     *  to run at a transition midpoint. */
+    private void uploadDecodedWallpaper(DecodedWallpaper decoded) {
+        wallpaperAspectRatio = decoded.aspectRatio;
         if (wallpaper != null)
             wallpaper.destroy();
-        wallpaper = new Wallpaper(bmp, shader != null ? shader.maxTextureSize : 2048);
+        wallpaper = new Wallpaper(decoded.bitmap, shader != null ? shader.maxTextureSize : 2048);
         defaultRecoveryTried = false; // loaded fine — re-arm the self-heal for next time
         loadRetryCount = 0; // full success (open AND decode) — reset the retry quota
         mCallbacks.onWallpaperLoadSucceeded();
@@ -1320,12 +1304,108 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
         System.gc(); // reclaim the decode/scale bitmap churn now, not on the next collection
     }
 
+    /** Fully self-contained decode: takes every value it needs as a parameter
+     *  instead of reading instance fields, so it's safe to run on `scheduler`
+     *  (a plain background thread) while the GL thread keeps animating phase 1
+     *  of a pixelate/blur transition. Never calls scheduleRetryOrReportFailure —
+     *  see openWallpaperStream(reportFailure=false); a failed prefetch just falls
+     *  back to the synchronous path at the midpoint. */
+    private DecodedWallpaper decodeWallpaperAt(String path, boolean isDefault,
+                                                float targetAspectRatio, int targetScreenH) {
+        InputStream is = openWallpaperStream(path, isDefault, false);
+        if (is == null) return null;
+        DecodedWallpaper decoded = cropBitmap(is, targetAspectRatio, targetScreenH);
+        try {
+            is.close();
+        } catch (IOException e) {
+            Log.e(TAG, "decodeWallpaperAt: IOException closing InputStream", e);
+        }
+        return decoded;
+    }
+
+    /** Kicks off the pixelate/blur midpoint's decode early — right as phase 1
+     *  starts — on `scheduler` instead of the GL thread, so the expensive
+     *  BitmapFactory.decodeStream + crop/scale work runs in parallel with the
+     *  phase-1 animation instead of stalling it. Result is picked up by
+     *  consumePrefetchedWallpaper() at the midpoint.
+     *  requestToken/prefetchResultToken guard against a superseded prefetch (rapid
+     *  wallpaper changes, or the effect getting cancelled) writing a stale result:
+     *  only the result whose token still matches the latest request is honoured;
+     *  any other decoded bitmap is recycled immediately so it can't leak. */
+    private void prefetchWallpaperForMidpoint() {
+        prefetchResult = null;
+        final int token = ++prefetchRequestToken;
+        prefetchResultToken = -1;
+        final String path = pendingWallpaperPath;
+        final boolean isDefault = pendingIsDefault;
+        final float targetAspectRatio = screenAspectRatio;
+        final int targetScreenH = screenH;
+        scheduler.execute(() -> {
+            DecodedWallpaper decoded = decodeWallpaperAt(path, isDefault, targetAspectRatio, targetScreenH);
+            if (token != prefetchRequestToken) {
+                // Superseded while decoding — this result is stale, drop it so it
+                // can't be applied later and can't leak the bitmap it holds.
+                if (decoded != null) decoded.bitmap.recycle();
+                return;
+            }
+            // decoded == null (failure) leaves prefetchResult null — consumePrefetchedWallpaper()
+            // reads that as "prefetch failed" and falls back to the synchronous retry path.
+            prefetchResult = decoded;
+            prefetchResultToken = token;
+        });
+    }
+
+    /** GL-thread only. True once the background decode for the CURRENT prefetch
+     *  request has landed (success or failure) — the midpoint gate calls this
+     *  before advancing past phase 1, so previousWallpaper is never destroyed
+     *  before its replacement is actually ready. */
+    private boolean prefetchReady() {
+        return prefetchResultToken == prefetchRequestToken;
+    }
+
+    /** GL-thread only, called at the pixelate/blur midpoint — ONLY once
+     *  prefetchReady() is true. Applies the background-decoded bitmap; if the
+     *  prefetch failed (missing/corrupt file) falls back to the original
+     *  synchronous loadTexture() path so the existing retry/fallback chain
+     *  (scheduleRetryOrReportFailure) runs. */
+    private void consumePrefetchedWallpaper() {
+        if (prefetchResult != null) {
+            DecodedWallpaper decoded = prefetchResult;
+            prefetchResult = null;
+            uploadDecodedWallpaper(decoded);
+        } else {
+            needsRefreshWallpaper = true;
+        }
+    }
+
+    /** Invalidates any in-flight or landed-but-unconsumed pixelate/blur prefetch.
+     *  Bumping the token makes a still-decoding background task's result get
+     *  recycled instead of applied once it lands (see prefetchWallpaperForMidpoint);
+     *  a result that already landed is recycled right here — otherwise its Bitmap
+     *  would never be freed (nothing else references or consumes it once the
+     *  transition it was for has been abandoned). GL-thread only. */
+    private void cancelPendingPrefetch() {
+        prefetchRequestToken++;
+        if (prefetchResult != null) {
+            prefetchResult.bitmap.recycle();
+            prefetchResult = null;
+        }
+    }
+
     // Opens the right stream for the current path. The built-in default lives in
     // assets — a FileInputStream can never open the file:///android_asset/ URI, so
     // that path must go through AssetManager regardless of wallpaper type.
     private InputStream openWallpaperStream() {
-        if (defaultWallpaperPath.equals(localWallpaperPath)
-                || (wallpaperType == TYPE_SINGLE && isDefaultWallpaper)) {
+        return openWallpaperStream(localWallpaperPath, isDefaultWallpaper, true);
+    }
+
+    /** reportFailure=false is used by the background prefetch: it must not call
+     *  scheduleRetryOrReportFailure (that reads/writes instance retry state from a
+     *  non-GL thread) — a prefetch failure just falls back to the synchronous
+     *  loadTexture() path at the midpoint, which retries/reports normally. */
+    private InputStream openWallpaperStream(String path, boolean isDefault, boolean reportFailure) {
+        if (defaultWallpaperPath.equals(path)
+                || (wallpaperType == TYPE_SINGLE && isDefault)) {
             // Always load THIS service's own default asset (home vs. lock), never assume home's.
             String assetName = Constant.DEFAULT_LOCK_LOCAL_PATH.equals(defaultWallpaperPath)
                     ? Constant.DEFAULT_LOCK_WALLPAPER_NAME
@@ -1339,10 +1419,10 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             }
         }
         try {
-            return new FileInputStream(localWallpaperPath);
+            return new FileInputStream(path);
         } catch (FileNotFoundException e) {
-            Log.e(TAG, "openWallpaperStream: FileNotFoundException for path: " + localWallpaperPath, e);
-            scheduleRetryOrReportFailure("file missing");
+            Log.e(TAG, "openWallpaperStream: FileNotFoundException for path: " + path, e);
+            if (reportFailure) scheduleRetryOrReportFailure("file missing");
             return null;
         }
     }
@@ -1371,7 +1451,15 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             mCallbacks.onWallpaperLoadFailed(localWallpaperPath);
         }
     }
-    private Bitmap cropBitmap(InputStream is) {
+    /** Reads only volatile/immutable state (wallpaperConfig) plus the screen
+     *  dimensions passed in as locals — never touches non-volatile renderer
+     *  fields, so this overload is safe to call from a background thread. The
+     *  GL-thread call site below passes its own current screenAspectRatio/screenH. */
+    private DecodedWallpaper cropBitmap(InputStream is) {
+        return cropBitmap(is, screenAspectRatio, screenH);
+    }
+
+    private DecodedWallpaper cropBitmap(InputStream is, float targetAspectRatio, int targetScreenH) {
         // Decode at the user-chosen bit depth. RGB_565 halves the resulting GL
         // texture memory (GLUtils.texImage2D picks format from the bitmap config);
         // createBitmap/createScaledBitmap below preserve this config, so setting it
@@ -1390,30 +1478,29 @@ public class LiveWallpaperRenderer implements GLSurfaceView.Renderer {
             src.recycle();
             return null;
         }
-        wallpaperAspectRatio = width / height;
-        if (wallpaperAspectRatio < screenAspectRatio) {
-            scrollRange = 1;
+        float aspectRatio = width / height;
+        if (aspectRatio < targetAspectRatio) {
             Bitmap tmp = Bitmap.createBitmap(src, 0,
-                    (int) (height - width / screenAspectRatio) / 2,
-                    (int) width, (int) (width / screenAspectRatio));
+                    (int) (height - width / targetAspectRatio) / 2,
+                    (int) width, (int) (width / targetAspectRatio));
             src.recycle();
-            if (tmp.getHeight() > 1.1 * screenH) {
+            if (tmp.getHeight() > 1.1 * targetScreenH) {
                 Bitmap result = Bitmap.createScaledBitmap(tmp,
-                        (int) (1.1 * screenH * screenAspectRatio),
-                        (int) (1.1 * screenH), true);
+                        (int) (1.1 * targetScreenH * targetAspectRatio),
+                        (int) (1.1 * targetScreenH), true);
                 tmp.recycle();
-                return result;
+                return new DecodedWallpaper(result, aspectRatio);
             } else
-                return tmp;
+                return new DecodedWallpaper(tmp, aspectRatio);
         } else {
-            if (src.getHeight() > 1.1 * screenH) {
+            if (src.getHeight() > 1.1 * targetScreenH) {
                 Bitmap result = Bitmap.createScaledBitmap(src,
-                        (int) (1.1 * screenH * wallpaperAspectRatio),
-                        (int) (1.1 * screenH), true);
+                        (int) (1.1 * targetScreenH * aspectRatio),
+                        (int) (1.1 * targetScreenH), true);
                 src.recycle();
-                return result;
+                return new DecodedWallpaper(result, aspectRatio);
             } else
-                return src;
+                return new DecodedWallpaper(src, aspectRatio);
         }
     }
 

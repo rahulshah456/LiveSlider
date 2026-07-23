@@ -25,6 +25,19 @@ import com.droid2developers.liveslider.utils.GLUtil;
 import java.nio.FloatBuffer;
 
 class Wallpaper {
+    // Shader draw modes — the last arg to draw(). This is a SEPARATE vocabulary
+    // from Constant.TRANSITION_* (which picks the animation): it selects which
+    // branch the fragment shader takes for a single wallpaper draw. Two-phase
+    // effects (pixelate, blur) use one mode per phase.
+    static final int DRAW_PLAIN       = 0; // no effect / plain alpha fade
+    static final int DRAW_DISSOLVE    = 1; // dissolve-in via noise, progress 0→1
+    static final int DRAW_PIXELATE_IN = 2; // phase 2: blocky → sharp
+    static final int DRAW_PIXELATE_OUT= 3; // phase 1: sharp → blocky
+    static final int DRAW_WIPE        = 4; // wipe in left→right, progress 0→1
+    static final int DRAW_BLUR_OUT    = 5; // phase 1: sharp → blurred
+    static final int DRAW_BLUR_IN     = 6; // phase 2: blurred → sharp
+    static final int DRAW_ZOOM        = 7; // grow from screen centre, progress 0→1
+
     private static final String VERTEX_SHADER_CODE = ""
             +
             // This matrix member variable provides a hook to manipulate

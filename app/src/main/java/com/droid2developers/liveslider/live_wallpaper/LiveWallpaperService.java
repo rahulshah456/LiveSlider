@@ -21,6 +21,8 @@ import androidx.preference.PreferenceManager;
 import com.droid2developers.liveslider.database.LiveWallpaperDatabase;
 import com.droid2developers.liveslider.database.models.LocalWallpaper;
 import com.droid2developers.liveslider.database.repository.WallpaperRepository;
+import com.droid2developers.liveslider.live_wallpaper.input.MultiTapDetector;
+import com.droid2developers.liveslider.live_wallpaper.input.RotationSensor;
 import net.rbgrn.android.glwallpaperservice.GLWallpaperService;
 import java.io.File;
 import java.util.ArrayList;

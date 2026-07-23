@@ -1,4 +1,4 @@
-package com.droid2developers.liveslider.live_wallpaper;
+package com.droid2developers.liveslider.live_wallpaper.ui;
 
 import android.content.Context;
 import android.graphics.Canvas;
