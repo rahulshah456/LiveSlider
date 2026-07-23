@@ -1,7 +1,6 @@
 package com.droid2developers.liveslider.views.activities
 
 import android.annotation.SuppressLint
-import android.content.DialogInterface
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
@@ -10,7 +9,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.res.ResourcesCompat
@@ -30,6 +28,7 @@ import com.droid2developers.liveslider.views.fragments.ShaderSettingsBottomSheet
 import com.droid2developers.liveslider.views.fragments.SingleChoiceBottomSheet
 import com.droid2developers.liveslider.views.components.SettingsCardView.OnCardClickListener
 import com.droid2developers.liveslider.views.components.SettingsCardView.OnSwitchChangeListener
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
@@ -486,42 +485,30 @@ class SettingsActivity : AppCompatActivity(), OnCardClickListener, OnSwitchChang
     }
 
     private fun showIntervalDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.hms_picker, null)
-        val hmsPickerView = dialogView.findViewById<HmsPickerView>(R.id.hmsPickerView)
-        val errorTextView = dialogView.findViewById<TextView>(R.id.errorTextView)
+        val sheetView = layoutInflater.inflate(R.layout.hms_picker, null)
+        val hmsPickerView = sheetView.findViewById<HmsPickerView>(R.id.hmsPickerView)
+        val errorTextView = sheetView.findViewById<TextView>(R.id.errorTextView)
         val time = prefs?.getLong(
             "slideshow_timer",
             Constant.DEFAULT_SLIDESHOW_TIME
         ) ?: Constant.DEFAULT_SLIDESHOW_TIME
         hmsPickerView.setTimeInMillis(time)
 
-        val alertDialog = MaterialAlertDialogBuilder(this)
-            .setIcon(ResourcesCompat.getDrawable(getResources(), R.drawable.clock_icon, null))
-            .setTitle("Change slideshow time interval?")
-            .setView(dialogView)
-            .setBackgroundInsetBottom(0)
-            .setBackgroundInsetTop(0)
-            .setPositiveButton(android.R.string.ok, null)
-            .setNegativeButton(
-                android.R.string.cancel
-            ) { dialog: DialogInterface?, which: Int -> dialog?.dismiss() }
-            .create()
+        val sheet = BottomSheetDialog(this)
+        sheet.setContentView(sheetView)
 
-        alertDialog.setOnShowListener { dialog: DialogInterface? ->
-            val positive = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            positive.setOnClickListener { v: View? ->
-                val timeInMillis = hmsPickerView.getTimeInMillis()
-                if (timeInMillis > Constant.MINIMUM_SLIDESHOW_TIME) {
-                    updateIntervalText(timeInMillis)
-                    editor?.putLong("slideshow_timer", timeInMillis)?.apply()
-                    errorTextView.visibility = View.GONE
-                    alertDialog.dismiss()
-                } else {
-                    errorTextView.visibility = View.VISIBLE
-                }
+        sheetView.findViewById<Button>(R.id.saveButtonId).setOnClickListener {
+            val timeInMillis = hmsPickerView.getTimeInMillis()
+            if (timeInMillis > Constant.MINIMUM_SLIDESHOW_TIME) {
+                updateIntervalText(timeInMillis)
+                editor?.putLong("slideshow_timer", timeInMillis)?.apply()
+                errorTextView.visibility = View.GONE
+                sheet.dismiss()
+            } else {
+                errorTextView.visibility = View.VISIBLE
             }
         }
-        alertDialog.show()
+        sheet.show()
     }
 
     /**

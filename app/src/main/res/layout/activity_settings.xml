@@ -119,7 +119,7 @@
                 android:gravity="center"
                 android:orientation="horizontal">
 
-                <com.droid2developers.liveslider.live_wallpaper.Cube
+                <com.droid2developers.liveslider.live_wallpaper.ui.Cube
                     android:id="@+id/cube"
                     android:layout_width="@dimen/cube_size"
                     android:layout_height="@dimen/cube_size"

@@ -1,41 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:layout_width="match_parent"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
-    android:paddingTop="16dp"
-    android:gravity="center_horizontal"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+    android:paddingBottom="16dp">
 
-    <com.google.android.material.card.MaterialCardView
+    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
         android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="18dp"
-        android:layout_marginRight="18dp"
-        android:layout_marginBottom="18dp"
-        app:cardCornerRadius="8dp"
-        android:layout_gravity="center"
-        android:background="@color/material_dark_light">
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="8dp"
+        android:fontFamily="@font/montserrat"
+        android:textStyle="bold"
+        android:textSize="18sp"
+        android:text="@string/slideshow_interval_title" />
 
-        <TextView
-            android:id="@+id/errorTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@android:color/holo_red_light"
-            android:visibility="gone"
-            android:fontFamily="@font/montserrat"
-            android:textSize="14sp"
-            android:padding="8dp"
-            android:layout_gravity="center"
-            android:text="@string/no_empty_time"
-            android:gravity="center_horizontal" />
-
-    </com.google.android.material.card.MaterialCardView>
+    <TextView
+        android:id="@+id/errorTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:textColor="@android:color/holo_red_light"
+        android:visibility="gone"
+        android:fontFamily="@font/montserrat"
+        android:textSize="14sp"
+        android:text="@string/no_empty_time" />
 
     <xyz.aprildown.hmspickerview.HmsPickerView
         android:id="@+id/hmsPickerView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center" />
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/saveButtonId"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:fontFamily="@font/montserrat"
+        android:text="@android:string/ok" />
 
 </LinearLayout>
