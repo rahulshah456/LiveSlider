@@ -26,6 +26,7 @@ work_version = "2.9.1"
 compressor_version="1.6.0"
 viewpager2 = "1.1.0"
 markwon = "4.6.2"
+leakcanary = "1.0.0"
 
 [libraries]
 commons-collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "commonsCollections4" }
@@ -56,6 +57,7 @@ workmanager-ktx = { group = "androidx.work", name="work-runtime-ktx", version.re
 compressor = { group="com.github.Shouheng88", name="compressor", version.ref = "compressor_version"}
 viewpager2 = { module = "androidx.viewpager2:viewpager2", version.ref = "viewpager2" }
 markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
+leakcanary = { group = "com.android.tools.studio.leakcanary", name = "leakcanary", version.ref = "leakcanary" }
 
 
 [plugins]

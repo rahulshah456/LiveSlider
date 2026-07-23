@@ -87,4 +87,6 @@ dependencies {
     implementation libs.compressor
     implementation libs.viewpager2
     implementation libs.markwon.core
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.14'
+    debugImplementation libs.leakcanary
 }
